@@ -1,0 +1,42 @@
+# ==========================================
+# 1. Frontend (React / Node.js)
+# ==========================================
+# Exclut les dépendances lourdes (elles seront réinstallées via npm install)
+node_modules/
+# Exclut les dossiers de compilation finaux
+build/
+dist/
+# Exclut les journaux d'erreurs d'installation
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================================
+# 2. Services (Python)
+# ==========================================
+# Exclut le cache de compilation de Python
+__pycache__/
+*.py[cod]
+*$py.class
+# Exclut ton environnement virtuel local (très important !)
+ocpp_env/
+venv/
+env/
+
+# ==========================================
+# 3. Variables d'environnement & Secrets
+# ==========================================
+# Exclut TOUS les fichiers contenant des mots de passe ou des clés d'API
+.env
+.env.local
+.env.*.local
+*.pem
+
+# ==========================================
+# 4. Outils de développement (IDE & OS)
+# ==========================================
+# Exclut les dossiers de configuration de VS Code
+.vscode/
+# Exclut les fichiers cachés générés par Windows ou macOS
+.DS_Store
+Thumbs.db
