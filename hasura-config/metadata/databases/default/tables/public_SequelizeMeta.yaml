@@ -1,0 +1,3 @@
+table:
+  name: SequelizeMeta
+  schema: public

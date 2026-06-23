@@ -1,0 +1,18 @@
+table:
+  name: Users
+  schema: public
+array_relationships:
+  - name: Transactions
+    using:
+      foreign_key_constraint_on:
+        column: user_id
+        table:
+          name: Transactions
+          schema: public
+  - name: UserBadges
+    using:
+      foreign_key_constraint_on:
+        column: user_id
+        table:
+          name: UserBadges
+          schema: public
