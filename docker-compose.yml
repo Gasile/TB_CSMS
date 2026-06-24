@@ -35,7 +35,25 @@ services:
       retries: 5
 
   citrine:
-    image: ghcr.io/citrineos/citrineos-server:latest
+    build:
+      context: ./citrineos-core
+      dockerfile: ./apps/Server/deploy.Dockerfile
+    volumes:
+      - ./citrineos-core/package-lock.json:/usr/local/apps/citrineos/package-lock-host.json
+      - ./citrineos-core/package.json:/usr/local/apps/citrineos/package.json
+      - ./citrineos-core/tsconfig.json:/usr/local/apps/citrineos/tsconfig.json
+      - ./citrineos-core/tsconfig.build.json:/usr/local/apps/citrineos/tsconfig.build.json
+      - ./citrineos-core/apps/Server:/usr/local/apps/citrineos/apps/Server
+      - ./citrineos-core/packages/base:/usr/local/apps/citrineos/packages/base
+      - ./citrineos-core/packages/core:/usr/local/apps/citrineos/packages/core
+      - /usr/local/apps/citrineos/node_modules
+      - /usr/local/apps/citrineos/apps/Server/node_modules
+      - /usr/local/apps/citrineos/packages/base/node_modules
+      - /usr/local/apps/citrineos/packages/core/node_modules
+      - /usr/local/apps/citrineos/dist/
+      - /usr/local/apps/citrineos/apps/Server/dist/
+      - /usr/local/apps/citrineos/packages/base/dist/
+      - /usr/local/apps/citrineos/packages/core/dist/
     environment:
       APP_NAME: "all"
       APP_ENV: "docker"
