@@ -45,3 +45,9 @@ Thumbs.db
 # 5. Données Docker & Bases de données
 # ==========================================
 data/
+
+# ==========================================
+# 6. Outils en ligne de commande (CLI)
+# ==========================================
+hasura.exe
+hasura
