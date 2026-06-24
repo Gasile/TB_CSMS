@@ -1,0 +1,20 @@
+{
+  "title": "ResetResponse",
+  "type": "object",
+  "properties": {
+    "status": {
+      "$ref": "#/definitions/ResetResponseStatus"
+    }
+  },
+  "additionalProperties": true,
+  "required": ["status"],
+  "$id": "ResetResponse",
+  "definitions": {
+    "ResetResponseStatus": {
+      "type": "string",
+      "additionalProperties": true,
+      "enum": ["Accepted", "Rejected"],
+      "tsEnumNames": ["Accepted", "Rejected"]
+    }
+  }
+}

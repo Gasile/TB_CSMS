@@ -1,0 +1,26 @@
+{
+  "title": "GetCompositeScheduleRequest",
+  "type": "object",
+  "properties": {
+    "connectorId": {
+      "type": "integer"
+    },
+    "duration": {
+      "type": "integer"
+    },
+    "chargingRateUnit": {
+      "$ref": "#/definitions/GetCompositeScheduleRequestChargingRateUnit"
+    }
+  },
+  "additionalProperties": true,
+  "required": ["connectorId", "duration"],
+  "$id": "GetCompositeScheduleRequest",
+  "definitions": {
+    "GetCompositeScheduleRequestChargingRateUnit": {
+      "type": "string",
+      "additionalProperties": true,
+      "enum": ["A", "W"],
+      "tsEnumNames": ["A", "W"]
+    }
+  }
+}

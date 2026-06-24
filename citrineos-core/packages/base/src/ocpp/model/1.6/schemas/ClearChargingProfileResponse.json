@@ -1,0 +1,20 @@
+{
+  "title": "ClearChargingProfileResponse",
+  "type": "object",
+  "properties": {
+    "status": {
+      "$ref": "#/definitions/ClearChargingProfileResponseStatus"
+    }
+  },
+  "additionalProperties": true,
+  "required": ["status"],
+  "$id": "ClearChargingProfileResponse",
+  "definitions": {
+    "ClearChargingProfileResponseStatus": {
+      "type": "string",
+      "additionalProperties": true,
+      "enum": ["Accepted", "Unknown"],
+      "tsEnumNames": ["Accepted", "Unknown"]
+    }
+  }
+}

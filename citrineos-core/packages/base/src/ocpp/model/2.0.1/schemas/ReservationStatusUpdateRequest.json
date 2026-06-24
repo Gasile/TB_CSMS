@@ -1,0 +1,43 @@
+{
+  "$id": "ReservationStatusUpdateRequest",
+  "comment": "OCPP 2.0.1 FINAL",
+  "definitions": {
+    "CustomDataType": {
+      "description": "Represents OCPP CustomData. Allows vendor-specific extension properties.",
+      "javaType": "CustomData",
+      "type": "object",
+      "properties": {
+        "vendorId": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      "required": ["vendorId"]
+    },
+    "ReservationUpdateStatusEnumType": {
+      "description": "The updated reservation status.\r\n",
+      "javaType": "ReservationUpdateStatusEnum",
+      "type": "string",
+      "additionalProperties": true,
+      "enum": ["Expired", "Removed"],
+      "tsEnumNames": ["Expired", "Removed"]
+    }
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "customData": {
+      "$ref": "#/definitions/CustomDataType"
+    },
+    "reservationId": {
+      "description": "The ID of the reservation.\r\n",
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    },
+    "reservationUpdateStatus": {
+      "$ref": "#/definitions/ReservationUpdateStatusEnumType"
+    }
+  },
+  "required": ["reservationId", "reservationUpdateStatus"]
+}

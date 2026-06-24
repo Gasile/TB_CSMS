@@ -1,0 +1,31 @@
+{
+  "$id": "HeartbeatResponse",
+  "comment": "OCPP 2.0.1 FINAL",
+  "definitions": {
+    "CustomDataType": {
+      "description": "Represents OCPP CustomData. Allows vendor-specific extension properties.",
+      "javaType": "CustomData",
+      "type": "object",
+      "properties": {
+        "vendorId": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      "required": ["vendorId"]
+    }
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "customData": {
+      "$ref": "#/definitions/CustomDataType"
+    },
+    "currentTime": {
+      "description": "Contains the current time of the CSMS.\r\n",
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["currentTime"]
+}

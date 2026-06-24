@@ -1,0 +1,38 @@
+{
+  "$id": "UnlockConnectorRequest",
+  "comment": "OCPP 2.0.1 FINAL",
+  "definitions": {
+    "CustomDataType": {
+      "description": "Represents OCPP CustomData. Allows vendor-specific extension properties.",
+      "javaType": "CustomData",
+      "type": "object",
+      "properties": {
+        "vendorId": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      "required": ["vendorId"]
+    }
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "customData": {
+      "$ref": "#/definitions/CustomDataType"
+    },
+    "evseId": {
+      "description": "This contains the identifier of the EVSE for which a connector needs to be unlocked.\r\n",
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    },
+    "connectorId": {
+      "description": "This contains the identifier of the connector that needs to be unlocked.\r\n",
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    }
+  },
+  "required": ["evseId", "connectorId"]
+}

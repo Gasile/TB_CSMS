@@ -1,0 +1,52 @@
+{
+  "$id": "InstallCertificateRequest",
+  "comment": "OCPP 2.0.1 FINAL",
+  "definitions": {
+    "CustomDataType": {
+      "description": "Represents OCPP CustomData. Allows vendor-specific extension properties.",
+      "javaType": "CustomData",
+      "type": "object",
+      "properties": {
+        "vendorId": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      "required": ["vendorId"]
+    },
+    "InstallCertificateUseEnumType": {
+      "description": "Indicates the certificate type that is sent.\r\n",
+      "javaType": "InstallCertificateUseEnum",
+      "type": "string",
+      "additionalProperties": true,
+      "enum": [
+        "V2GRootCertificate",
+        "MORootCertificate",
+        "CSMSRootCertificate",
+        "ManufacturerRootCertificate"
+      ],
+      "tsEnumNames": [
+        "V2GRootCertificate",
+        "MORootCertificate",
+        "CSMSRootCertificate",
+        "ManufacturerRootCertificate"
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "customData": {
+      "$ref": "#/definitions/CustomDataType"
+    },
+    "certificateType": {
+      "$ref": "#/definitions/InstallCertificateUseEnumType"
+    },
+    "certificate": {
+      "description": "A PEM encoded X.509 certificate.\r\n",
+      "type": "string",
+      "maxLength": 5500
+    }
+  },
+  "required": ["certificateType", "certificate"]
+}

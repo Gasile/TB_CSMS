@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "rootDir": "./",
+    "outDir": "./dist"
+  },
+  "exclude": [
+    "./dist/**/*",
+    "**/node_modules/**",
+    "**/vitest.config.ts",
+    "**/test/**",
+    "./migrations/**"
+  ],
+  "references": [
+    {
+      "path": "./packages/base"
+    },
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./apps/Server"
+    }
+  ]
+}

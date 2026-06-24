@@ -1,0 +1,8 @@
+{
+  "title": "DiagnosticsStatusNotificationResponse",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": true,
+  "$id": "DiagnosticsStatusNotificationResponse",
+  "definitions": {}
+}

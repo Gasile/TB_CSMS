@@ -51,3 +51,18 @@ data/
 # ==========================================
 hasura.exe
 hasura
+
+# ==========================================
+# 5. CitrineOS & Monorepo (Turborepo)
+# ==========================================
+# CitrineOS utilise Turborepo pour gérer ses packages. 
+# Ce dossier contient des caches de build très lourds et inutiles à historiser.
+.turbo/
+
+# ==========================================
+# 6. Docker & Données de la Base de Données
+# ==========================================
+# Exclut le dossier où PostgreSQL écrit ses données réelles sur le disque.
+# (Très important pour éviter de commiter des gigaoctets de logs SQL ou de tables de test)
+data/
+pg_data/

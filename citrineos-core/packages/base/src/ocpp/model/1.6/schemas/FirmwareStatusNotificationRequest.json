@@ -1,0 +1,36 @@
+{
+  "title": "FirmwareStatusNotificationRequest",
+  "type": "object",
+  "properties": {
+    "status": {
+      "$ref": "#/definitions/FirmwareStatusNotificationRequestStatus"
+    }
+  },
+  "additionalProperties": true,
+  "required": ["status"],
+  "$id": "FirmwareStatusNotificationRequest",
+  "definitions": {
+    "FirmwareStatusNotificationRequestStatus": {
+      "type": "string",
+      "additionalProperties": true,
+      "enum": [
+        "Downloaded",
+        "DownloadFailed",
+        "Downloading",
+        "Idle",
+        "InstallationFailed",
+        "Installing",
+        "Installed"
+      ],
+      "tsEnumNames": [
+        "Downloaded",
+        "DownloadFailed",
+        "Downloading",
+        "Idle",
+        "InstallationFailed",
+        "Installing",
+        "Installed"
+      ]
+    }
+  }
+}

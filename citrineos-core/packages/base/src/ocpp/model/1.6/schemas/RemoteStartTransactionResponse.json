@@ -1,0 +1,20 @@
+{
+  "title": "RemoteStartTransactionResponse",
+  "type": "object",
+  "properties": {
+    "status": {
+      "$ref": "#/definitions/RemoteStartTransactionResponseStatus"
+    }
+  },
+  "additionalProperties": true,
+  "required": ["status"],
+  "$id": "RemoteStartTransactionResponse",
+  "definitions": {
+    "RemoteStartTransactionResponseStatus": {
+      "type": "string",
+      "additionalProperties": true,
+      "enum": ["Accepted", "Rejected"],
+      "tsEnumNames": ["Accepted", "Rejected"]
+    }
+  }
+}

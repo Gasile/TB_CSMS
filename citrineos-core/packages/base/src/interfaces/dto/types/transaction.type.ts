@@ -1,0 +1,27 @@
+// SPDX-FileCopyrightText: 2025 Contributors to the CitrineOS Project
+//
+// SPDX-License-Identifier: Apache-2.0
+
+import { z } from 'zod';
+import { ChargingStateEnumSchema, ReasonEnumSchema } from './enums.js';
+
+export const TransactionLimitSchema = z.object({
+  maxCost: z.number().optional().nullable(),
+  maxEnergy: z.number().optional().nullable(),
+  maxTime: z.number().int().optional().nullable(),
+  maxSoC: z.number().int().min(0).max(100).optional().nullable(),
+});
+
+export type TransactionLimit = z.infer<typeof TransactionLimitSchema>;
+
+export const TransactionTypeSchema = z.object({
+  transactionId: z.string(),
+  chargingState: ChargingStateEnumSchema.nullable().optional(),
+  timeSpentCharging: z.number().int().nullable().optional(),
+  stoppedReason: ReasonEnumSchema.nullable().optional(),
+  remoteStartId: z.number().int().nullable().optional(),
+  tariffId: z.string().optional().nullable(),
+  transactionLimit: TransactionLimitSchema.optional().nullable(),
+});
+
+export type TransactionType = z.infer<typeof TransactionTypeSchema>;

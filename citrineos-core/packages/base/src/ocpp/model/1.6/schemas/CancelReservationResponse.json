@@ -1,0 +1,20 @@
+{
+  "title": "CancelReservationResponse",
+  "type": "object",
+  "properties": {
+    "status": {
+      "$ref": "#/definitions/CancelReservationResponseStatus"
+    }
+  },
+  "additionalProperties": true,
+  "required": ["status"],
+  "$id": "CancelReservationResponse",
+  "definitions": {
+    "CancelReservationResponseStatus": {
+      "type": "string",
+      "additionalProperties": true,
+      "enum": ["Accepted", "Rejected"],
+      "tsEnumNames": ["Accepted", "Rejected"]
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "exclude": ["./node_modules", "**/__tests__/*", "./dist", "./**/dist", "./**/**/dist"],
+  "include": [
+    "packages/base/**/*.ts",
+    "packages/base/**/*.json",
+    "packages/core/**/*.ts",
+    "packages/core/**/*.json",
+    "apps/Server/**/*.ts",
+    "apps/Server/**/*.json",
+    "apps/*.ts",
+    "vitest.config.ts",
+    "apps/Server/migrations/**/*.ts",
+    "seeders/**/*.ts"
+  ],
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "strict": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "verbatimModuleSyntax": true
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$id": "RequestStopTransactionRequest",
+  "comment": "OCPP 2.0.1 FINAL",
+  "definitions": {
+    "CustomDataType": {
+      "description": "Represents OCPP CustomData. Allows vendor-specific extension properties.",
+      "javaType": "CustomData",
+      "type": "object",
+      "properties": {
+        "vendorId": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      "required": ["vendorId"]
+    }
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "customData": {
+      "$ref": "#/definitions/CustomDataType"
+    },
+    "transactionId": {
+      "description": "The identifier of the transaction which the Charging Station is requested to stop.\r\n",
+      "type": "string",
+      "maxLength": 36
+    }
+  },
+  "required": ["transactionId"]
+}

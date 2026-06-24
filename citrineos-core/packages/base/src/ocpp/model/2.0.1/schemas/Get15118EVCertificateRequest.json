@@ -1,0 +1,47 @@
+{
+  "$id": "Get15118EVCertificateRequest",
+  "comment": "OCPP 2.0.1 FINAL",
+  "definitions": {
+    "CustomDataType": {
+      "description": "Represents OCPP CustomData. Allows vendor-specific extension properties.",
+      "javaType": "CustomData",
+      "type": "object",
+      "properties": {
+        "vendorId": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      "required": ["vendorId"]
+    },
+    "CertificateActionEnumType": {
+      "description": "Defines whether certificate needs to be installed or updated.\r\n",
+      "javaType": "CertificateActionEnum",
+      "type": "string",
+      "additionalProperties": true,
+      "enum": ["Install", "Update"],
+      "tsEnumNames": ["Install", "Update"]
+    }
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "customData": {
+      "$ref": "#/definitions/CustomDataType"
+    },
+    "iso15118SchemaVersion": {
+      "description": "Schema version currently used for the 15118 session between EV and Charging Station. Needed for parsing of the EXI stream by the CSMS.\r\n\r\n",
+      "type": "string",
+      "maxLength": 50
+    },
+    "action": {
+      "$ref": "#/definitions/CertificateActionEnumType"
+    },
+    "exiRequest": {
+      "description": "Raw CertificateInstallationReq request from EV, Base64 encoded.\r\n",
+      "type": "string",
+      "maxLength": 5600
+    }
+  },
+  "required": ["iso15118SchemaVersion", "action", "exiRequest"]
+}

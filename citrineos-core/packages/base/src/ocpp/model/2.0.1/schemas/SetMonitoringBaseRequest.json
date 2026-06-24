@@ -1,0 +1,37 @@
+{
+  "$id": "SetMonitoringBaseRequest",
+  "comment": "OCPP 2.0.1 FINAL",
+  "definitions": {
+    "CustomDataType": {
+      "description": "Represents OCPP CustomData. Allows vendor-specific extension properties.",
+      "javaType": "CustomData",
+      "type": "object",
+      "properties": {
+        "vendorId": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      "required": ["vendorId"]
+    },
+    "MonitoringBaseEnumType": {
+      "description": "Specify which monitoring base will be set\r\n",
+      "javaType": "MonitoringBaseEnum",
+      "type": "string",
+      "additionalProperties": true,
+      "enum": ["All", "FactoryDefault", "HardWiredOnly"],
+      "tsEnumNames": ["All", "FactoryDefault", "HardWiredOnly"]
+    }
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "customData": {
+      "$ref": "#/definitions/CustomDataType"
+    },
+    "monitoringBase": {
+      "$ref": "#/definitions/MonitoringBaseEnumType"
+    }
+  },
+  "required": ["monitoringBase"]
+}
