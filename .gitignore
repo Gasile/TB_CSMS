@@ -40,3 +40,8 @@ env/
 # Exclut les fichiers cachés générés par Windows ou macOS
 .DS_Store
 Thumbs.db
+
+# ==========================================
+# 5. Données Docker & Bases de données
+# ==========================================
+data/
