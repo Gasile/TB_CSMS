@@ -49,8 +49,8 @@ data/
 # ==========================================
 # 6. Outils en ligne de commande (CLI)
 # ==========================================
-hasura.exe
-hasura
+citrineos-config/hasura/hasura.exe
+citrineos-config/hasura/hasura
 
 # ==========================================
 # 5. CitrineOS & Monorepo (Turborepo)
