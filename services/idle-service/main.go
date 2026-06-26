@@ -230,8 +230,8 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 			txID = fmt.Sprintf("%.0f", tid)
 		}
 
-		if txID == "" {
-			log.Println("⚠️  Impossible de trouver la référence à la transaction dans le payload MeterValues.")
+		if txID == "" || txID == "0" {
+			// On ignore silencieusement les MeterValues qui ne sont pas liées à une transaction (ex: métriques globales de la borne)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -252,8 +252,25 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 			for _, val := range sampledValues {
 				if valMap, ok := val.(map[string]interface{}); ok {
 					if measurand, ok := valMap["measurand"].(string); ok && measurand == "Power.Active.Import" {
-						// On a reçu une lecture de puissance, on relance le chrono !
-						tracker.startOrResetTimer(txID)
+						// On extrait et on vérifie la valeur de la puissance
+						var powerValue float64
+
+						// La valeur peut être stockée en tant que float64 (JSON Number) ou string
+						if vFloat, isFloat := valMap["value"].(float64); isFloat {
+							powerValue = vFloat
+						} else if vStr, isStr := valMap["value"].(string); isStr {
+							if parsed, err := strconv.ParseFloat(vStr, 64); err == nil {
+								powerValue = parsed
+							}
+						}
+
+						if powerValue > 0 {
+							// On a reçu une lecture de puissance > 0, on relance le chrono !
+							tracker.startOrResetTimer(txID)
+						} else {
+							// Puissance à 0 : On laisse le chrono tourner sans le réinitialiser.
+							log.Printf("ℹ️  Puissance à 0 W détectée pour la transaction DB ID: %s. Le chrono continue.", txID)
+						}
 						break // Inutile de lire le reste du tableau
 					}
 				}
