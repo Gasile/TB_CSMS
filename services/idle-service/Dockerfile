@@ -1,6 +1,6 @@
 # --- Étape 1 : Construction (Builder) ---
-# On utilise l'image officielle Go pour compiler le code
-FROM golang:1.21-alpine AS builder
+# On utilise l'image officielle Go pour compiler le code (mise à jour vers la version requise par ton go.mod)
+FROM golang:1.25.1-alpine AS builder
 
 # Définition du répertoire de travail dans le conteneur
 WORKDIR /app
