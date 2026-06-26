@@ -96,6 +96,9 @@ func (t *IdleTracker) stopTimer(transactionID string) {
 		timer.Stop()
 		delete(t.timers, transactionID)
 		log.Printf("✅ Fin de session pour la transaction DB ID: %s. Chrono détruit.", transactionID)
+	} else {
+		// Ajout du log pour les transactions qui se terminent après l'infraction
+		log.Printf("✅ Fin de session pour la transaction DB ID: %s. Aucun chrono en cours (déjà expiré).", transactionID)
 	}
 }
 
