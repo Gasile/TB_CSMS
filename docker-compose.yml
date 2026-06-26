@@ -163,7 +163,7 @@ services:
 
   idle-service:
     build:
-      context: ./idle-service
+      context: ./services/idle-service
     container_name: tb_csms-idle-service-1
     restart: always
     depends_on:
