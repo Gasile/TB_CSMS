@@ -78,3 +78,17 @@ select_permissions:
           _eq: x-hasura-tenant-id
       allow_aggregations: true
     comment: ""
+event_triggers:
+  - name: track_transactions
+    definition:
+      enable_manual: false
+      insert:
+        columns: '*'
+      update:
+        columns:
+          - isActive
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://tb_csms-idle-service-1:8080/webhook
