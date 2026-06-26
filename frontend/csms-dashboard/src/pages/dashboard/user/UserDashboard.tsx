@@ -166,7 +166,11 @@ export default function UserDashboard() {
         {/* WIDGET DERNIÈRE SESSION */}
         <div
           style={{
-            ...(lastTx?.isActive ? activeSessionCardStyle : cardStyle),
+            ...(lastTx?.isActive
+              ? lastTx.is_legal === false
+                ? illegalSessionCardStyle
+                : activeSessionCardStyle
+              : cardStyle),
             flex: "2 1 450px",
           }}
         >
@@ -182,11 +186,17 @@ export default function UserDashboard() {
               style={{
                 margin: 0,
                 fontSize: "1.2rem",
-                color: lastTx?.isActive ? "#166534" : "#374151",
+                color: lastTx?.isActive
+                  ? lastTx.is_legal === false
+                    ? "#991b1b"
+                    : "#166534"
+                  : "#374151",
               }}
             >
               {lastTx?.isActive
-                ? "⚡ Charge en cours"
+                ? lastTx.is_legal === false
+                  ? "⚠️ Charge illégale"
+                  : "⚡ Charge en cours"
                 : "Dernière charge effectuée"}
             </h2>
             {lastTx && (
@@ -421,4 +431,12 @@ const refreshButtonStyle: React.CSSProperties = {
   color: "#374151",
   boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
   transition: "all 0.2s ease",
+};
+
+const illegalSessionCardStyle: React.CSSProperties = {
+  background: "#fef2f2",
+  border: "2px solid #fecaca",
+  padding: "25px",
+  borderRadius: "12px",
+  boxShadow: "0 4px 15px rgba(220, 38, 38, 0.1)",
 };

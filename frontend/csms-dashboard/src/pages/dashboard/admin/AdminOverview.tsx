@@ -518,6 +518,9 @@ export default function AdminOverview() {
                     <span style={statusBadgeStyle(session.chargingState)}>
                       {session.chargingState || "Charging"}
                     </span>
+                    {session.is_legal === false && (
+                      <span style={illegalBadgeStyle}>Illégal</span>
+                    )}
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
                     <button
@@ -639,4 +642,15 @@ const detailsButtonStyle: React.CSSProperties = {
   color: "#374151",
   cursor: "pointer",
   transition: "all 0.2s ease",
+};
+
+const illegalBadgeStyle: React.CSSProperties = {
+  display: "inline-block",
+  padding: "4px 10px",
+  borderRadius: "20px",
+  fontSize: "0.8rem",
+  fontWeight: "600",
+  background: "#fee2e2",
+  color: "#dc2626",
+  marginLeft: "8px",
 };

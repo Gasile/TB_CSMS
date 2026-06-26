@@ -122,6 +122,8 @@ export async function fetchUserSessions(userId: number) {
         stoppedReason
         ocppConnectionName
         startTime
+        is_legal
+        overtime_start_timestamp
       }
     }
   `;

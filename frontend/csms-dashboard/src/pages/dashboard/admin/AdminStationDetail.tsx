@@ -246,7 +246,11 @@ export default function StationDetail() {
                       key={s.id}
                       style={{
                         borderBottom: "1px solid #f3f4f6",
-                        background: s.isActive ? "#f0fdf4" : "transparent",
+                        background: s.isActive
+                          ? s.is_legal === false
+                            ? "#fee2e2" // Fond rouge clair si illégal
+                            : "#f0fdf4" // Fond vert clair si légal
+                          : "transparent",
                       }}
                     >
                       <td style={tdStyle}>

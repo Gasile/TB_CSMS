@@ -150,6 +150,21 @@ export default function SessionDetail() {
         .slice(11, 19)
     : "En cours";
 
+  // Calcul du temps de dépassement
+  const calculateOvertime = (timestamp: string) => {
+    if (!timestamp) return "un temps indéterminé";
+    const start = new Date(timestamp).getTime();
+    const now = new Date().getTime();
+    const diffMs = Math.max(0, now - start); // Évite les valeurs négatives
+
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+
+    if (hours > 0) return `${hours}h et ${mins}min`;
+    return `${mins} min`;
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
       {/* --- EN-TÊTE --- */}
@@ -185,6 +200,31 @@ export default function SessionDetail() {
           </button>
         )}
       </div>
+
+      {/* --- ALERTE SESSION ILLÉGALE --- */}
+      {session.isActive && session.is_legal === false && (
+        <div style={illegalAlertStyle}>
+          <span style={{ fontSize: "1.5rem", marginRight: "15px" }}>⚠️</span>
+          <div>
+            <strong style={{ fontSize: "1.05rem" }}>
+              Action requise : Session marquée comme illégale.
+            </strong>
+            <div
+              style={{
+                marginTop: "4px",
+                fontSize: "0.95rem",
+                color: "#b91c1c",
+              }}
+            >
+              Le véhicule occupe la borne sans charger depuis{" "}
+              <strong>
+                {calculateOvertime(session.overtime_start_timestamp)}
+              </strong>
+              .
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- KPIs --- */}
       <div
@@ -558,4 +598,15 @@ const badgeSmallStyle: React.CSSProperties = {
   borderRadius: "6px",
   fontSize: "0.8rem",
   fontWeight: "600",
+};
+
+const illegalAlertStyle: React.CSSProperties = {
+  background: "#fef2f2",
+  border: "1px solid #fecaca",
+  color: "#991b1b",
+  padding: "15px 20px",
+  borderRadius: "12px",
+  display: "flex",
+  alignItems: "center",
+  boxShadow: "0 2px 10px rgba(220, 38, 38, 0.05)",
 };

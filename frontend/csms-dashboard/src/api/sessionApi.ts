@@ -53,6 +53,8 @@ export async function fetchSessionDetailData(dbId: number) {
         endTime
         stoppedReason
         totalKwh
+        is_legal
+        overtime_start_timestamp
         User {
           first_name
           last_name
@@ -103,6 +105,8 @@ export async function fetchUserDashboardData(
         startTime
         endTime
         totalKwh
+        is_legal
+        overtime_start_timestamp
       }
       # 3. Les sessions récentes pour générer la Heatmap
       RecentTransactions: Transactions(where: {user_id: {_eq: $userId}, startTime: {_gte: $cutoffDate}}) {

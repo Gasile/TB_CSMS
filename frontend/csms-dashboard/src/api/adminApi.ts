@@ -264,6 +264,8 @@ export async function fetchBadgeDetailAndSessions(authId: number) {
         totalKwh
         startTime
         endTime
+        is_legal
+        overtime_start_timestamp
         User {
           first_name
           last_name
@@ -313,6 +315,8 @@ export async function fetchAdminOverviewData(startOfDayIso: string) {
         startTime
         totalKwh
         chargingState
+        is_legal
+        overtime_start_timestamp
         User {
           first_name
           last_name

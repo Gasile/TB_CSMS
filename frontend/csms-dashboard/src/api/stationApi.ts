@@ -31,7 +31,9 @@ export async function fetchStationTransactions(connectionName: string) {
           last_name
           email
         }
-          startTime
+        startTime
+        is_legal
+        overtime_start_timestamp
       }
     }
   `;
