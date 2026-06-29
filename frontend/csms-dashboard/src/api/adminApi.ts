@@ -322,7 +322,8 @@ export async function fetchAdminOverviewData(startOfDayIso: string) {
           last_name
         }
         MeterValues(order_by: {timestamp: desc}, limit: 10) {
-          sampledValue
+        timestamp  
+        sampledValue
         }
       }
       TodayTransactions: Transactions(where: {startTime: {_gte: $startOfDay}}) {

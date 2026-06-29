@@ -24,6 +24,7 @@ export default function AdminOverview() {
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [energyToday, setEnergyToday] = useState(0);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [timeWindow, setTimeWindow] = useState<[number, number]>([0, 0]);
 
   useEffect(() => {
     loadDashboardData();
@@ -39,16 +40,10 @@ export default function AdminOverview() {
         now.getDate(),
       ).toISOString();
 
-      // --- MODIFICATION POUR LE TEST : DU 18.06 à 15h AU 18.06 à 17h ---
-      // L'année "2026" est utilisée ici pour correspondre à ton environnement,
-      // adapte-la au besoin si tes données ont été générées sur une autre année.
-      const testStartDate = new Date("2026-06-18T15:00:00");
-      const testEndDate = new Date("2026-06-18T17:00:00");
-
+      // Retour strict aux 24 dernières heures
       const endTimestamp = now.getTime();
-      const startTimestamp = endTimestamp - 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+      const startTimestamp = endTimestamp - 24 * 60 * 60 * 1000;
       const startDateIso = new Date(startTimestamp).toISOString();
-      // ----------------------------------------------------------------
 
       const [overviewData, telemetryData] = await Promise.all([
         fetchAdminOverviewData(startOfDay),
@@ -64,25 +59,14 @@ export default function AdminOverview() {
       );
       setEnergyToday(totalKwh);
 
-      // --- MOTEUR ÉVÉNEMENTIEL ---
-      const events: {
-        time: number;
-        type: string;
-        txId?: number;
-        power?: number;
-      }[] = [];
+      // --- MOTEUR ÉVÉNEMENTIEL (PAR PROFIL ISOLÉ) ---
+      const allTx = telemetryData?.Transactions || [];
+      const allMv = telemetryData?.MeterValues || [];
 
-      // 1. Événements de limites (Force l'affichage complet de la fenêtre de test)
-      events.push({ time: startTimestamp, type: "WINDOW_START" });
-      events.push({ time: endTimestamp, type: "WINDOW_END" });
-
-      // 2. Traitement des MeterValues ET suivi de la dernière mise à jour de puissance
-      const lastPowerUpdatePerTx: Record<number, number> = {};
-
-      (telemetryData?.MeterValues || []).forEach((mv: any) => {
-        let powerKW = 0;
-        let isPowerUpdate = false;
-
+      // 1. Grouper les MeterValues (puissance uniquement) par transaction
+      const mvsByTx: Record<number, { time: number; power: number }[]> = {};
+      allMv.forEach((mv: any) => {
+        let powerKW = null;
         try {
           const parsed =
             typeof mv.sampledValue === "string"
@@ -94,113 +78,116 @@ export default function AdminOverview() {
             );
             if (powerItem && powerItem.value !== undefined) {
               powerKW = powerItem.value / 1000;
-              isPowerUpdate = true;
             }
           }
         } catch (e) {}
 
-        // On n'enregistre l'événement que si c'est une vraie donnée de puissance
-        if (isPowerUpdate) {
-          const mvTime = new Date(mv.timestamp).getTime();
+        if (powerKW !== null) {
           const txId = mv.transactionDatabaseId;
-
-          events.push({
-            time: mvTime,
-            type: "UPDATE",
-            txId: txId,
+          if (!mvsByTx[txId]) mvsByTx[txId] = [];
+          mvsByTx[txId].push({
+            time: new Date(mv.timestamp).getTime(),
             power: powerKW,
           });
-
-          // On mémorise l'heure exacte de la dernière puissance envoyée pour cette session
-          if (
-            !lastPowerUpdatePerTx[txId] ||
-            mvTime > lastPowerUpdatePerTx[txId]
-          ) {
-            lastPowerUpdatePerTx[txId] = mvTime;
-          }
         }
       });
 
-      // 3. Événements de Transactions (START, END, et chute à 0 pour inactivité)
-      (telemetryData?.Transactions || []).forEach((tx: any) => {
-        if (tx.startTime) {
-          events.push({
-            time: new Date(tx.startTime).getTime(),
-            type: "START",
-            txId: tx.id,
-          });
+      // 2. Construire le profil de puissance pour CHAQUE transaction indépendamment
+      const txProfiles: Record<number, { time: number; power: number }[]> = {};
+
+      // On force l'existence du point de départ et de fin du graphique pour toujours avoir une ligne
+      const allTimestamps = new Set<number>([startTimestamp, endTimestamp]);
+
+      allTx.forEach((tx: any) => {
+        const profile: { time: number; power: number }[] = [];
+        const startTime = new Date(tx.startTime).getTime();
+
+        profile.push({ time: startTime, power: 0 });
+        allTimestamps.add(startTime);
+
+        const mvs = mvsByTx[tx.id] || [];
+        mvs.sort((a, b) => a.time - b.time); // Tri chronologique
+
+        let lastTime = startTime;
+
+        // NOUVEAU : Si la session a commencé AVANT le début du graphique, on extrapole
+        // sa puissance avec le premier point de mesure disponible dans la fenêtre
+        if (startTime <= startTimestamp && mvs.length > 0) {
+          profile.push({ time: startTimestamp, power: mvs[0].power });
+          // On avance lastTime au début du graphique pour ne pas déclencher la chute
+          // d'inactivité de 2 min sur le "trou" temporel des données non téléchargées
+          lastTime = startTimestamp;
         }
+
+        mvs.forEach((mv) => {
+          // Si plus de 2 min d'inactivité, la borne tombe à 0
+          if (mv.time - lastTime > 120000) {
+            profile.push({ time: lastTime + 120000, power: 0 });
+            allTimestamps.add(lastTime + 120000);
+          }
+          profile.push({ time: mv.time, power: mv.power });
+          allTimestamps.add(mv.time);
+          lastTime = mv.time;
+        });
+
+        // Gestion de la fin ou de l'inactivité actuelle
         if (tx.endTime) {
-          const endTimeMs = new Date(tx.endTime).getTime();
-          const lastMvTime = lastPowerUpdatePerTx[tx.id];
-
-          // Si on a un écart de plus de 2 minutes (120 000 ms) entre la dernière puissance et le vrai débranchement
-          if (lastMvTime && endTimeMs - lastMvTime > 120000) {
-            events.push({
-              time: lastMvTime + 120000,
-              type: "IDLE_ZERO",
-              txId: tx.id,
-            });
+          const endTime = new Date(tx.endTime).getTime();
+          if (endTime - lastTime > 120000) {
+            profile.push({ time: lastTime + 120000, power: 0 });
+            allTimestamps.add(lastTime + 120000);
           }
+          profile.push({ time: endTime, power: 0 });
+          allTimestamps.add(endTime);
+        } else {
+          // Session active (si pas de endTime, elle est forcément en cours)
+          if (endTimestamp - lastTime > 120000) {
+            profile.push({ time: lastTime + 120000, power: 0 });
+            allTimestamps.add(lastTime + 120000);
 
-          events.push({ time: endTimeMs, type: "END", txId: tx.id });
+            // Inspiration SessionDetail : on force un point à 0 pour la fin du graphique
+            profile.push({ time: endTimestamp, power: 0 });
+          } else {
+            // Si on a des données récentes, on prolonge la puissance jusqu'à "maintenant"
+            const lastPowerValue =
+              profile.length > 0 ? profile[profile.length - 1].power : 0;
+            profile.push({ time: endTimestamp, power: lastPowerValue });
+          }
         }
+
+        txProfiles[tx.id] = profile;
       });
 
-      // 4. On trie chronologiquement
-      events.sort((a, b) => a.time - b.time);
+      // 3. Créer la ligne temporelle globale en superposant les profils
+      const sortedTimestamps = Array.from(allTimestamps)
+        .filter((t) => t >= startTimestamp && t <= endTimestamp)
+        .sort((a, b) => a - b);
 
-      // 5. Calcul des totaux pas-à-pas
-      const powerPerTx: Record<number, number> = {};
       const chartPoints: any[] = [];
 
-      events.forEach((event) => {
-        if (event.type === "START" && event.txId) powerPerTx[event.txId] = 0;
-        // NOUVEAU : Si la session se termine OU si elle est inactive depuis 2 min, on la passe à 0 kW
-        if (
-          (event.type === "END" || event.type === "IDLE_ZERO") &&
-          event.txId
-        ) {
-          powerPerTx[event.txId] = 0;
-        }
-        if (
-          event.type === "UPDATE" &&
-          event.txId &&
-          event.power !== undefined
-        ) {
-          powerPerTx[event.txId] = event.power;
-        }
+      sortedTimestamps.forEach((t) => {
+        let currentTotalPower = 0;
 
-        const currentTotalPower = Object.values(powerPerTx).reduce(
-          (sum, val) => sum + val,
-          0,
-        );
+        // Pour chaque transaction, on évalue sa puissance à l'instant T exact
+        allTx.forEach((tx: any) => {
+          const profile = txProfiles[tx.id];
+          let powerAtT = 0;
 
-        // Ajout du point uniquement si on est dans notre fenêtre de 2 heures
-        if (event.time >= startTimestamp && event.time <= endTimestamp) {
-          chartPoints.push({
-            timestamp: event.time,
-            puissance: currentTotalPower,
-          });
-        }
+          // On cherche la valeur du dernier événement qui s'est produit AVANT ou PENDANT l'instant T
+          for (let i = profile.length - 1; i >= 0; i--) {
+            if (profile[i].time <= t) {
+              powerAtT = profile[i].power;
+              break;
+            }
+          }
+          currentTotalPower += powerAtT;
+        });
+
+        chartPoints.push({ timestamp: t, puissance: currentTotalPower });
       });
 
-      // 6. Nettoyage
-      const uniqueChartPoints: any[] = [];
-      chartPoints.forEach((point) => {
-        if (
-          uniqueChartPoints.length > 0 &&
-          uniqueChartPoints[uniqueChartPoints.length - 1].timestamp ===
-            point.timestamp
-        ) {
-          uniqueChartPoints[uniqueChartPoints.length - 1].puissance =
-            point.puissance;
-        } else {
-          uniqueChartPoints.push(point);
-        }
-      });
-
-      setChartData(uniqueChartPoints);
+      setChartData(chartPoints);
+      setTimeWindow([startTimestamp, endTimestamp]);
     } catch (err: any) {
       setError(err.message || "Erreur lors du chargement des données.");
     } finally {
@@ -219,6 +206,8 @@ export default function AdminOverview() {
 
   // --- PUISSANCE INSTANTANÉE ---
   let instantPowerKW = 0;
+  const nowMs = new Date().getTime();
+
   activeSessions.forEach((session) => {
     if (session.MeterValues && session.MeterValues.length > 0) {
       // On parcourt les dernières MeterValues jusqu'à trouver celle qui contient la puissance
@@ -233,7 +222,11 @@ export default function AdminOverview() {
               (item: any) => item.measurand === "Power.Active.Import",
             );
             if (powerItem && powerItem.value !== undefined) {
-              instantPowerKW += powerItem.value / 1000;
+              // NOUVEAU : On vérifie que la donnée date de moins de 2 minutes (120 000 ms)
+              const mvTime = new Date(mv.timestamp).getTime();
+              if (nowMs - mvTime <= 120000) {
+                instantPowerKW += powerItem.value / 1000;
+              }
               break; // TRÈS IMPORTANT : On arrête de chercher dès qu'on a trouvé la vraie dernière puissance
             }
           }
@@ -410,7 +403,9 @@ export default function AdminOverview() {
                 dataKey="timestamp"
                 type="number"
                 scale="time"
-                domain={["dataMin", "dataMax"]}
+                domain={
+                  timeWindow[0] !== 0 ? timeWindow : ["dataMin", "dataMax"]
+                }
                 tickFormatter={formatTime}
                 axisLine={false}
                 tickLine={false}
