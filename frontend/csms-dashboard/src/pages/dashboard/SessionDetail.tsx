@@ -187,8 +187,16 @@ export default function SessionDetail() {
               </span>
             </div>
             <p style={{ margin: "5px 0 0 0", color: "#6b7280" }}>
-              Borne : <strong>{session.ocppConnectionName}</strong> (Connecteur{" "}
-              {session.connectorId}) • {startDate.toLocaleDateString()}
+              Borne :{" "}
+              <strong>
+                {session.ChargingStation?.chargePointModel
+                  ? `${session.ChargingStation.chargePointModel} `
+                  : ""}
+                {session.ocppConnectionName}
+              </strong>{" "}
+              (Connecteur{" "}
+              {session.Connector?.connectorId || session.connectorId}) •{" "}
+              {startDate.toLocaleDateString()}
             </p>
           </div>
         </div>

@@ -493,7 +493,12 @@ export default function AdminOverview() {
                   style={{ borderBottom: "1px solid #f3f4f6" }}
                 >
                   <td style={tdStyle}>
-                    <strong>{session.ocppConnectionName}</strong>
+                    <strong>
+                      {session.ChargingStation?.chargePointModel
+                        ? `${session.ChargingStation.chargePointModel} `
+                        : ""}
+                      {session.ocppConnectionName}
+                    </strong>
                   </td>
                   <td style={tdStyle}>
                     {session.User

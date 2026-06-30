@@ -221,6 +221,9 @@ export default function UserDashboard() {
               <div>
                 <div style={smallLabelStyle}>Borne utilisée</div>
                 <div style={strongValueStyle}>
+                  {lastTx.ChargingStation?.chargePointModel
+                    ? `${lastTx.ChargingStation.chargePointModel} `
+                    : ""}
                   {lastTx.ocppConnectionName || "Inconnue"}
                 </div>
               </div>

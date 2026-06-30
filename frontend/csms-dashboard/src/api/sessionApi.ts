@@ -15,6 +15,7 @@ export async function fetchUserOverview(userId: number, cutoffDate: string) {
         id
         transactionId
         ocppConnectionName
+        ChargingStation { chargePointModel }
         connectorId
         isActive
         chargingState
@@ -47,6 +48,8 @@ export async function fetchSessionDetailData(dbId: number) {
         transactionId
         ocppConnectionName
         connectorId
+        ChargingStation { chargePointModel }
+        Connector { connectorId }
         isActive
         chargingState
         startTime
@@ -100,6 +103,7 @@ export async function fetchUserDashboardData(
         id
         transactionId
         ocppConnectionName
+        ChargingStation { chargePointModel }
         isActive
         chargingState
         startTime

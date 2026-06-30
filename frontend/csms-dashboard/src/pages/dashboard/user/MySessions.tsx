@@ -191,6 +191,9 @@ export default function MySessions() {
                         </div>
                       </td>
                       <td style={tdStyle}>
+                        {s.ChargingStation?.chargePointModel
+                          ? `${s.ChargingStation.chargePointModel} `
+                          : ""}
                         {s.ocppConnectionName || "Inconnue"}
                       </td>
                       <td style={tdStyle}>

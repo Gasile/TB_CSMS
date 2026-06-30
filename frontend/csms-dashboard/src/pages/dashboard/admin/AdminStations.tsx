@@ -104,7 +104,12 @@ export default function AdminStations() {
 
               {/* Corps de la carte : Nom et infos */}
               <div style={cardBodyStyle}>
-                <h3 style={stationNameStyle}>{station.ocppConnectionName}</h3>
+                <h3 style={stationNameStyle}>
+                  {station.chargePointModel
+                    ? `${station.chargePointModel} `
+                    : ""}
+                  {station.ocppConnectionName}
+                </h3>
 
                 <div style={infoRowStyle}>
                   <span style={infoLabelStyle}>Identifiant ID:</span>

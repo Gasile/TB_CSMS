@@ -259,6 +259,7 @@ export async function fetchBadgeDetailAndSessions(authId: number) {
         id
         transactionId
         ocppConnectionName
+        ChargingStation { chargePointModel }
         isActive
         chargingState
         totalKwh
@@ -312,6 +313,7 @@ export async function fetchAdminOverviewData(startOfDayIso: string) {
         id
         transactionId
         ocppConnectionName
+        ChargingStation { chargePointModel }
         startTime
         totalKwh
         chargingState
@@ -360,6 +362,7 @@ export async function fetchAllStationsWithStatus() {
         id
         ocppConnectionName
         isOnline
+        chargePointModel
         protocol
         Transactions(where: {isActive: {_eq: true}}) {
           id

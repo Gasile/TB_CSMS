@@ -121,6 +121,7 @@ export async function fetchUserSessions(userId: number) {
         totalKwh
         stoppedReason
         ocppConnectionName
+        ChargingStation { chargePointModel }
         startTime
         is_legal
         overtime_start_timestamp

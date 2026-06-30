@@ -258,7 +258,12 @@ export default function AdminUserDetail() {
                             #{s.transactionId || s.id}
                           </div>
                         </td>
-                        <td style={tdStyle}>{s.ocppConnectionName}</td>
+                        <td style={tdStyle}>
+                          {s.ChargingStation?.chargePointModel
+                            ? `${s.ChargingStation.chargePointModel} `
+                            : ""}
+                          {s.ocppConnectionName}
+                        </td>
                         <td style={tdStyle}>
                           <span
                             style={statusBadgeStyle(

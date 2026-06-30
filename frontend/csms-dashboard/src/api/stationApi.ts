@@ -20,6 +20,7 @@ export async function fetchStationTransactions(connectionName: string) {
   const query = `
     query GetStationTransactions($connectionName: String!) {
       Transactions(where: {ocppConnectionName: {_eq: $connectionName}}, order_by: {id: desc}) {
+        ChargingStation { chargePointModel }
         id
         transactionId
         isActive

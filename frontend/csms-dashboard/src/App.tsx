@@ -22,6 +22,7 @@ import AdminUsers from "./pages/dashboard/admin/AdminUsers";
 import AdminUserDetail from "./pages/dashboard/admin/AdminUserDetail";
 import StationDetail from "./pages/dashboard/admin/AdminStationDetail";
 import AdminBadgeDetail from "./pages/dashboard/admin/AdminBadgeDetail";
+import AdminPowerBlockManagement from "./pages/dashboard/admin/AdminPowerBlockManagement";
 
 import UserDashboard from "./pages/dashboard/user/UserDashboard";
 import MySessions from "./pages/dashboard/user/MySessions";
@@ -96,6 +97,10 @@ function AppRoutes() {
           <Route path="/users/:id" element={<AdminUserDetail />} />
           <Route path="/admin-stations/:id" element={<StationDetail />} />
           <Route path="/session/:id" element={<SessionDetail />} />
+          <Route
+            path="/admin-power-blocks"
+            element={<AdminPowerBlockManagement />}
+          />
 
           {/* Espace Utilisateur */}
           <Route path="/user-dashboard" element={<UserDashboard />} />
