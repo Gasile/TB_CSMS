@@ -31,7 +31,7 @@ services:
       - MQTT_SERVER_ADDRESS=mqtt-server
       - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
       - OCPP_VERSION=${OCPP_VERSION}
-      - CSMS_URI=ws://citrine:8081
+      - CSMS_URI=ws://tb_csms-citrine-1:8081
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
     networks:
@@ -52,7 +52,8 @@ services:
 
 networks:
   everest_net:
-    driver: bridge
-    enable_ipv6: true
+    external: true
+    name: tb_csms_default
   server_default:
     external: true
+    name: tb_csms_default

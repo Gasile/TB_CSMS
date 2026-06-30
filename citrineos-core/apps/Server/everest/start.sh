@@ -5,7 +5,7 @@
 
 _OCPP_VERSION=$OCPP_VERSION
 OCPP_VERSION_ENUM="OCPP201"
-EVEREST_TARGET_URL="ws://server-citrine-1:8081/cp001"
+EVEREST_TARGET_URL="ws://tb_csms-citrine-1:8081/cp001"
 
 case "$_OCPP_VERSION" in
   "1.6")
@@ -59,15 +59,25 @@ JSON
     chmod -x /ext/dist/share/everest/modules/OCPP201/component_config/standardized/InternalCtrlr.json
 fi
 
+# Configuration de l'intervalle des MeterValues (ex: 10 secondes)
+    chmod +x /ext/dist/share/everest/modules/OCPP201/component_config/standardized/SampledDataCtrlr.json
+    jq '
+    ( .properties.SampledDataTxUpdatedInterval.attributes[] 
+      | select(.type == "Actual") 
+      | .value
+    ) = "60"
+    ' "/ext/dist/share/everest/modules/OCPP201/component_config/standardized/SampledDataCtrlr.json" \
+    > /tmp/config_meter_dist.json && mv /tmp/config_meter_dist.json "/ext/dist/share/everest/modules/OCPP201/component_config/standardized/SampledDataCtrlr.json"
+    chmod -x /ext/dist/share/everest/modules/OCPP201/component_config/standardized/SampledDataCtrlr.json
+
 /entrypoint.sh
 http-server /tmp/everest_ocpp_logs -p 8888 &
 
 if [ "$_OCPP_VERSION" = "1.6" ]; then
-    chmod +x /ext/build/run-scripts/run-sil-ocpp.sh
-    sed -i "0,/127.0.0.1:8180\/steve\/websocket\/CentralSystemService\// s|127.0.0.1:8180/steve/websocket/CentralSystemService/|${EVEREST_TARGET_URL}|" /ext/dist/share/everest/modules/OCPP/config-docker.json
+    # On laisse ça de côté
     /ext/build/run-scripts/run-sil-ocpp.sh
 else
-    #Works for all 2.x versions
+    # Configuration stable pour les versions 2.x
     rm /ext/dist/share/everest/modules/OCPP201/component_config/custom/EVSE_2.json
     rm /ext/dist/share/everest/modules/OCPP201/component_config/custom/Connector_2_1.json
     chmod +x /ext/build/run-scripts/run-sil-ocpp201-pnc.sh
