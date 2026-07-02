@@ -156,3 +156,17 @@ delete_permissions:
         tenantId:
           _eq: x-hasura-tenant-id
     comment: ""
+event_triggers:
+  - name: evse_assignment_trigger
+    definition:
+      enable_manual: false
+      insert:
+        columns: '*'
+      update:
+        columns:
+          - power_block_id
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://smart-charging-service:8081/webhooks/station-assignment
