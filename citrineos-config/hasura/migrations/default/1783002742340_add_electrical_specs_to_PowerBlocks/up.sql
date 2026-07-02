@@ -1,0 +1,4 @@
+ALTER TABLE "PowerBlocks" 
+ADD COLUMN max_u NUMERIC(8, 2),
+ADD COLUMN max_a NUMERIC(8, 2),
+ADD COLUMN n_phase INTEGER;

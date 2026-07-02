@@ -1,0 +1,6 @@
+-- Could not auto-generate a down migration.
+-- Please write an appropriate down migration for the SQL below:
+-- ALTER TABLE "PowerBlocks"
+-- ADD COLUMN max_u NUMERIC(8, 2),
+-- ADD COLUMN max_a NUMERIC(8, 2),
+-- ADD COLUMN n_phase INTEGER;
