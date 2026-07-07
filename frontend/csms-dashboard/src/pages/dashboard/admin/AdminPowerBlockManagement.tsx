@@ -16,6 +16,7 @@ import {
   deletePowerBlock,
   updateStationPowerBlock,
 } from "../../../api/powerBlockApi";
+import { useNavigate } from "react-router-dom";
 
 // --- SOUS-COMPOSANT : BORNE DÉPLAÇABLE ---
 function DraggableStation({ station }: { station: any }) {
@@ -110,8 +111,17 @@ function DroppableZone({
   );
 }
 
+// Calcule la puissance en kW à partir de U, I et du nombre de phases
+const calculateKw = (v: number, a: number, phases: number): string => {
+  if (!v || !a) return "0.0";
+  const multiplier = phases === 3 ? Math.sqrt(3) : 1;
+  const powerWatts = v * a * multiplier;
+  return (powerWatts / 1000).toFixed(1); // Retourne un string propre (ex: "22.2")
+};
+
 // --- COMPOSANT PRINCIPAL ---
 export default function PowerBlockManagement() {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -124,7 +134,12 @@ export default function PowerBlockManagement() {
 
   // États pour la modale de création
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [blockForm, setBlockForm] = useState({ name: "", maxKw: "" });
+  const [blockForm, setBlockForm] = useState({
+    name: "",
+    maxV: "400",
+    maxA: "32",
+    nPhase: "3",
+  });
 
   // États pour la modale d'édition/suppression
   const [editingBlock, setEditingBlock] = useState<any>(null); // Reçoit le bloc complet lors du clic sur modifier
@@ -171,10 +186,19 @@ export default function PowerBlockManagement() {
   const handleCreateBlock = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createPowerBlock(blockForm.name, Number(blockForm.maxKw));
+      const v = Number(blockForm.maxV);
+      const a = Number(blockForm.maxA);
+      const phase = Number(blockForm.nPhase);
+
+      // On calcule la puissance en kW sous forme de nombre
+      const multiplier = phase === 3 ? Math.sqrt(3) : 1;
+      const computedKw = Number(((v * a * multiplier) / 1000).toFixed(2));
+
+      await createPowerBlock(blockForm.name, v, a, phase, computedKw);
+
       setIsModalOpen(false);
-      setBlockForm({ name: "", maxKw: "" });
-      loadData(); // Recharge la vue avec le nouveau bloc disponible
+      setBlockForm({ name: "", maxV: "400", maxA: "32", nPhase: "3" });
+      loadData();
     } catch (err: any) {
       alert(err.message || "Erreur lors de la création du bloc de puissance.");
     }
@@ -184,11 +208,23 @@ export default function PowerBlockManagement() {
     e.preventDefault();
     if (!editingBlock) return;
     try {
+      const v = Number(editingBlock.max_v);
+      const a = Number(editingBlock.max_a);
+      const phase = Number(editingBlock.n_phase);
+
+      // Même calcul pour la mise à jour
+      const multiplier = phase === 3 ? Math.sqrt(3) : 1;
+      const computedKw = Number(((v * a * multiplier) / 1000).toFixed(2));
+
       await updatePowerBlock(
         editingBlock.id,
         editingBlock.name,
-        Number(editingBlock.max_kw),
+        v,
+        a,
+        phase,
+        computedKw,
       );
+
       setEditingBlock(null);
       loadData();
     } catch (err: any) {
@@ -301,20 +337,25 @@ export default function PowerBlockManagement() {
       <div style={containerStyle}>
         {/* En-tête de la page */}
         <div style={headerStyle}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
-              Gestion du Smart Charging
-            </h1>
-            <p
-              style={{
-                margin: "5px 0 0 0",
-                color: "#6b7280",
-                fontSize: "0.95rem",
-              }}
-            >
-              Répartissez vos bornes de recharge sur vos différents blocs de
-              puissance.
-            </p>
+          <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+            <button onClick={() => navigate(-1)} style={backButtonStyle}>
+              ← Retour
+            </button>
+            <div>
+              <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+                Gestion du Smart Charging
+              </h1>
+              <p
+                style={{
+                  margin: "5px 0 0 0",
+                  color: "#6b7280",
+                  fontSize: "0.95rem",
+                }}
+              >
+                Répartissez vos bornes de recharge sur vos différents blocs de
+                puissance.
+              </p>
+            </div>
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
             <button
@@ -340,13 +381,18 @@ export default function PowerBlockManagement() {
                 <div
                   style={{ display: "flex", alignItems: "center", gap: "8px" }}
                 >
-                  <span style={pMaxBadgeStyle}>{block.max_kw} kW max</span>
+                  <span style={pMaxBadgeStyle}>
+                    {calculateKw(block.max_v, block.max_a, block.n_phase)} kW
+                    max ({block.max_a}A)
+                  </span>
                   <button
                     onClick={() =>
                       setEditingBlock({
                         id: block.id,
                         name: block.name,
-                        max_kw: block.max_kw,
+                        max_v: block.max_v,
+                        max_a: block.max_a,
+                        n_phase: block.n_phase,
                       })
                     }
                     style={iconActionButtonStyle}
@@ -499,19 +545,46 @@ export default function PowerBlockManagement() {
                   placeholder="Ex: Secteur A, Bloc principal, Étage 1..."
                 />
               </div>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Tension (V)</label>
+                  <input
+                    required
+                    type="number"
+                    style={inputStyle}
+                    value={blockForm.maxV}
+                    onChange={(e) =>
+                      setBlockForm({ ...blockForm, maxV: e.target.value })
+                    }
+                    placeholder="230 ou 400"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Courant (A)</label>
+                  <input
+                    required
+                    type="number"
+                    style={inputStyle}
+                    value={blockForm.maxA}
+                    onChange={(e) =>
+                      setBlockForm({ ...blockForm, maxA: e.target.value })
+                    }
+                    placeholder="16, 32, 63..."
+                  />
+                </div>
+              </div>
               <div>
-                <label style={labelStyle}>Puissance Maximale (kW)</label>
-                <input
-                  required
-                  type="number"
-                  step="0.1"
+                <label style={labelStyle}>Type d'alimentation</label>
+                <select
                   style={inputStyle}
-                  value={blockForm.maxKw}
+                  value={blockForm.nPhase}
                   onChange={(e) =>
-                    setBlockForm({ ...blockForm, maxKw: e.target.value })
+                    setBlockForm({ ...blockForm, nPhase: e.target.value })
                   }
-                  placeholder="Ex: 22, 44, 150..."
-                />
+                >
+                  <option value="1">Monophasé (1 Phase)</option>
+                  <option value="3">Triphasé (3 Phases)</option>
+                </select>
               </div>
               <div
                 style={{
@@ -568,19 +641,55 @@ export default function PowerBlockManagement() {
                   placeholder="Ex: Secteur A..."
                 />
               </div>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Tension (V)</label>
+                  <input
+                    required
+                    type="number"
+                    style={inputStyle}
+                    value={editingBlock.max_v}
+                    onChange={(e) =>
+                      setEditingBlock({
+                        ...editingBlock,
+                        max_v: e.target.value,
+                      })
+                    }
+                    placeholder="400"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Courant (A)</label>
+                  <input
+                    required
+                    type="number"
+                    style={inputStyle}
+                    value={editingBlock.max_a}
+                    onChange={(e) =>
+                      setEditingBlock({
+                        ...editingBlock,
+                        max_a: e.target.value,
+                      })
+                    }
+                    placeholder="32"
+                  />
+                </div>
+              </div>
               <div>
-                <label style={labelStyle}>Puissance Maximale (kW)</label>
-                <input
-                  required
-                  type="number"
-                  step="0.1"
+                <label style={labelStyle}>Type d'alimentation</label>
+                <select
                   style={inputStyle}
-                  value={editingBlock.max_kw}
+                  value={editingBlock.n_phase}
                   onChange={(e) =>
-                    setEditingBlock({ ...editingBlock, max_kw: e.target.value })
+                    setEditingBlock({
+                      ...editingBlock,
+                      n_phase: Number(e.target.value),
+                    })
                   }
-                  placeholder="Ex: 22..."
-                />
+                >
+                  <option value={1}>Monophasé (1 Phase)</option>
+                  <option value={3}>Triphasé (3 Phases)</option>
+                </select>
               </div>
               <div
                 style={{
@@ -802,4 +911,15 @@ const iconActionButtonStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   transition: "background 0.2s",
+};
+
+const backButtonStyle: React.CSSProperties = {
+  background: "#f3f4f6",
+  border: "1px solid #d1d5db",
+  padding: "8px 16px",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontSize: "0.9rem",
+  fontWeight: "600",
+  color: "#4b5563",
 };

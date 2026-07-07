@@ -9,7 +9,9 @@ export async function fetchPowerBlocksWithStations() {
       PowerBlocks(order_by: { name: asc }) {
         id
         name
-        max_kw
+        max_v,
+        max_a,
+        n_phase,
       }
       # On récupère toutes les bornes pour pouvoir les distribuer (les assignées et les orphelines)
       ChargingStations(order_by: { ocppConnectionName: asc }) {
@@ -26,33 +28,39 @@ export async function fetchPowerBlocksWithStations() {
 /**
  * Crée un nouveau bloc de puissance
  */
-export async function createPowerBlock(name: string, maxKw: number) {
-  const mutation = `
-    mutation CreatePowerBlock($name: String!, $maxKw: numeric!) {
-      insert_PowerBlocks_one(object: { name: $name, max_kw: $maxKw }) {
-        id
-      }
-    }
-  `;
-  return await fetchHasura(mutation, { name, maxKw });
-}
-
-/**
- * Modifie un bloc de puissance existant
- */
-export async function updatePowerBlock(
-  id: number,
+export async function createPowerBlock(
   name: string,
+  maxV: number,
+  maxA: number,
+  nPhase: number,
   maxKw: number,
 ) {
   const mutation = `
-    mutation UpdatePowerBlock($id: Int!, $name: String!, $maxKw: numeric!) {
-      update_PowerBlocks_by_pk(pk_columns: { id: $id }, _set: { name: $name, max_kw: $maxKw }) {
+    mutation CreatePowerBlock($name: String!, $maxV: numeric!, $maxA: numeric!, $nPhase: Int!, $maxKw: numeric!) {
+      insert_PowerBlocks_one(object: { name: $name, max_v: $maxV, max_a: $maxA, n_phase: $nPhase, max_kw: $maxKw }) {
         id
       }
     }
   `;
-  return await fetchHasura(mutation, { id, name, maxKw });
+  return await fetchHasura(mutation, { name, maxV, maxA, nPhase, maxKw });
+}
+
+export async function updatePowerBlock(
+  id: number,
+  name: string,
+  maxV: number,
+  maxA: number,
+  nPhase: number,
+  maxKw: number,
+) {
+  const mutation = `
+    mutation UpdatePowerBlock($id: Int!, $name: String!, $maxV: numeric!, $maxA: numeric!, $nPhase: Int!, $maxKw: numeric!) {
+      update_PowerBlocks_by_pk(pk_columns: { id: $id }, _set: { name: $name, max_v: $maxV, max_a: $maxA, n_phase: $nPhase, max_kw: $maxKw }) {
+        id
+      }
+    }
+  `;
+  return await fetchHasura(mutation, { id, name, maxV, maxA, nPhase, maxKw });
 }
 
 /**

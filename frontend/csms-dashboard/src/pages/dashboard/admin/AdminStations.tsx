@@ -48,9 +48,17 @@ export default function AdminStations() {
             Vue d'ensemble et statuts en temps réel
           </p>
         </div>
-        <button onClick={loadStations} style={refreshButtonStyle}>
-          🔄 Rafraîchir
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={() => navigate("/admin-power-blocks")}
+            style={manageBlocksButtonStyle}
+          >
+            📦 Gérer les blocs de puissance
+          </button>
+          <button onClick={loadStations} style={refreshButtonStyle}>
+            🔄 Rafraîchir
+          </button>
+        </div>
       </div>
 
       <div style={gridStyle}>
@@ -247,4 +255,16 @@ const actionButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   cursor: "pointer",
   transition: "background 0.2s",
+};
+
+const manageBlocksButtonStyle: React.CSSProperties = {
+  background: "#fff",
+  border: "1px solid #d1d5db",
+  padding: "8px 16px",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontSize: "0.9rem",
+  fontWeight: "600",
+  color: "#374151",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
 };
