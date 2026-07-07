@@ -1,18 +1,20 @@
-# SPDX-FileCopyrightText: 2025 Contributors to the CitrineOS Project
-#
-# SPDX-License-Identifier: Apache-2.0
 version: '3.6'
 
 services:
-  mqtt-server:
+  # ==========================================
+  # BORNE 1 (cp001)
+  # ==========================================
+  mqtt-server-1:
     image: ghcr.io/everest/everest-demo/mqtt-server:${EVEREST_IMAGE_TAG}
     platform: linux/x86_64
     logging:
       driver: none
     networks:
-      - everest_net
+      internal_net_1:
+        aliases:
+          - mqtt-server
 
-  manager:
+  manager-1:
     build:
       dockerfile: Dockerfile
       args:
@@ -23,37 +25,268 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: '4G'
+          cpus: '1'
+          memory: '512M'
     depends_on:
-      - mqtt-server
+      - mqtt-server-1
+    volumes:
+      - ./start.sh:/tmp/start.sh
     environment:
-      - MQTT_SERVER_ADDRESS=mqtt-server
+      - MQTT_SERVER_ADDRESS=mqtt-server-1
       - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
       - OCPP_VERSION=${OCPP_VERSION}
-      - CSMS_URI=ws://tb_csms-citrine-1:8081
+      - CSMS_URI=${CSMS_URI}
+      - STATION_ID=cp001
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
     networks:
-      - everest_net
+      - internal_net_1
       - server_default
 
-  nodered:
+  nodered-1:
     image: ghcr.io/everest/everest-demo/nodered:${EVEREST_IMAGE_TAG}
     depends_on:
-      - mqtt-server
+      - mqtt-server-1
     ports:
       - 1880:1880
+    volumes:
+      - ./shared-flow.json:/config/config-sil-two-evse-flow.json
     environment:
-      - MQTT_SERVER_ADDRESS=mqtt-server
+      - MQTT_SERVER_ADDRESS=mqtt-server-1
       - FLOWS=/config/config-sil-two-evse-flow.json
     networks:
-      - everest_net
+      - internal_net_1
+
+  # ==========================================
+  # BORNE 2 (cp002)
+  # ==========================================
+  mqtt-server-2:
+    image: ghcr.io/everest/everest-demo/mqtt-server:${EVEREST_IMAGE_TAG}
+    platform: linux/x86_64
+    logging:
+      driver: none
+    networks:
+      internal_net_2:
+        aliases:
+          - mqtt-server
+
+  manager-2:
+    build:
+      dockerfile: Dockerfile
+      args:
+        - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
+    platform: linux/x86_64
+    ports:
+      - 8889:8888
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '512M'
+    depends_on:
+      - mqtt-server-2
+    volumes:
+      - ./start.sh:/tmp/start.sh
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server-2
+      - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
+      - OCPP_VERSION=${OCPP_VERSION}
+      - CSMS_URI=${CSMS_URI}
+      - STATION_ID=cp002
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    networks:
+      - internal_net_2
+      - server_default
+
+  nodered-2:
+    image: ghcr.io/everest/everest-demo/nodered:${EVEREST_IMAGE_TAG}
+    depends_on:
+      - mqtt-server-2
+    ports:
+      - 1881:1880
+    volumes:
+      - ./shared-flow.json:/config/config-sil-two-evse-flow.json
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server-2
+      - FLOWS=/config/config-sil-two-evse-flow.json
+    networks:
+      - internal_net_2
+
+  # ==========================================
+  # BORNE 3 (cp003)
+  # ==========================================
+  mqtt-server-3:
+    image: ghcr.io/everest/everest-demo/mqtt-server:${EVEREST_IMAGE_TAG}
+    platform: linux/x86_64
+    logging:
+      driver: none
+    networks:
+      internal_net_3:
+        aliases:
+          - mqtt-server
+
+  manager-3:
+    build:
+      dockerfile: Dockerfile
+      args:
+        - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
+    platform: linux/x86_64
+    ports:
+      - 8890:8888
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: '512M'
+    depends_on:
+      - mqtt-server-3
+    volumes:
+      - ./start.sh:/tmp/start.sh
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server-3
+      - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
+      - OCPP_VERSION=${OCPP_VERSION}
+      - CSMS_URI=${CSMS_URI}
+      - STATION_ID=cp003
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    networks:
+      - internal_net_3
+      - server_default
+
+  nodered-3:
+    image: ghcr.io/everest/everest-demo/nodered:${EVEREST_IMAGE_TAG}
+    depends_on:
+      - mqtt-server-3
+    ports:
+      - 1882:1880
+    volumes:
+      - ./shared-flow.json:/config/config-sil-two-evse-flow.json
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server-3
+      - FLOWS=/config/config-sil-two-evse-flow.json
+    networks:
+      - internal_net_3
+
+  # ==========================================
+  # BORNE 4 (cp004)
+  # ==========================================
+  mqtt-server-4:
+    image: ghcr.io/everest/everest-demo/mqtt-server:${EVEREST_IMAGE_TAG}
+    platform: linux/x86_64
+    logging:
+      driver: none
+    networks:
+      internal_net_4:
+        aliases:
+          - mqtt-server
+
+  manager-4:
+    build:
+      dockerfile: Dockerfile
+      args:
+        - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
+    platform: linux/x86_64
+    ports:
+      - 8891:8888
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '4G'
+    depends_on:
+      - mqtt-server-4
+    volumes:
+      - ./start.sh:/tmp/start.sh
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server-4
+      - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
+      - OCPP_VERSION=${OCPP_VERSION}
+      - CSMS_URI=${CSMS_URI}
+      - STATION_ID=cp004
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    networks:
+      - internal_net_4
+      - server_default
+
+  nodered-4:
+    image: ghcr.io/everest/everest-demo/nodered:${EVEREST_IMAGE_TAG}
+    depends_on:
+      - mqtt-server-4
+    ports:
+      - 1884:1880 # Saut du port 1883 (réservé MQTT)
+    volumes:
+      - ./shared-flow.json:/config/config-sil-two-evse-flow.json
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server-4
+      - FLOWS=/config/config-sil-two-evse-flow.json
+    networks:
+      - internal_net_4
+
+  # ==========================================
+  # BORNE 5 (cp005)
+  # ==========================================
+  mqtt-server-5:
+    image: ghcr.io/everest/everest-demo/mqtt-server:${EVEREST_IMAGE_TAG}
+    platform: linux/x86_64
+    logging:
+      driver: none
+    networks:
+      internal_net_5:
+        aliases:
+          - mqtt-server
+
+  manager-5:
+    build:
+      dockerfile: Dockerfile
+      args:
+        - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
+    platform: linux/x86_64
+    ports:
+      - 8892:8888
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '4G'
+    depends_on:
+      - mqtt-server-5
+    volumes:
+      - ./start.sh:/tmp/start.sh
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server-5
+      - EVEREST_IMAGE_TAG=${EVEREST_IMAGE_TAG}
+      - OCPP_VERSION=${OCPP_VERSION}
+      - CSMS_URI=${CSMS_URI}
+      - STATION_ID=cp005
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    networks:
+      - internal_net_5
+      - server_default
+
+  nodered-5:
+    image: ghcr.io/everest/everest-demo/nodered:${EVEREST_IMAGE_TAG}
+    depends_on:
+      - mqtt-server-5
+    ports:
+      - 1885:1880
+    volumes:
+      - ./shared-flow.json:/config/config-sil-two-evse-flow.json
+    environment:
+      - MQTT_SERVER_ADDRESS=mqtt-server-5
+      - FLOWS=/config/config-sil-two-evse-flow.json
+    networks:
+      - internal_net_5
 
 networks:
-  everest_net:
-    external: true
-    name: tb_csms_default
+  internal_net_1:
+  internal_net_2:
+  internal_net_3:
+  internal_net_4:
+  internal_net_5:
   server_default:
     external: true
     name: tb_csms_default

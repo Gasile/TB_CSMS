@@ -174,3 +174,17 @@ services:
       - GRACE_PERIOD_MINUTES=2
       - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
       - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
+
+  smart-charging-service: 
+    build:
+      context: ./services/smart-charging-service
+    container_name: tb_csms-smart-charging-service-1
+    restart: always
+    depends_on:
+      citrine:
+        condition: service_healthy
+    environment:
+      # L'URL interne de ton API CitrineOS (vérifie si c'est /api, /tenantapi, etc. selon ta version)
+      - CITRINEOS_API_URL=http://citrine:8080
+      - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
+      - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}

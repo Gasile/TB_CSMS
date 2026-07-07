@@ -3,6 +3,9 @@ FROM ghcr.io/everest/everest-demo/manager:${EVEREST_IMAGE_TAG}
 
 WORKDIR /workspace
 
+# Installation de sqlite3 pour modifier la BDD interne d'EVerest
+RUN apt-get update && apt-get install -y sqlite3
+
 RUN npm i -g http-server
 EXPOSE 8888
 
