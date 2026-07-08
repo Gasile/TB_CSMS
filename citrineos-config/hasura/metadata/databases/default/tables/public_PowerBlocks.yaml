@@ -1,3 +1,17 @@
 table:
   name: PowerBlocks
   schema: public
+event_triggers:
+  - name: smart_charging_power_blocks
+    definition:
+      enable_manual: false
+      update:
+        columns:
+          - max_a
+          - n_phase
+          - max_v
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://smart-charging-service:8081/webhooks/transactions
