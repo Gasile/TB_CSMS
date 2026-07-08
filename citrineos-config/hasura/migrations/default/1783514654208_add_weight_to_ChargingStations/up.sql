@@ -1,0 +1,1 @@
+ALTER TABLE "ChargingStations" ADD COLUMN "weight" INTEGER DEFAULT 1;

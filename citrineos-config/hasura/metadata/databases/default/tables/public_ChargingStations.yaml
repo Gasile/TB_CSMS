@@ -170,3 +170,14 @@ event_triggers:
       num_retries: 0
       timeout_sec: 60
     webhook: http://smart-charging-service:8081/webhooks/station-assignment
+  - name: station_weight_trigger
+    definition:
+      enable_manual: false
+      update:
+        columns:
+          - weight
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://smart-charging-service:8081/webhooks/transactions
