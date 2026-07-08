@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { fetchAllStationsWithStatus } from "../../../api/adminApi"; // Adapte le chemin si besoin
+import {
+  fetchAllStationsWithStatus,
+  updateStationWeight,
+} from "../../../api/adminApi"; // Adapte le chemin si besoin
 
 import { useNavigate } from "react-router-dom";
 
@@ -9,6 +12,21 @@ export default function AdminStations() {
   const [stations, setStations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const handleWeightChange = async (stationId: number, newWeight: number) => {
+    try {
+      // 1. Mise à jour visuelle immédiate (Optimistic UI)
+      setStations((prev) =>
+        prev.map((s) => (s.id === stationId ? { ...s, weight: newWeight } : s)),
+      );
+
+      // 2. Envoi à la base de données
+      await updateStationWeight(stationId, newWeight);
+    } catch (err: any) {
+      alert("Erreur lors de la modification de la priorité.");
+      loadStations(); // En cas d'erreur, on recharge les vraies données
+    }
+  };
 
   useEffect(() => {
     loadStations();
@@ -130,17 +148,49 @@ export default function AdminStations() {
                     {station.protocol || "Inconnu"}
                   </span>
                 </div>
-              </div>
 
-              {/* Bouton d'action : Historique des sessions de la borne */}
-              <div style={cardFooterStyle}>
-                <button
-                  style={actionButtonStyle}
-                  // Le onClick est prêt à être câblé avec un navigate() quand tu créeras la page
-                  onClick={() => navigate(`/admin-stations/${station.id}`)}
-                >
-                  Détail des Sessions ➔
-                </button>
+                {/* NOUVELLE LIGNE : PRIORITÉ SMART CHARGING */}
+                <div style={infoRowStyle}>
+                  <span style={infoLabelStyle}>Priorité de charge:</span>
+                  <div style={{ display: "flex", gap: "6px" }}>
+                    {[1, 2, 3].map((w) => (
+                      <button
+                        key={w}
+                        onClick={() => handleWeightChange(station.id, w)}
+                        style={{
+                          ...weightButtonStyle,
+                          // Si c'est le poids actuel ou si la borne n'a pas de poids (défaut = 1)
+                          background:
+                            station.weight === w || (!station.weight && w === 1)
+                              ? "#2563eb"
+                              : "#f9fafb",
+                          color:
+                            station.weight === w || (!station.weight && w === 1)
+                              ? "#fff"
+                              : "#4b5563",
+                          borderColor:
+                            station.weight === w || (!station.weight && w === 1)
+                              ? "#2563eb"
+                              : "#d1d5db",
+                        }}
+                        title={`Priorité ${w}`}
+                      >
+                        {w}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bouton d'action : Historique des sessions de la borne */}
+                <div style={cardFooterStyle}>
+                  <button
+                    style={actionButtonStyle}
+                    // Le onClick est prêt à être câblé avec un navigate() quand tu créeras la page
+                    onClick={() => navigate(`/admin-stations/${station.id}`)}
+                  >
+                    Détail des Sessions ➔
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -267,4 +317,18 @@ const manageBlocksButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "#374151",
   boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+};
+
+const weightButtonStyle: React.CSSProperties = {
+  width: "26px",
+  height: "26px",
+  borderRadius: "6px",
+  border: "1px solid",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "0.85rem",
+  fontWeight: "bold",
+  cursor: "pointer",
+  transition: "all 0.2s ease",
 };

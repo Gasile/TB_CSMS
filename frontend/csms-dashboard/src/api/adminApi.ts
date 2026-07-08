@@ -364,6 +364,7 @@ export async function fetchAllStationsWithStatus() {
         isOnline
         chargePointModel
         protocol
+        weight
         Transactions(where: {isActive: {_eq: true}}) {
           id
           chargingState
@@ -372,4 +373,16 @@ export async function fetchAllStationsWithStatus() {
     }
   `;
   return await fetchHasura(query);
+}
+
+export async function updateStationWeight(stationId: number, weight: number) {
+  const mutation = `
+    mutation UpdateStationWeight($stationId: Int!, $weight: Int!) {
+      update_ChargingStations_by_pk(pk_columns: {id: $stationId}, _set: {weight: $weight}) {
+        id
+        weight
+      }
+    }
+  `;
+  return await fetchHasura(mutation, { stationId, weight });
 }
