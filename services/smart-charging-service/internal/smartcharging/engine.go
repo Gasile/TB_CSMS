@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -21,19 +22,11 @@ const CheckInterval = 30 * time.Second
 
 // --- VARIABLES GLOBALES (Mémoire du service) ---
 var (
-	// stateMutex sécurise l'accès concurrent aux variables globales
-	stateMutex sync.Mutex
-
-	// activeLoops stocke la fonction permettant d'annuler le timer d'un bloc spécifique
-	activeLoops = make(map[int]context.CancelFunc)
-
-	// lastAppliedLimits stocke la dernière limite envoyée pour éviter le spam OCPP
-	// et sert de référence pour détecter l'underloading par rapport à la "Limite Actuelle"
-	lastAppliedLimits = make(map[string]float64)
-
-	// gracePeriodCache mémorise l'heure de fin de la période de grâce d'une transaction
-	// (utilisé au démarrage OU lors d'une augmentation de limite de >= 2A)
-	gracePeriodCache = make(map[string]time.Time)
+	stateMutex            sync.Mutex
+	activeLoops           = make(map[int]context.CancelFunc)
+	lastAppliedLimits     = make(map[string]float64)
+	gracePeriodCache      = make(map[string]time.Time)
+	sessionStartTime      = make(map[string]time.Time)
 )
 
 // --- STRUCTURES DES EVENEMENTS HASURA ---
@@ -51,9 +44,11 @@ type EVState struct {
 	TransactionID      string
 	OcppConnectionName string
 	EvseID             int
+	Weight             int
 	CurrentConsumption float64
 	AllocatedLimit     float64
 	Locked             bool
+	StartTime          time.Time
 }
 
 func floor10(val float64) float64 {
@@ -74,8 +69,8 @@ func HandleTransactions(client *citrineclient.Client) http.HandlerFunc {
 			return
 		}
 
-		// RÈGLE D'OR : On n'écoute QUE les événements de la table Transactions
-		if payload.Table.Name != "Transactions" && payload.Table.Name != "transactions" {
+		if payload.Table.Name != "Transactions" && payload.Table.Name != "transactions" &&
+			payload.Table.Name != "ChargingStations" && payload.Table.Name != "charging_stations" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -86,35 +81,29 @@ func HandleTransactions(client *citrineclient.Client) http.HandlerFunc {
 			return
 		}
 
-		log.Printf("🔄 Changement Topologique détecté (Tx Start/Stop). Réinitialisation du Block %d...", powerBlockID)
-
-		// On réinitialise la boucle de manière sécurisée pour CE bloc spécifique
+		log.Printf("🔄 Changement Topologique/Poids détecté. Réinitialisation du Block %d...", powerBlockID)
 		resetBlockLoop(client, powerBlockID)
-
 		w.WriteHeader(http.StatusOK)
 	}
 }
 
-// resetBlockLoop tue l'ancien timer, fait une répartition égale immédiate, et lance un nouveau timer
 func resetBlockLoop(client *citrineclient.Client, powerBlockID int) {
-	// 1. Tuer l'ancien timer s'il existe
 	stateMutex.Lock()
 	if cancel, exists := activeLoops[powerBlockID]; exists {
 		cancel()
 		delete(activeLoops, powerBlockID)
 	}
-	// Création du nouveau contexte pour le timer
 	ctx, cancel := context.WithCancel(context.Background())
 	activeLoops[powerBlockID] = cancel
 	stateMutex.Unlock()
 
-	// 2. Action immédiate (Topologie) : On lance l'algorithme intelligent directement
+	// Exécution immédiate
 	err := executeCalculation(client, powerBlockID, "Changement Topologique")
 	if err != nil {
 		log.Printf("❌ Erreur au changement topologique (Block %d): %v", powerBlockID, err)
 	}
 
-	// 3. Lancer le timer de 30s en tâche de fond
+	// Lancement du timer de 30s
 	go func(bID int, loopCtx context.Context) {
 		ticker := time.NewTicker(CheckInterval)
 		defer ticker.Stop()
@@ -122,13 +111,11 @@ func resetBlockLoop(client *citrineclient.Client, powerBlockID int) {
 		for {
 			select {
 			case <-ticker.C:
-				// Action périodique : Ajustement naturel
 				err := executeCalculation(client, bID, "Ajustement (Timer 30s)")
 				if err != nil {
 					log.Printf("❌ Erreur au check périodique (Block %d): %v", bID, err)
 				}
 			case <-loopCtx.Done():
-				// Le timer a été tué car une nouvelle transaction a démarré/stoppé
 				return
 			}
 		}
@@ -152,20 +139,23 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 		return nil
 	}
 
-	// Enregistrement de la période de grâce pour les nouvelles transactions
 	stateMutex.Lock()
 	for _, ev := range evStates {
+		if _, exists := sessionStartTime[ev.TransactionID]; !exists {
+			sessionStartTime[ev.TransactionID] = time.Now()
+		}
+		ev.StartTime = sessionStartTime[ev.TransactionID]
+
 		if _, exists := gracePeriodCache[ev.TransactionID]; !exists {
 			gracePeriodCache[ev.TransactionID] = time.Now().Add(90 * time.Second)
 		}
 	}
 	stateMutex.Unlock()
 
-	// Calcul des limites (Algorithme unifié)
+	// La logique d'underloading est maintenant unifiée (plus de distinction timer/topologie)
 	calculateLimits(powerBlockID, maxA, evStates)
 
 	for _, ev := range evStates {
-		// ANTI-SPAM
 		stateMutex.Lock()
 		lastLimit, exists := lastAppliedLimits[ev.TransactionID]
 		stateMutex.Unlock()
@@ -185,16 +175,15 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 			oldLimit, hadOldLimit := lastAppliedLimits[ev.TransactionID]
 			lastAppliedLimits[ev.TransactionID] = ev.AllocatedLimit
 
-			// PÉRIODE DE GRÂCE DYNAMIQUE : Si la limite augmente d'au moins 2A, on lui redonne 90s
-			if hadOldLimit && (ev.AllocatedLimit - oldLimit) >= 2.0 {
+			if hadOldLimit && (ev.AllocatedLimit-oldLimit) >= 2.0 {
 				gracePeriodCache[ev.TransactionID] = time.Now().Add(90 * time.Second)
-				log.Printf("⏳ [GRÂCE] Block %d | Borne %s passe de %.1fA à %.1fA (+%.1fA). Période de grâce de 90s accordée.",
-					powerBlockID, ev.OcppConnectionName, oldLimit, ev.AllocatedLimit, ev.AllocatedLimit-oldLimit)
+				log.Printf("⏳ [GRÂCE] Block %d | Borne %s passe de %.1fA à %.1fA. Période de grâce 90s accordée.",
+					powerBlockID, ev.OcppConnectionName, oldLimit, ev.AllocatedLimit)
 			}
 			stateMutex.Unlock()
 
-			log.Printf("✅ [%s] Block %d | Profil envoyé à %s (Tx: %s) : Limite %.1fA",
-				reason, powerBlockID, ev.OcppConnectionName, ev.TransactionID, ev.AllocatedLimit)
+			log.Printf("✅ [%s] Block %d | Profil envoyé à %s (Tx: %s, Poids: %d) : Limite %.1fA",
+				reason, powerBlockID, ev.OcppConnectionName, ev.TransactionID, ev.Weight, ev.AllocatedLimit)
 		} else {
 			log.Printf("❌ Echec envoi TxProfile vers %s: %v", ev.OcppConnectionName, err)
 		}
@@ -206,26 +195,67 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 	minAmpsToCharge := 6.0
 
-	// S'il n'y a qu'une seule transaction, elle reçoit tout (sans underloading)
-	if len(evs) == 1 {
-		evs[0].AllocatedLimit = floor10(maxA)
+	// --- PHASE 1 : EXCLUSION PHYSIQUE ABSOLUE ---
+	maxActiveCars := int(maxA / minAmpsToCharge)
+
+	if maxActiveCars == 0 {
+		for _, ev := range evs {
+			ev.AllocatedLimit = 0.0
+			ev.Locked = true
+		}
+		return
+	}
+
+	if len(evs) > maxActiveCars {
+		sort.SliceStable(evs, func(i, j int) bool {
+			if evs[i].Weight != evs[j].Weight {
+				return evs[i].Weight > evs[j].Weight
+			}
+			return evs[i].StartTime.Before(evs[j].StartTime)
+		})
+		for i := maxActiveCars; i < len(evs); i++ {
+			evs[i].AllocatedLimit = 0.0
+			evs[i].Locked = true
+		}
+	}
+
+	// --- PHASE 2 : DETECTION UNDERLOADING ---
+	var unlockedEVs []*EVState
+	totalOriginalActiveWeight := 0
+	for _, ev := range evs {
+		if !ev.Locked {
+			unlockedEVs = append(unlockedEVs, ev)
+			totalOriginalActiveWeight += ev.Weight
+		}
+	}
+
+	if len(unlockedEVs) == 0 {
+		return
+	}
+	if len(unlockedEVs) == 1 {
+		unlockedEVs[0].AllocatedLimit = floor10(maxA)
+		unlockedEVs[0].Locked = true
 		return
 	}
 
 	unallocatedPower := maxA
-	var normalEVs []*EVState
-
-	// La part équitable théorique initiale nous sert de référence 
-	// pour savoir si une borne est "en cours de remontée"
-	baseFairShare := math.Floor(maxA / float64(len(evs)))
-	
-	var unlockedEVs []*EVState
-	for _, ev := range evs {
-		unlockedEVs = append(unlockedEVs, ev)
-	}
 
 	for len(unlockedEVs) > 0 {
-		fairShare := math.Floor(unallocatedPower / float64(len(unlockedEVs)))
+		currentIterationWeight := 0
+		for _, ev := range unlockedEVs {
+			currentIterationWeight += ev.Weight
+		}
+
+		if currentIterationWeight == 0 {
+			break
+		}
+
+		if len(unlockedEVs) == 1 {
+			unlockedEVs[0].AllocatedLimit = math.Floor(unallocatedPower)
+			unlockedEVs[0].Locked = true
+			break
+		}
+
 		foundUnderloaded := false
 
 		for i, ev := range unlockedEVs {
@@ -234,44 +264,37 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 			graceEnd := gracePeriodCache[ev.TransactionID]
 			stateMutex.Unlock()
 
+			baseFairShare := math.Floor(maxA * float64(ev.Weight) / float64(totalOriginalActiveWeight))
+
 			if !exists {
-				currentLimit = baseFairShare // Fallback si pas de limite connue
+				currentLimit = baseFairShare
 			}
 
-			// --- PÉRIODE DE GRÂCE (90s) ---
-			// Si la transaction a démarré récemment ou a reçu un boost de courant,
-			// on saute l'évaluation de sa consommation (elle rejoint normalEVs).
 			if time.Now().Before(graceEnd) {
 				continue
 			}
 
-			// CONDITION 1 : Nouvelle chute de consommation (-2A par rapport à SA limite)
 			isFreshUnderload := ev.CurrentConsumption <= (currentLimit - 2.0)
-			
-			// CONDITION 2 : Elle est dans un cycle de remontée (+1A à chaque fois) 
-			// et n'a pas encore atteint sa part équitable globale
 			isStillUnderloaded := currentLimit < baseFairShare
 
 			if isFreshUnderload || isStillUnderloaded {
-				// L'arrondi se fait au plus proche (ex: 5.97 -> 6.0) + 1A
 				neededPower := math.Round(ev.CurrentConsumption) + 1.0
 
 				if neededPower < minAmpsToCharge {
 					neededPower = minAmpsToCharge
 				}
 
-				// Si la puissance demandée est inférieure à la part équitable du moment,
-				// on verrouille la borne en mode "Underloaded"
-				if neededPower < fairShare {
+				iterationFairShare := math.Floor(unallocatedPower * float64(ev.Weight) / float64(currentIterationWeight))
+
+				if neededPower < iterationFairShare {
 					ev.AllocatedLimit = neededPower
 					ev.Locked = true
 					unallocatedPower -= neededPower
 
-					log.Printf("📉 [DEBUG UNDERLOADING] Block %d | Borne %s en sous-charge. "+
+					log.Printf("📉 [DEBUG UNDERLOADING] Block %d | %s (Poids %d) en sous-charge. "+
 						"Cons: %.2fA | Limite Act: %.1fA | Nvlle Limite: Round(%.2f) + 1A = %.1fA",
-						powerBlockID, ev.OcppConnectionName, ev.CurrentConsumption, currentLimit, ev.CurrentConsumption, neededPower)
+						powerBlockID, ev.OcppConnectionName, ev.Weight, ev.CurrentConsumption, currentLimit, ev.CurrentConsumption, neededPower)
 
-					// On la retire de la boucle pour recalculer le reste
 					unlockedEVs = append(unlockedEVs[:i], unlockedEVs[i+1:]...)
 					foundUnderloaded = true
 					break
@@ -280,29 +303,95 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 		}
 
 		if !foundUnderloaded {
-			// Les véhicules restants ne sont pas (ou plus) en sous-charge.
-			// Ils rejoignent le pool normal pour se partager le reste.
-			for _, ev := range unlockedEVs {
-				normalEVs = append(normalEVs, ev)
-			}
 			break
 		}
 	}
 
-	// Phase 2 - Répartition mathématique parfaite du reste entre les bornes "Normales"
-	if len(normalEVs) > 0 {
-		for i, ev := range normalEVs {
-			share := math.Floor(unallocatedPower / float64(len(normalEVs)-i))
+	// --- PHASE 3 : DISTRIBUTION MATHEMATHIQUE PROTEGEE ---
+	if len(unlockedEVs) > 0 {
+		distributeWeightedRest(unlockedEVs, unallocatedPower)
+	}
+}
+
+// distributeWeightedRest répartit le courant au prorata du poids.
+// NOUVEAUTÉ : Si la division mathématique tombe sous 6A, on verrouille la borne à 6A
+// et on redistribue le reste. On ne sacrifie plus de bornes à 0A.
+func distributeWeightedRest(evs []*EVState, remainingPower float64) {
+	minAmpsToCharge := 6.0
+
+	var unlocked []*EVState
+	for _, ev := range evs {
+		unlocked = append(unlocked, ev)
+	}
+
+	// ÉTAPE A : Sécurisation du socle vital (6.0A)
+	for len(unlocked) > 0 {
+		totalWeight := 0
+		for _, ev := range unlocked {
+			totalWeight += ev.Weight
+		}
+
+		if totalWeight == 0 {
+			break
+		}
+
+		foundUnderMin := false
+		for i, ev := range unlocked {
+			theoreticalShare := remainingPower * float64(ev.Weight) / float64(totalWeight)
+			
+			// Si le pourcentage du poids lui donne moins de 6A, on force à 6A.
+			if theoreticalShare < minAmpsToCharge {
+				ev.AllocatedLimit = minAmpsToCharge
+				ev.Locked = true
+				remainingPower -= minAmpsToCharge
+				
+				unlocked = append(unlocked[:i], unlocked[i+1:]...)
+				foundUnderMin = true
+				break
+			}
+		}
+
+		if !foundUnderMin {
+			break
+		}
+	}
+
+	// ÉTAPE B : Distribution du surplus pour les bornes "saines"
+	if len(unlocked) > 0 {
+		sort.SliceStable(unlocked, func(i, j int) bool {
+			if unlocked[i].Weight != unlocked[j].Weight {
+				return unlocked[i].Weight > unlocked[j].Weight
+			}
+			return unlocked[i].StartTime.Before(unlocked[j].StartTime)
+		})
+
+		totalWeight := 0
+		for _, ev := range unlocked {
+			totalWeight += ev.Weight
+		}
+
+		tempPower := remainingPower
+		for _, ev := range unlocked {
+			share := math.Floor(remainingPower * float64(ev.Weight) / float64(totalWeight))
 			ev.AllocatedLimit = share
+			tempPower -= share
+		}
+
+		// On donne les restes (+1A) aux bornes les plus prioritaires (début de liste)
+		for i := 0; i < len(unlocked) && tempPower >= 1.0; i++ {
+			unlocked[i].AllocatedLimit += 1.0
+			tempPower -= 1.0
+		}
+
+		for _, ev := range unlocked {
 			ev.Locked = true
-			unallocatedPower -= share
 		}
 	}
 }
 
 func extractPowerBlockID(client *citrineclient.Client, payload HasuraEventPayload) int {
 	var data map[string]interface{}
-	
+
 	if payload.Event.Data["new"] != nil {
 		data = payload.Event.Data["new"].(map[string]interface{})
 	} else if payload.Event.Data["old"] != nil {
@@ -314,10 +403,15 @@ func extractPowerBlockID(client *citrineclient.Client, payload HasuraEventPayloa
 	}
 
 	stationIDFloat, ok := data["stationId"].(float64)
-	if !ok {
+	stationID := 0
+
+	if ok {
+		stationID = int(stationIDFloat)
+	} else if idFloat, okID := data["id"].(float64); okID && (payload.Table.Name == "ChargingStations" || payload.Table.Name == "charging_stations") {
+		stationID = int(idFloat)
+	} else {
 		return 0
 	}
-	stationID := int(stationIDFloat)
 
 	query := `
 		query GetPowerBlockID($stationId: Int!) {
@@ -378,8 +472,6 @@ func sendTxProfile(client *citrineclient.Client, ev *EVState, profileID int) err
 }
 
 func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float64, []*EVState, error) {
-	// On demande les 10 dernières MeterValues pour être sûr d'avoir une valeur Periodic récente 
-	// et esquiver les "Sample.Clock" polluants.
 	query := `
 		query GetPowerBlockState($blockId: Int!) {
 			PowerBlocks(where: {id: {_eq: $blockId}}) {
@@ -387,6 +479,7 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 			}
 			ChargingStations(where: {power_block_id: {_eq: $blockId}}) {
 				ocppConnectionName
+				weight
 				Evses {
 					id
 					evseTypeId
@@ -410,6 +503,7 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 			} `json:"PowerBlocks"`
 			ChargingStations []struct {
 				OcppConnectionName string `json:"ocppConnectionName"`
+				Weight             *int   `json:"weight"`
 				Evses              []struct {
 					ID         int `json:"id"`
 					EvseTypeID int `json:"evseTypeId"`
@@ -446,15 +540,19 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 			evseMap[evse.ID] = evse.EvseTypeID
 		}
 
+		stationWeight := 1
+		if station.Weight != nil && *station.Weight > 0 {
+			stationWeight = *station.Weight
+		}
+
 		for _, tx := range station.Transactions {
 			currentConsumption := 0.0
 
-			// On parcourt l'historique récent (limit: 10) pour trouver la première valeur valide Periodic
 			for _, mv := range tx.MeterValues {
 				if mv.SampledValue != nil {
 					if val, found := extractMaxCurrent(mv.SampledValue); found {
 						currentConsumption = val
-						break // Valeur trouvée ! On arrête de chercher dans les vieilles MeterValues
+						break
 					}
 				}
 			}
@@ -468,6 +566,7 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 				TransactionID:      tx.TransactionID,
 				OcppConnectionName: station.OcppConnectionName,
 				EvseID:             realEvseID,
+				Weight:             stationWeight,
 				CurrentConsumption: currentConsumption,
 				Locked:             false,
 			})
@@ -477,8 +576,6 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 	return maxA, evs, nil
 }
 
-// extractMaxCurrent fouille le JSON et retourne (la_valeur_max, true) 
-// si elle a trouvé un 'Current.Import' valide qui n'est pas un 'Sample.Clock'
 func extractMaxCurrent(sampledValueRaw interface{}) (float64, bool) {
 	if sampledValueRaw == nil {
 		return 0.0, false
@@ -498,7 +595,6 @@ func extractMaxCurrent(sampledValueRaw interface{}) (float64, bool) {
 	for _, val := range sampledValues {
 		if valMap, ok := val.(map[string]interface{}); ok {
 			
-			// Filtrage : Ignorer les Clock
 			if contextVal, hasContext := valMap["context"].(string); hasContext {
 				if contextVal == "Sample.Clock" {
 					continue 
