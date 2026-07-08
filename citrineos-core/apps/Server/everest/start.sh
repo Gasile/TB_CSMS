@@ -78,7 +78,7 @@ jq '
 ( .properties.SampledDataTxUpdatedInterval.attributes[] 
   | select(.type == "Actual") 
   | .value
-) = "10"
+) = "60"
 ' "/ext/dist/share/everest/modules/OCPP201/component_config/standardized/SampledDataCtrlr.json" \
 > /tmp/config_meter_dist.json && mv /tmp/config_meter_dist.json "/ext/dist/share/everest/modules/OCPP201/component_config/standardized/SampledDataCtrlr.json"
 chmod -x /ext/dist/share/everest/modules/OCPP201/component_config/standardized/SampledDataCtrlr.json
