@@ -38,4 +38,4 @@ event_triggers:
       interval_sec: 10
       num_retries: 0
       timeout_sec: 60
-    webhook: http://badge-service:8083/webhooks/authorize
+    webhook: http://badge-service:8085/webhooks/authorize
