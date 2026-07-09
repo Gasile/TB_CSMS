@@ -26,7 +26,7 @@ var (
 	activeLoops           = make(map[int]context.CancelFunc)
 	lastAppliedLimits     = make(map[string]float64)
 	gracePeriodCache      = make(map[string]time.Time)
-	sessionStartTime      = make(map[string]time.Time)
+	sessionStartTime      = make(map[string]time.Time) // Mémorise l'âge des transactions pour la priorité
 )
 
 // --- STRUCTURES DES EVENEMENTS HASURA ---
@@ -48,7 +48,7 @@ type EVState struct {
 	CurrentConsumption float64
 	AllocatedLimit     float64
 	Locked             bool
-	StartTime          time.Time
+	StartTime          time.Time // Permet de respecter "Premier arrivé, premier servi" en cas d'égalité de poids
 }
 
 func floor10(val float64) float64 {
@@ -69,20 +69,26 @@ func HandleTransactions(client *citrineclient.Client) http.HandlerFunc {
 			return
 		}
 
-		if payload.Table.Name != "Transactions" && payload.Table.Name != "transactions" &&
-			payload.Table.Name != "ChargingStations" && payload.Table.Name != "charging_stations" {
+		tableName := payload.Table.Name
+		if tableName != "Transactions" && tableName != "transactions" &&
+			tableName != "ChargingStations" && tableName != "charging_stations" &&
+			tableName != "PowerBlocks" && tableName != "power_blocks" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		powerBlockID := extractPowerBlockID(client, payload)
-		if powerBlockID == 0 {
+		// On extrait TOUS les blocs concernés par cet événement (important si une borne change de bloc)
+		powerBlockIDs := extractPowerBlockIDs(client, payload)
+		if len(powerBlockIDs) == 0 {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		log.Printf("🔄 Changement Topologique/Poids détecté. Réinitialisation du Block %d...", powerBlockID)
-		resetBlockLoop(client, powerBlockID)
+		for _, powerBlockID := range powerBlockIDs {
+			log.Printf("🔄 Changement détecté (Table: %s). Réinitialisation du Block %d...", tableName, powerBlockID)
+			resetBlockLoop(client, powerBlockID)
+		}
+
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -98,7 +104,7 @@ func resetBlockLoop(client *citrineclient.Client, powerBlockID int) {
 	stateMutex.Unlock()
 
 	// Exécution immédiate
-	err := executeCalculation(client, powerBlockID, "Changement Topologique")
+	err := executeCalculation(client, powerBlockID, "Changement Topologique/Poids")
 	if err != nil {
 		log.Printf("❌ Erreur au changement topologique (Block %d): %v", powerBlockID, err)
 	}
@@ -139,6 +145,7 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 		return nil
 	}
 
+	// Gestion de l'âge des transactions et des périodes de grâce
 	stateMutex.Lock()
 	for _, ev := range evStates {
 		if _, exists := sessionStartTime[ev.TransactionID]; !exists {
@@ -152,7 +159,7 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 	}
 	stateMutex.Unlock()
 
-	// La logique d'underloading est maintenant unifiée (plus de distinction timer/topologie)
+	// Calcul unifié
 	calculateLimits(powerBlockID, maxA, evStates)
 
 	for _, ev := range evStates {
@@ -207,12 +214,16 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 	}
 
 	if len(evs) > maxActiveCars {
+		// Tri prioritaire : Poids le plus fort d'abord. 
+		// En cas d'égalité, le PLUS VIEUX (celui qui a démarré en premier) est prioritaire.
 		sort.SliceStable(evs, func(i, j int) bool {
 			if evs[i].Weight != evs[j].Weight {
 				return evs[i].Weight > evs[j].Weight
 			}
 			return evs[i].StartTime.Before(evs[j].StartTime)
 		})
+
+		// On met à 0A les bornes excédentaires (les plus récentes en fin de liste)
 		for i := maxActiveCars; i < len(evs); i++ {
 			evs[i].AllocatedLimit = 0.0
 			evs[i].Locked = true
@@ -313,9 +324,7 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 	}
 }
 
-// distributeWeightedRest répartit le courant au prorata du poids.
-// NOUVEAUTÉ : Si la division mathématique tombe sous 6A, on verrouille la borne à 6A
-// et on redistribue le reste. On ne sacrifie plus de bornes à 0A.
+// distributeWeightedRest répartit le courant de manière proportionnelle.
 func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 	minAmpsToCharge := 6.0
 
@@ -339,7 +348,6 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 		for i, ev := range unlocked {
 			theoreticalShare := remainingPower * float64(ev.Weight) / float64(totalWeight)
 			
-			// Si le pourcentage du poids lui donne moins de 6A, on force à 6A.
 			if theoreticalShare < minAmpsToCharge {
 				ev.AllocatedLimit = minAmpsToCharge
 				ev.Locked = true
@@ -358,6 +366,7 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 
 	// ÉTAPE B : Distribution du surplus pour les bornes "saines"
 	if len(unlocked) > 0 {
+		// Tri : Plus grand poids en premier. Égalité = le plus ancien en premier.
 		sort.SliceStable(unlocked, func(i, j int) bool {
 			if unlocked[i].Weight != unlocked[j].Weight {
 				return unlocked[i].Weight > unlocked[j].Weight
@@ -377,7 +386,7 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 			tempPower -= share
 		}
 
-		// On donne les restes (+1A) aux bornes les plus prioritaires (début de liste)
+		// On donne les restes (+1A) aux bornes les plus prioritaires/anciennes
 		for i := 0; i < len(unlocked) && tempPower >= 1.0; i++ {
 			unlocked[i].AllocatedLimit += 1.0
 			tempPower -= 1.0
@@ -389,30 +398,66 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 	}
 }
 
-func extractPowerBlockID(client *citrineclient.Client, payload HasuraEventPayload) int {
-	var data map[string]interface{}
+// extractPowerBlockIDs renvoie une liste de blocs impactés par l'événement
+func extractPowerBlockIDs(client *citrineclient.Client, payload HasuraEventPayload) []int {
+	blockMap := make(map[int]bool)
 
-	if payload.Event.Data["new"] != nil {
-		data = payload.Event.Data["new"].(map[string]interface{})
-	} else if payload.Event.Data["old"] != nil {
-		data = payload.Event.Data["old"].(map[string]interface{})
+	dataNew, _ := payload.Event.Data["new"].(map[string]interface{})
+	dataOld, _ := payload.Event.Data["old"].(map[string]interface{})
+	tableName := payload.Table.Name
+
+	// 1. Modification directe d'un bloc de puissance (ex: max_a)
+	if tableName == "PowerBlocks" || tableName == "power_blocks" {
+		if dataNew != nil {
+			if id, ok := dataNew["id"].(float64); ok {
+				blockMap[int(id)] = true
+			}
+		}
+	} else if tableName == "ChargingStations" || tableName == "charging_stations" {
+		// 2. Modification d'une borne (changement de poids ou d'assignation à un bloc)
+		if dataNew != nil {
+			if pbID, ok := dataNew["power_block_id"].(float64); ok {
+				blockMap[int(pbID)] = true
+			}
+		}
+		if dataOld != nil {
+			if pbID, ok := dataOld["power_block_id"].(float64); ok {
+				blockMap[int(pbID)] = true
+			}
+		}
+	} else if tableName == "Transactions" || tableName == "transactions" {
+		// 3. Nouvelle transaction ou fin de transaction
+		stationID := 0
+		if dataNew != nil {
+			if sID, ok := dataNew["stationId"].(float64); ok {
+				stationID = int(sID)
+			}
+		}
+		if stationID == 0 && dataOld != nil {
+			if sID, ok := dataOld["stationId"].(float64); ok {
+				stationID = int(sID)
+			}
+		}
+
+		if stationID != 0 {
+			pbID := fetchPowerBlockIDForStation(client, stationID)
+			if pbID != 0 {
+				blockMap[pbID] = true
+			}
+		}
 	}
 
-	if data == nil {
-		return 0
+	var result []int
+	for id := range blockMap {
+		if id != 0 {
+			result = append(result, id)
+		}
 	}
+	return result
+}
 
-	stationIDFloat, ok := data["stationId"].(float64)
-	stationID := 0
-
-	if ok {
-		stationID = int(stationIDFloat)
-	} else if idFloat, okID := data["id"].(float64); okID && (payload.Table.Name == "ChargingStations" || payload.Table.Name == "charging_stations") {
-		stationID = int(idFloat)
-	} else {
-		return 0
-	}
-
+// fetchPowerBlockIDForStation trouve le bloc de puissance d'une station
+func fetchPowerBlockIDForStation(client *citrineclient.Client, stationID int) int {
 	query := `
 		query GetPowerBlockID($stationId: Int!) {
 			ChargingStations(where: {id: {_eq: $stationId}}) {
@@ -472,6 +517,7 @@ func sendTxProfile(client *citrineclient.Client, ev *EVState, profileID int) err
 }
 
 func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float64, []*EVState, error) {
+	// Requête GraphQL sur la table ChargingStations avec son power_block_id
 	query := `
 		query GetPowerBlockState($blockId: Int!) {
 			PowerBlocks(where: {id: {_eq: $blockId}}) {
