@@ -188,3 +188,13 @@ services:
       - CITRINEOS_API_URL=http://citrine:8080
       - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
       - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
+
+  badge-service:
+      build:
+        context: ./services/badge-service
+      ports:
+        - "8085:8085"
+      environment:
+        - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
+        - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
+      restart: always

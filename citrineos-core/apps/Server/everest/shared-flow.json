@@ -1169,6 +1169,11 @@
         "multiple": false,
         "options": [
             {
+                "label": "ABCDABCD",
+                "value": "ABCDABCD",
+                "type": "str"
+            },
+            {
                 "label": "ABCDE001",
                 "value": "ABCDE001",
                 "type": "str"
