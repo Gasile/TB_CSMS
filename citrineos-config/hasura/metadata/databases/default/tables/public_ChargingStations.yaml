@@ -175,6 +175,7 @@ event_triggers:
       enable_manual: false
       update:
         columns:
+          - power_block_id
           - weight
     retry_conf:
       interval_sec: 10
