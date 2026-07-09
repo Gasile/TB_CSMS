@@ -8,6 +8,8 @@ import {
   reassignBadge,
   unassignAndBlockBadge,
   deleteBadge,
+  fetchUnknownBadges,
+  deleteUnknownBadge,
 } from "../../../api/adminApi";
 
 import { useNavigate } from "react-router-dom";
@@ -40,6 +42,10 @@ export default function AdminBadges() {
     user_id: "",
   });
 
+  // États pour les onglets et badges inconnus
+  const [activeTab, setActiveTab] = useState<"known" | "unknown">("known");
+  const [unknownBadges, setUnknownBadges] = useState<any[]>([]);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -47,8 +53,13 @@ export default function AdminBadges() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetchAdminBadgesData();
-      setData(res);
+      // On charge les deux tables en parallèle
+      const [resKnown, resUnknown] = await Promise.all([
+        fetchAdminBadgesData(),
+        fetchUnknownBadges(),
+      ]);
+      setData(resKnown);
+      setUnknownBadges(resUnknown || []);
     } catch (error) {
       console.error("Erreur de chargement des badges:", error);
     } finally {
@@ -156,6 +167,17 @@ export default function AdminBadges() {
     setIsModalOpen(true);
   };
 
+  const openCreateFromUnknown = (token: string) => {
+    setEditingBadge(null);
+    setFormData({
+      idToken: token,
+      badge_name: "",
+      status: "Accepted",
+      user_id: "",
+    });
+    setIsModalOpen(true);
+  };
+
   const openEditModal = (badge: any) => {
     setEditingBadge(badge);
     setFormData({
@@ -209,6 +231,13 @@ export default function AdminBadges() {
         if (formData.user_id) {
           await assignBadge(newAuthId, parseInt(formData.user_id));
         }
+
+        // NOUVEAU : Nettoyage de la table des inconnus
+        try {
+          await deleteUnknownBadge(formData.idToken);
+        } catch (e) {
+          // Si le badge n'était pas dans la table (création manuelle), on ignore l'erreur
+        }
       }
 
       setIsModalOpen(false);
@@ -257,126 +286,238 @@ export default function AdminBadges() {
         </button>
       </div>
 
-      {/* --- BARRE DE FILTRES --- */}
-      <div style={filterBarContainerStyle}>
-        <input
-          type="text"
-          placeholder="Rechercher par nom, token ou propriétaire..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={searchInputStyle}
-        />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          style={selectFilterStyle}
+      {/* --- ONGLETS --- */}
+      <div style={tabsContainerStyle}>
+        <button
+          style={activeTab === "known" ? activeTabStyle : inactiveTabStyle}
+          onClick={() => setActiveTab("known")}
         >
-          <option value="All">Tous les statuts</option>
-          <option value="Accepted">Acceptés uniquement</option>
-          <option value="Blocked">Bloqués uniquement</option>
-        </select>
+          Badges Enregistrés ({filteredBadges.length})
+        </button>
+        <button
+          style={activeTab === "unknown" ? activeTabStyle : inactiveTabStyle}
+          onClick={() => setActiveTab("unknown")}
+        >
+          Scans Inconnus ({unknownBadges.length})
+        </button>
       </div>
 
-      {/* --- TABLEAU (Style aligné avec AdminOverview) --- */}
-      <div style={tableCardStyle}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            textAlign: "left",
-          }}
-        >
-          <thead>
-            <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
-              <th
-                style={sortableThStyle}
-                onClick={() => handleSort("badge_name")}
-              >
-                Nom {getSortIndicator("badge_name")}
-              </th>
-              <th style={sortableThStyle} onClick={() => handleSort("idToken")}>
-                Token {getSortIndicator("idToken")}
-              </th>
-              <th
-                style={sortableThStyle}
-                onClick={() => handleSort("ownerName")}
-              >
-                Propriétaire {getSortIndicator("ownerName")}
-              </th>
-              <th style={sortableThStyle} onClick={() => handleSort("status")}>
-                Statut {getSortIndicator("status")}
-              </th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredBadges.map((badge: any) => (
-              <tr key={badge.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                <td style={tdStyle}>
-                  <strong>{badge.badge_name}</strong>
-                </td>
-                <td style={tdStyle}>
-                  <span style={{ fontFamily: "monospace", color: "#6b7280" }}>
-                    {badge.idToken}
-                  </span>
-                </td>
-                <td style={tdStyle}>{badge.ownerName}</td>
-                <td style={tdStyle}>
-                  <span style={statusBadgeStyle(badge.status)}>
-                    {badge.status}
-                  </span>
-                </td>
-                <td
-                  style={{
-                    ...tdStyle,
-                    textAlign: "right",
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: "10px",
-                  }}
-                >
-                  <button
-                    onClick={() => handleToggleStatus(badge)}
-                    style={
-                      badge.status === "Accepted"
-                        ? blockButtonStyle
-                        : activateButtonStyle
-                    }
+      {/* --- VUE : BADGES ENREGISTRÉS --- */}
+      {activeTab === "known" && (
+        <>
+          <div style={filterBarContainerStyle}>
+            <input
+              type="text"
+              placeholder="Rechercher par nom, token ou propriétaire..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={searchInputStyle}
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={selectFilterStyle}
+            >
+              <option value="All">Tous les statuts</option>
+              <option value="Accepted">Acceptés uniquement</option>
+              <option value="Blocked">Bloqués uniquement</option>
+            </select>
+          </div>
+
+          <div style={tableCardStyle}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                textAlign: "left",
+              }}
+            >
+              {/* Le thead et tbody d'origine restent identiques */}
+              <thead>
+                <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                  <th
+                    style={sortableThStyle}
+                    onClick={() => handleSort("badge_name")}
                   >
-                    {badge.status === "Accepted" ? "Bloquer" : "Activer"}
-                  </button>
-                  <button
-                    onClick={() => openEditModal(badge)}
-                    style={editButtonStyle}
+                    Nom {getSortIndicator("badge_name")}
+                  </th>
+                  <th
+                    style={sortableThStyle}
+                    onClick={() => handleSort("idToken")}
                   >
-                    Éditer
-                  </button>
-                  <button
-                    onClick={() => navigate(`/admin-badges/${badge.id}`)}
-                    style={detailsButtonStyle}
+                    Token {getSortIndicator("idToken")}
+                  </th>
+                  <th
+                    style={sortableThStyle}
+                    onClick={() => handleSort("ownerName")}
                   >
-                    Sessions ➔
-                  </button>
-                </td>
+                    Propriétaire {getSortIndicator("ownerName")}
+                  </th>
+                  <th
+                    style={sortableThStyle}
+                    onClick={() => handleSort("status")}
+                  >
+                    Statut {getSortIndicator("status")}
+                  </th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBadges.map((badge: any) => (
+                  <tr
+                    key={badge.id}
+                    style={{ borderBottom: "1px solid #f3f4f6" }}
+                  >
+                    <td style={tdStyle}>
+                      <strong>{badge.badge_name}</strong>
+                    </td>
+                    <td style={tdStyle}>
+                      <span
+                        style={{ fontFamily: "monospace", color: "#6b7280" }}
+                      >
+                        {badge.idToken}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>{badge.ownerName}</td>
+                    <td style={tdStyle}>
+                      <span style={statusBadgeStyle(badge.status)}>
+                        {badge.status}
+                      </span>
+                    </td>
+                    <td
+                      style={{
+                        ...tdStyle,
+                        textAlign: "right",
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: "10px",
+                      }}
+                    >
+                      <button
+                        onClick={() => handleToggleStatus(badge)}
+                        style={
+                          badge.status === "Accepted"
+                            ? blockButtonStyle
+                            : activateButtonStyle
+                        }
+                      >
+                        {badge.status === "Accepted" ? "Bloquer" : "Activer"}
+                      </button>
+                      <button
+                        onClick={() => openEditModal(badge)}
+                        style={editButtonStyle}
+                      >
+                        Éditer
+                      </button>
+                      <button
+                        onClick={() => navigate(`/admin-badges/${badge.id}`)}
+                        style={detailsButtonStyle}
+                      >
+                        Sessions ➔
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filteredBadges.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      style={{
+                        textAlign: "center",
+                        padding: "30px",
+                        color: "#6b7280",
+                      }}
+                    >
+                      Aucun badge ne correspond à votre recherche.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* --- VUE : SCANS INCONNUS --- */}
+      {activeTab === "unknown" && (
+        <div style={tableCardStyle}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              textAlign: "left",
+            }}
+          >
+            <thead>
+              <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                <th style={thStyle}>Token Scanné</th>
+                <th style={thStyle}>Dernière vue</th>
+                <th style={thStyle}>Borne</th>
+                <th style={{ ...thStyle, textAlign: "center" }}>Tentatives</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
               </tr>
-            ))}
-            {filteredBadges.length === 0 && (
-              <tr>
-                <td
-                  colSpan={5}
-                  style={{
-                    textAlign: "center",
-                    padding: "30px",
-                    color: "#6b7280",
-                  }}
+            </thead>
+            <tbody>
+              {unknownBadges.map((badge: any) => (
+                <tr
+                  key={badge.id_token}
+                  style={{ borderBottom: "1px solid #f3f4f6" }}
                 >
-                  Aucun badge ne correspond à votre recherche.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  <td style={tdStyle}>
+                    <span
+                      style={{
+                        fontFamily: "monospace",
+                        color: "#111827",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {badge.id_token}
+                    </span>
+                  </td>
+                  <td style={tdStyle}>
+                    {new Date(badge.last_seen).toLocaleString()}
+                  </td>
+                  <td style={tdStyle}>{badge.station_id}</td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
+                    <span
+                      style={{
+                        background: "#f3f4f6",
+                        padding: "4px 8px",
+                        borderRadius: "12px",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      {badge.attempt_count}
+                    </span>
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                    <button
+                      onClick={() => openCreateFromUnknown(badge.id_token)}
+                      style={createButtonStyle}
+                    >
+                      ➕ Enregistrer
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {unknownBadges.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    style={{
+                      textAlign: "center",
+                      padding: "30px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    Aucun scan inconnu. Votre flotte est sécurisée !
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* --- MODALE DE CRÉATION / ÉDITION --- */}
       {isModalOpen && (
@@ -691,4 +832,35 @@ const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
   userSelect: "none",
+};
+
+const tabsContainerStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "10px",
+  borderBottom: "2px solid #e5e7eb",
+  paddingBottom: "10px",
+};
+
+const activeTabStyle: React.CSSProperties = {
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  padding: "8px 16px",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontSize: "0.95rem",
+  fontWeight: "600",
+  transition: "all 0.2s ease",
+};
+
+const inactiveTabStyle: React.CSSProperties = {
+  background: "transparent",
+  color: "#6b7280",
+  border: "none",
+  padding: "8px 16px",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontSize: "0.95rem",
+  fontWeight: "600",
+  transition: "all 0.2s ease",
 };

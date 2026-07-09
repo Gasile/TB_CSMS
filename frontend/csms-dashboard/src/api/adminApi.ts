@@ -386,3 +386,31 @@ export async function updateStationWeight(stationId: number, weight: number) {
   `;
   return await fetchHasura(mutation, { stationId, weight });
 }
+
+// --- GESTION DES BADGES INCONNUS (UNKNOWN BADGES) ---
+
+export async function fetchUnknownBadges() {
+  const query = `
+    query GetUnknownBadges {
+      UnknownBadges(order_by: {last_seen: desc}) {
+        id_token
+        station_id
+        last_seen
+        attempt_count
+      }
+    }
+  `;
+  const data = await fetchHasura(query);
+  return data.UnknownBadges;
+}
+
+export async function deleteUnknownBadge(idToken: string) {
+  const mutation = `
+    mutation DeleteUnknownBadge($idToken: String!) {
+      delete_UnknownBadges_by_pk(id_token: $idToken) {
+        id_token
+      }
+    }
+  `;
+  return await fetchHasura(mutation, { idToken });
+}
