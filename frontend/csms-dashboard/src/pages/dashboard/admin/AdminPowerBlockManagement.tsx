@@ -15,21 +15,29 @@ import {
   updatePowerBlock,
   deletePowerBlock,
   updateStationPowerBlock,
+  checkStationActiveStatus,
 } from "../../../api/powerBlockApi";
 import { useNavigate } from "react-router-dom";
 
 // --- SOUS-COMPOSANT : BORNE DÉPLAÇABLE ---
+// --- SOUS-COMPOSANT : BORNE DÉPLAÇABLE ---
 function DraggableStation({ station }: { station: any }) {
+  // 1. On vérifie si la borne a une transaction active en cours
+  const isStationActive =
+    station.Transactions && station.Transactions.length > 0;
+
+  // 2. On désactive le drag and drop si la station est active
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `station-${station.id}`,
     data: { station },
+    disabled: isStationActive,
   });
 
   const style: React.CSSProperties = {
-    opacity: isDragging ? 0.2 : 1, // Devient très discret à sa place d'origine
-    cursor: "grab",
-    backgroundColor: "#fff",
-    border: "1px solid #e5e7eb",
+    opacity: isDragging ? 0.2 : isStationActive ? 0.6 : 1,
+    cursor: isStationActive ? "not-allowed" : "grab",
+    backgroundColor: isStationActive ? "#fef2f2" : "#fff", // Fond légèrement rouge si active
+    border: isStationActive ? "1px solid #fecaca" : "1px solid #e5e7eb",
     borderRadius: "10px",
     padding: "10px 12px",
     display: "flex",
@@ -38,14 +46,21 @@ function DraggableStation({ station }: { station: any }) {
     width: "140px",
     boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
     userSelect: "none",
+    position: "relative", // Permet de positionner le petit badge "Bloqué"
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    // On ne passe pas les listeners (clics) si la station est active pour éviter tout bug d'interaction
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...(isStationActive ? {} : attributes)}
+      {...(isStationActive ? {} : listeners)}
+    >
       <div
         style={{
           fontSize: "1.3rem",
-          background: "#f3f4f6",
+          background: isStationActive ? "#fee2e2" : "#f3f4f6",
           padding: "6px",
           borderRadius: "6px",
           display: "flex",
@@ -53,15 +68,20 @@ function DraggableStation({ station }: { station: any }) {
           justifyContent: "center",
         }}
       >
-        🔌
+        {isStationActive ? "⚡" : "🔌"}
       </div>
       <div
-        style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          flex: 1,
+        }}
       >
         <strong
           style={{
             fontSize: "0.85rem",
-            color: "#111827",
+            color: isStationActive ? "#991b1b" : "#111827",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -72,7 +92,7 @@ function DraggableStation({ station }: { station: any }) {
         <span
           style={{
             fontSize: "0.7rem",
-            color: "#6b7280",
+            color: isStationActive ? "#b91c1c" : "#6b7280",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -81,6 +101,26 @@ function DraggableStation({ station }: { station: any }) {
           {station.chargePointModel || "Modèle inconnu"}
         </span>
       </div>
+
+      {/* Badge indicateur de blocage */}
+      {isStationActive && (
+        <div
+          style={{
+            position: "absolute",
+            top: "-6px",
+            right: "-6px",
+            background: "#ef4444",
+            color: "white",
+            fontSize: "0.6rem",
+            padding: "2px 6px",
+            borderRadius: "10px",
+            fontWeight: "bold",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          }}
+        >
+          En charge
+        </div>
+      )}
     </div>
   );
 }
@@ -278,6 +318,23 @@ export default function PowerBlockManagement() {
     }
 
     if (draggedStation.power_block_id === newBlockId) return;
+
+    // --- NOUVEAU : VÉRIFICATION MANUELLE EN TEMPS RÉEL ---
+    try {
+      const isCurrentlyActive = await checkStationActiveStatus(
+        draggedStation.id,
+      );
+      if (isCurrentlyActive) {
+        alert(
+          "Action refusée : Une session de charge a démarré sur cette borne depuis votre dernière actualisation.",
+        );
+        loadData(); // On recharge les données pour afficher le vrai statut (rouge)
+        return; // On stoppe tout, la carte retournera à sa place
+      }
+    } catch (err) {
+      console.error("Erreur lors de la vérification du statut :", err);
+      return;
+    }
 
     // Mise à jour optimiste de l'UI
     setPowerBlocks((prev) =>

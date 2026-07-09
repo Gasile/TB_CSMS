@@ -9,16 +9,19 @@ export async function fetchPowerBlocksWithStations() {
       PowerBlocks(order_by: { name: asc }) {
         id
         name
-        max_v,
-        max_a,
-        n_phase,
+        max_v
+        max_a
+        n_phase
+        max_kw
       }
-      # On récupère toutes les bornes pour pouvoir les distribuer (les assignées et les orphelines)
       ChargingStations(order_by: { ocppConnectionName: asc }) {
         id
         ocppConnectionName
         chargePointModel
         power_block_id
+        Transactions(where: {isActive: {_eq: true}}) {
+          id
+        }
       }
     }
   `;
@@ -82,7 +85,25 @@ export async function deletePowerBlock(id: number) {
 }
 
 /**
- * Assigne (ou désassigne) une borne à un bloc de puissance (La clé du Drag & Drop !)
+ * Vérifie en temps réel si une borne possède une transaction active
+ */
+export async function checkStationActiveStatus(stationId: number) {
+  const query = `
+    query CheckStationStatus($stationId: Int!) {
+      ChargingStations_by_pk(id: $stationId) {
+        Transactions(where: {isActive: {_eq: true}}) {
+          id
+        }
+      }
+    }
+  `;
+  const result = await fetchHasura(query, { stationId });
+  const transactions = result?.ChargingStations_by_pk?.Transactions || [];
+  return transactions.length > 0;
+}
+
+/**
+ * Met à jour le bloc de puissance de la borne
  */
 export async function updateStationPowerBlock(
   stationId: number,
