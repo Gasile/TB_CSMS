@@ -64,3 +64,15 @@ delete_permissions:
         tenantId:
           _eq: x-hasura-tenant-id
     comment: ""
+event_triggers:
+  - name: notify_connector_error
+    definition:
+      enable_manual: false
+      update:
+        columns:
+          - errorCode
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://notification-service:8084/webhooks/notify

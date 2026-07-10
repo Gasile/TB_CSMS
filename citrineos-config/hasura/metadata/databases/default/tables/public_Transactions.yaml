@@ -79,6 +79,29 @@ select_permissions:
       allow_aggregations: true
     comment: ""
 event_triggers:
+  - name: notify_idle_transaction
+    definition:
+      enable_manual: false
+      update:
+        columns:
+          - is_legal
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://notification-service:8084/webhooks/notify
+  - name: notify_wait_for_energy
+    definition:
+      enable_manual: false
+      update:
+        columns:
+          - isActive
+          - chargingState
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://notification-service:8084/webhooks/notify
   - name: smart_charging_transactions
     definition:
       enable_manual: false

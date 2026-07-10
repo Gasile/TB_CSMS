@@ -1,3 +1,14 @@
 table:
   name: UnknownBadges
   schema: public
+event_triggers:
+  - name: notify_unknown_badge
+    definition:
+      enable_manual: false
+      insert:
+        columns: '*'
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://notification-service:8084/webhooks/notify
