@@ -26,7 +26,7 @@ var (
 	activeLoops           = make(map[int]context.CancelFunc)
 	lastAppliedLimits     = make(map[string]float64)
 	gracePeriodCache      = make(map[string]time.Time)
-	sessionStartTime      = make(map[string]time.Time) // Mémorise l'âge des transactions pour la priorité
+	sessionStartTime      = make(map[string]time.Time) 
 )
 
 // --- STRUCTURES DES EVENEMENTS HASURA ---
@@ -43,12 +43,13 @@ type HasuraEventPayload struct {
 type EVState struct {
 	TransactionID      string
 	OcppConnectionName string
+	Protocol           string // Indispensable pour savoir si c'est 1.6 ou 2.1
 	EvseID             int
 	Weight             int
 	CurrentConsumption float64
 	AllocatedLimit     float64
 	Locked             bool
-	StartTime          time.Time // Permet de respecter "Premier arrivé, premier servi" en cas d'égalité de poids
+	StartTime          time.Time 
 }
 
 func floor10(val float64) float64 {
@@ -77,7 +78,6 @@ func HandleTransactions(client *citrineclient.Client) http.HandlerFunc {
 			return
 		}
 
-		// On extrait TOUS les blocs concernés par cet événement (important si une borne change de bloc)
 		powerBlockIDs := extractPowerBlockIDs(client, payload)
 		if len(powerBlockIDs) == 0 {
 			w.WriteHeader(http.StatusOK)
@@ -103,13 +103,11 @@ func resetBlockLoop(client *citrineclient.Client, powerBlockID int) {
 	activeLoops[powerBlockID] = cancel
 	stateMutex.Unlock()
 
-	// Exécution immédiate
 	err := executeCalculation(client, powerBlockID, "Changement Topologique/Poids")
 	if err != nil {
 		log.Printf("❌ Erreur au changement topologique (Block %d): %v", powerBlockID, err)
 	}
 
-	// Lancement du timer de 30s
 	go func(bID int, loopCtx context.Context) {
 		ticker := time.NewTicker(CheckInterval)
 		defer ticker.Stop()
@@ -145,7 +143,6 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 		return nil
 	}
 
-	// Gestion de l'âge des transactions et des périodes de grâce
 	stateMutex.Lock()
 	for _, ev := range evStates {
 		if _, exists := sessionStartTime[ev.TransactionID]; !exists {
@@ -154,12 +151,15 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 		ev.StartTime = sessionStartTime[ev.TransactionID]
 
 		if _, exists := gracePeriodCache[ev.TransactionID]; !exists {
-			gracePeriodCache[ev.TransactionID] = time.Now().Add(90 * time.Second)
+			graceDuration := 90 * time.Second
+			if ev.Protocol == "ocpp1.6" {
+				graceDuration = 210 * time.Second
+			}
+			gracePeriodCache[ev.TransactionID] = time.Now().Add(graceDuration)
 		}
 	}
 	stateMutex.Unlock()
 
-	// Calcul unifié
 	calculateLimits(powerBlockID, maxA, evStates)
 
 	for _, ev := range evStates {
@@ -176,21 +176,31 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 			nextProfileID = 500
 		}
 
+		// Appel à la fonction corrigée
 		err = sendTxProfile(client, ev, nextProfileID)
 		if err == nil {
 			stateMutex.Lock()
 			oldLimit, hadOldLimit := lastAppliedLimits[ev.TransactionID]
 			lastAppliedLimits[ev.TransactionID] = ev.AllocatedLimit
 
-			if hadOldLimit && (ev.AllocatedLimit-oldLimit) >= 2.0 {
-				gracePeriodCache[ev.TransactionID] = time.Now().Add(90 * time.Second)
-				log.Printf("⏳ [GRÂCE] Block %d | Borne %s passe de %.1fA à %.1fA. Période de grâce 90s accordée.",
-					powerBlockID, ev.OcppConnectionName, oldLimit, ev.AllocatedLimit)
+			// --- NOUVELLE LOGIQUE DE GRÂCE ---
+			limitIncreased := (ev.AllocatedLimit - oldLimit) >= 2.0
+			isOcpp16Change := ev.Protocol == "ocpp1.6" && ev.AllocatedLimit != oldLimit
+
+			if hadOldLimit && (limitIncreased || isOcpp16Change) {
+				graceDuration := 90 * time.Second
+				if ev.Protocol == "ocpp1.6" {
+					graceDuration = 210 * time.Second
+				}
+				gracePeriodCache[ev.TransactionID] = time.Now().Add(graceDuration)
+				
+				log.Printf("⏳ [GRÂCE] Block %d | Borne %s passe de %.1fA à %.1fA. Période de grâce %.0fs accordée.",
+					powerBlockID, ev.OcppConnectionName, oldLimit, ev.AllocatedLimit, graceDuration.Seconds())
 			}
 			stateMutex.Unlock()
 
-			log.Printf("✅ [%s] Block %d | Profil envoyé à %s (Tx: %s, Poids: %d) : Limite %.1fA",
-				reason, powerBlockID, ev.OcppConnectionName, ev.TransactionID, ev.Weight, ev.AllocatedLimit)
+			log.Printf("✅ [%s] Block %d | Profil envoyé à %s [%s] (Tx: %s, Poids: %d) : Limite %.1fA",
+				reason, powerBlockID, ev.OcppConnectionName, ev.Protocol, ev.TransactionID, ev.Weight, ev.AllocatedLimit)
 		} else {
 			log.Printf("❌ Echec envoi TxProfile vers %s: %v", ev.OcppConnectionName, err)
 		}
@@ -202,7 +212,6 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 	minAmpsToCharge := 6.0
 
-	// --- PHASE 1 : EXCLUSION PHYSIQUE ABSOLUE ---
 	maxActiveCars := int(maxA / minAmpsToCharge)
 
 	if maxActiveCars == 0 {
@@ -214,8 +223,6 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 	}
 
 	if len(evs) > maxActiveCars {
-		// Tri prioritaire : Poids le plus fort d'abord. 
-		// En cas d'égalité, le PLUS VIEUX (celui qui a démarré en premier) est prioritaire.
 		sort.SliceStable(evs, func(i, j int) bool {
 			if evs[i].Weight != evs[j].Weight {
 				return evs[i].Weight > evs[j].Weight
@@ -223,14 +230,12 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 			return evs[i].StartTime.Before(evs[j].StartTime)
 		})
 
-		// On met à 0A les bornes excédentaires (les plus récentes en fin de liste)
 		for i := maxActiveCars; i < len(evs); i++ {
 			evs[i].AllocatedLimit = 0.0
 			evs[i].Locked = true
 		}
 	}
 
-	// --- PHASE 2 : DETECTION UNDERLOADING ---
 	var unlockedEVs []*EVState
 	totalOriginalActiveWeight := 0
 	for _, ev := range evs {
@@ -303,8 +308,8 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 					unallocatedPower -= neededPower
 
 					log.Printf("📉 [DEBUG UNDERLOADING] Block %d | %s (Poids %d) en sous-charge. "+
-						"Cons: %.2fA | Limite Act: %.1fA | Nvlle Limite: Round(%.2f) + 1A = %.1fA",
-						powerBlockID, ev.OcppConnectionName, ev.Weight, ev.CurrentConsumption, currentLimit, ev.CurrentConsumption, neededPower)
+						"Cons: %.2fA | Limite Act: %.1fA | Nvlle Limite: %.1fA",
+						powerBlockID, ev.OcppConnectionName, ev.Weight, ev.CurrentConsumption, currentLimit, neededPower)
 
 					unlockedEVs = append(unlockedEVs[:i], unlockedEVs[i+1:]...)
 					foundUnderloaded = true
@@ -318,13 +323,11 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 		}
 	}
 
-	// --- PHASE 3 : DISTRIBUTION MATHEMATHIQUE PROTEGEE ---
 	if len(unlockedEVs) > 0 {
 		distributeWeightedRest(unlockedEVs, unallocatedPower)
 	}
 }
 
-// distributeWeightedRest répartit le courant de manière proportionnelle.
 func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 	minAmpsToCharge := 6.0
 
@@ -333,7 +336,6 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 		unlocked = append(unlocked, ev)
 	}
 
-	// ÉTAPE A : Sécurisation du socle vital (6.0A)
 	for len(unlocked) > 0 {
 		totalWeight := 0
 		for _, ev := range unlocked {
@@ -364,9 +366,7 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 		}
 	}
 
-	// ÉTAPE B : Distribution du surplus pour les bornes "saines"
 	if len(unlocked) > 0 {
-		// Tri : Plus grand poids en premier. Égalité = le plus ancien en premier.
 		sort.SliceStable(unlocked, func(i, j int) bool {
 			if unlocked[i].Weight != unlocked[j].Weight {
 				return unlocked[i].Weight > unlocked[j].Weight
@@ -386,7 +386,6 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 			tempPower -= share
 		}
 
-		// On donne les restes (+1A) aux bornes les plus prioritaires/anciennes
 		for i := 0; i < len(unlocked) && tempPower >= 1.0; i++ {
 			unlocked[i].AllocatedLimit += 1.0
 			tempPower -= 1.0
@@ -398,7 +397,6 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 	}
 }
 
-// extractPowerBlockIDs renvoie une liste de blocs impactés par l'événement
 func extractPowerBlockIDs(client *citrineclient.Client, payload HasuraEventPayload) []int {
 	blockMap := make(map[int]bool)
 
@@ -406,7 +404,6 @@ func extractPowerBlockIDs(client *citrineclient.Client, payload HasuraEventPaylo
 	dataOld, _ := payload.Event.Data["old"].(map[string]interface{})
 	tableName := payload.Table.Name
 
-	// 1. Modification directe d'un bloc de puissance (ex: max_a)
 	if tableName == "PowerBlocks" || tableName == "power_blocks" {
 		if dataNew != nil {
 			if id, ok := dataNew["id"].(float64); ok {
@@ -414,7 +411,6 @@ func extractPowerBlockIDs(client *citrineclient.Client, payload HasuraEventPaylo
 			}
 		}
 	} else if tableName == "ChargingStations" || tableName == "charging_stations" {
-		// 2. Modification d'une borne (changement de poids ou d'assignation à un bloc)
 		if dataNew != nil {
 			if pbID, ok := dataNew["power_block_id"].(float64); ok {
 				blockMap[int(pbID)] = true
@@ -426,7 +422,6 @@ func extractPowerBlockIDs(client *citrineclient.Client, payload HasuraEventPaylo
 			}
 		}
 	} else if tableName == "Transactions" || tableName == "transactions" {
-		// 3. Nouvelle transaction ou fin de transaction
 		stationID := 0
 		if dataNew != nil {
 			if sID, ok := dataNew["stationId"].(float64); ok {
@@ -456,7 +451,6 @@ func extractPowerBlockIDs(client *citrineclient.Client, payload HasuraEventPaylo
 	return result
 }
 
-// fetchPowerBlockIDForStation trouve le bloc de puissance d'une station
 func fetchPowerBlockIDForStation(client *citrineclient.Client, stationID int) int {
 	query := `
 		query GetPowerBlockID($stationId: Int!) {
@@ -484,40 +478,20 @@ func fetchPowerBlockIDForStation(client *citrineclient.Client, stationID int) in
 	return 0
 }
 
+// CORRECTION ICI : La fonction délègue la construction du JSON au client intelligent
 func sendTxProfile(client *citrineclient.Client, ev *EVState, profileID int) error {
-	now := time.Now().UTC()
-
-	payload := citrineclient.SetChargingProfilePayload{
-		EvseID: ev.EvseID,
-		ChargingProfile: citrineclient.ChargingProfile{
-			ID:                     profileID,
-			StackLevel:             profileID,
-			ChargingProfilePurpose: "TxProfile",
-			ChargingProfileKind:    "Absolute",
-			TransactionId:          ev.TransactionID,
-			ChargingSchedule: []citrineclient.ChargingSchedule{
-				{
-					ID:               profileID,
-					StartSchedule:    now.Format(time.RFC3339),
-					ChargingRateUnit: "A",
-					ChargingSchedulePeriod: []citrineclient.ChargingSchedulePeriod{
-						{
-							StartPeriod:  0,
-							Limit:        citrineclient.JSONFloat(ev.AllocatedLimit),
-							NumberPhases: 3,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	url := fmt.Sprintf("%s/ocpp/2.1/smartcharging/setChargingProfile?identifier=%s&tenantId=1", client.CitrineURL, ev.OcppConnectionName)
-	return client.CallCitrineOS(url, payload, "Set TxProfile")
+	return client.SendSetChargingProfile(
+		ev.OcppConnectionName,
+		ev.Protocol,
+		ev.EvseID,
+		profileID,
+		ev.AllocatedLimit,
+		"TxProfile",
+		ev.TransactionID,
+	)
 }
 
 func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float64, []*EVState, error) {
-	// Requête GraphQL sur la table ChargingStations avec son power_block_id
 	query := `
 		query GetPowerBlockState($blockId: Int!) {
 			PowerBlocks(where: {id: {_eq: $blockId}}) {
@@ -525,6 +499,7 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 			}
 			ChargingStations(where: {power_block_id: {_eq: $blockId}}) {
 				ocppConnectionName
+				protocol
 				weight
 				Evses {
 					id
@@ -549,6 +524,7 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 			} `json:"PowerBlocks"`
 			ChargingStations []struct {
 				OcppConnectionName string `json:"ocppConnectionName"`
+				Protocol           string `json:"protocol"`
 				Weight             *int   `json:"weight"`
 				Evses              []struct {
 					ID         int `json:"id"`
@@ -611,6 +587,7 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 			evs = append(evs, &EVState{
 				TransactionID:      tx.TransactionID,
 				OcppConnectionName: station.OcppConnectionName,
+				Protocol:           station.Protocol,
 				EvseID:             realEvseID,
 				Weight:             stationWeight,
 				CurrentConsumption: currentConsumption,

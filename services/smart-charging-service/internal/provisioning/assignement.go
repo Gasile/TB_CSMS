@@ -1,11 +1,12 @@
 package provisioning
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"csms/smart-charging/internal/citrineclient"
 )
@@ -22,10 +23,10 @@ type HasuraEventPayload struct {
 type StationAssignment struct {
 	ID                 int    `json:"id"`
 	OcppConnectionName string `json:"ocppConnectionName"`
+	Protocol           string `json:"protocol"` // NOUVEAU : Récupéré via l'Event Trigger Hasura
 	PowerBlockID       *int   `json:"power_block_id"`
 }
 
-// HandleStationAssignment retourne un Handler configuré avec le client API
 func HandleStationAssignment(client *citrineclient.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -44,38 +45,46 @@ func HandleStationAssignment(client *citrineclient.Client) http.HandlerFunc {
 		data := payload.Event.Data.New
 
 		if data.OcppConnectionName == "" {
+			log.Printf("❌ Payload invalide : ocppConnectionName manquant.")
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		evseIDs, err := client.FetchEvseIDs(data.ID)
+		evseIDs, err := fetchEvseIDs(client, data.ID)
 		if err != nil {
-			log.Printf("❌ Erreur GraphQL EVSEs: %v", err)
+			log.Printf("❌ Erreur lors de la récupération des EVSEs: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
 		if len(evseIDs) == 0 {
+			log.Printf("⚠️ Aucun EVSE trouvé pour la borne %s. Assignation ignorée.", data.OcppConnectionName)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
 		var lastErr error
 		for _, evseID := range evseIDs {
+			profileID := 100 + evseID // ID unique
 			if data.PowerBlockID != nil {
-				log.Printf("🔗 Assignation : Borne %s (EVSE %d)", data.OcppConnectionName, evseID)
-				if err := sendSetChargingProfile(client, data.OcppConnectionName, evseID); err != nil {
+				log.Printf("🔗 Assignation : Borne %s [%s] (EVSE %d) -> Block %d", data.OcppConnectionName, data.Protocol, evseID, *data.PowerBlockID)
+				
+				// NOUVEAU : Appel intelligent (limit = 0.0A, TxDefaultProfile)
+				if err := client.SendSetChargingProfile(data.OcppConnectionName, data.Protocol, evseID, profileID, 0.0, "TxDefaultProfile", ""); err != nil {
 					lastErr = err
 				}
 			} else {
-				log.Printf("🔓 Désassignation : Borne %s (EVSE %d)", data.OcppConnectionName, evseID)
-				if err := sendClearChargingProfile(client, data.OcppConnectionName, evseID); err != nil {
+				log.Printf("🔓 Désassignation : Borne %s [%s] (EVSE %d) libérée", data.OcppConnectionName, data.Protocol, evseID)
+				
+				// NOUVEAU : Appel intelligent Clear
+				if err := client.SendClearChargingProfile(data.OcppConnectionName, data.Protocol, evseID, profileID, "TxDefaultProfile"); err != nil {
 					lastErr = err
 				}
 			}
 		}
 
 		if lastErr != nil {
+			log.Printf("❌ Echec sur au moins un EVSE: %v", lastErr)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -84,47 +93,60 @@ func HandleStationAssignment(client *citrineclient.Client) http.HandlerFunc {
 	}
 }
 
-func sendSetChargingProfile(client *citrineclient.Client, identifier string, evseID int) error {
-	profileID := 100 + evseID
-	now := time.Now().UTC()
-	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-
-	payload := citrineclient.SetChargingProfilePayload{
-		EvseID: evseID,
-		ChargingProfile: citrineclient.ChargingProfile{
-			ID:                     profileID,
-			StackLevel:             1,
-			ChargingProfilePurpose: "TxDefaultProfile",
-			ChargingProfileKind:    "Absolute",
-			ChargingSchedule: []citrineclient.ChargingSchedule{
-				{
-					ID:               profileID,
-					StartSchedule:    midnight.Format(time.RFC3339),
-					ChargingRateUnit: "A",
-					ChargingSchedulePeriod: []citrineclient.ChargingSchedulePeriod{
-						{
-							StartPeriod:  0,
-							Limit:        0.0,
-							NumberPhases: 3,
-						},
-					},
-				},
-			},
-		},
+func fetchEvseIDs(client *citrineclient.Client, stationID int) ([]int, error) {
+	if client.HasuraURL == "" || client.HasuraSecret == "" {
+		return []int{1, 2}, nil
 	}
 
-	url := fmt.Sprintf("%s/ocpp/2.1/smartcharging/setChargingProfile?identifier=%s&tenantId=1", client.CitrineURL, identifier)
-	return client.CallCitrineOS(url, payload, "SetChargingProfile (0A)")
-}
-
-func sendClearChargingProfile(client *citrineclient.Client, identifier string, evseID int) error {
-	profileID := 100 + evseID
-	payload := citrineclient.ClearChargingProfilePayload{
-		ChargingProfileID:      profileID,
-		ChargingProfilePurpose: "TxDefaultProfile",
-		EvseID:                 evseID,
+	query := `
+		query GetEvses($stationId: Int!) {
+			Evses(where: {stationId: {_eq: $stationId}}) {
+				evseTypeId
+			}
+		}
+	`
+	payload := map[string]interface{}{
+		"query":     query,
+		"variables": map[string]interface{}{"stationId": stationID},
 	}
 
-	url := fmt.Sprintf("%s/ocpp/2.1/smartcharging/clearChargingProfile?identifier=%s&tenantId=1", client.CitrineURL, identifier)
-	return client.CallCitrineOS(url, payload, "ClearChargingProfile")
+	jsonValue, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", client.HasuraURL, bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-hasura-admin-secret", client.HasuraSecret)
+
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+
+	var graphQLResp struct {
+		Data struct {
+			Evses []struct {
+				EvseTypeID int `json:"evseTypeId"`
+			} `json:"Evses"`
+		} `json:"data"`
+		Errors []interface{} `json:"errors"`
+	}
+
+	if err := json.Unmarshal(bodyBytes, &graphQLResp); err != nil {
+		return nil, fmt.Errorf("erreur décodage GraphQL: %v", err)
+	}
+	if len(graphQLResp.Errors) > 0 {
+		return nil, fmt.Errorf("erreur GraphQL Hasura: %v", graphQLResp.Errors)
+	}
+
+	var evseIDs []int
+	for _, evse := range graphQLResp.Data.Evses {
+		evseIDs = append(evseIDs, evse.EvseTypeID)
+	}
+
+	return evseIDs, nil
 }
