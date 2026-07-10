@@ -127,12 +127,62 @@ insert_permissions:
       check:
         tenantId:
           _eq: x-hasura-tenant-id
-      columns: '*'
+      columns:
+        - capabilities
+        - chargeBoxSerialNumber
+        - chargePointModel
+        - chargePointSerialNumber
+        - chargePointVendor
+        - coordinates
+        - createdAt
+        - firmwareVersion
+        - floorLevel
+        - iccid
+        - id
+        - imsi
+        - isOnline
+        - latestOcppMessageTimestamp
+        - locationId
+        - meterSerialNumber
+        - meterType
+        - ocppConnectionName
+        - parkingRestrictions
+        - power_block_id
+        - protocol
+        - tenantId
+        - updatedAt
+        - use16StatusNotification0
+        - weight
     comment: ""
 select_permissions:
   - role: user
     permission:
-      columns: '*'
+      columns:
+        - capabilities
+        - chargeBoxSerialNumber
+        - chargePointModel
+        - chargePointSerialNumber
+        - chargePointVendor
+        - coordinates
+        - createdAt
+        - firmwareVersion
+        - floorLevel
+        - iccid
+        - id
+        - imsi
+        - isOnline
+        - latestOcppMessageTimestamp
+        - locationId
+        - meterSerialNumber
+        - meterType
+        - ocppConnectionName
+        - parkingRestrictions
+        - power_block_id
+        - protocol
+        - tenantId
+        - updatedAt
+        - use16StatusNotification0
+        - weight
       filter:
         tenantId:
           _eq: x-hasura-tenant-id
@@ -141,7 +191,32 @@ select_permissions:
 update_permissions:
   - role: user
     permission:
-      columns: '*'
+      columns:
+        - capabilities
+        - chargeBoxSerialNumber
+        - chargePointModel
+        - chargePointSerialNumber
+        - chargePointVendor
+        - coordinates
+        - createdAt
+        - firmwareVersion
+        - floorLevel
+        - iccid
+        - id
+        - imsi
+        - isOnline
+        - latestOcppMessageTimestamp
+        - locationId
+        - meterSerialNumber
+        - meterType
+        - ocppConnectionName
+        - parkingRestrictions
+        - power_block_id
+        - protocol
+        - tenantId
+        - updatedAt
+        - use16StatusNotification0
+        - weight
       filter:
         tenantId:
           _eq: x-hasura-tenant-id

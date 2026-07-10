@@ -95,8 +95,7 @@ event_triggers:
       enable_manual: false
       update:
         columns:
-          - isActive
-          - chargingState
+          - allocated_limit
     retry_conf:
       interval_sec: 10
       num_retries: 0
