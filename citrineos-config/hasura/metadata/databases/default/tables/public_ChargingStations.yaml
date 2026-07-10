@@ -165,6 +165,7 @@ event_triggers:
       update:
         columns:
           - power_block_id
+          - protocol
     retry_conf:
       interval_sec: 10
       num_retries: 0
