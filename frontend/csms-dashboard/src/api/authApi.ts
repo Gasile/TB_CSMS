@@ -2,132 +2,77 @@ import type { UserSession } from "../types";
 import { fetchHasura } from "./hasuraClient";
 
 /**
- * Génère le hash SHA-256 d'un mot de passe pour la vérification ou l'inscription
- */
-async function hashPassword(password: string): Promise<string> {
-  const msgBuffer = new TextEncoder().encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-/**
- * Vérifie les identifiants de connexion et retourne la session utilisateur
+ * Vérifie les identifiants de connexion via le service Go Auth et retourne la session + JWT
  */
 export async function loginUser(
   email: string,
   passwordInput: string,
-): Promise<UserSession> {
-  const query = `
-    query LoginCheck($email: String!) {
-      Users(where: {email: {_eq: $email}}) {
-        id
-        first_name
-        last_name
-        password_hash
-        role
-        email
-      }
-    }
-  `;
+): Promise<{ user: UserSession; token: string }> {
+  const response = await fetch("http://localhost:8086/api/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password: passwordInput }),
+  });
 
-  const data = await fetchHasura(query, { email });
-
-  if (!data.Users || data.Users.length === 0) {
-    throw new Error("Utilisateur introuvable.");
+  if (!response.ok) {
+    throw new Error("Identifiants incorrects ou serveur injoignable.");
   }
 
-  const dbUser = data.Users[0];
-  const inputPasswordHash = await hashPassword(passwordInput);
+  const data = await response.json();
 
-  if (inputPasswordHash === dbUser.password_hash) {
-    return {
-      id: dbUser.id,
-      firstName: dbUser.first_name,
-      lastName: dbUser.last_name,
-      email: dbUser.email,
-      role: dbUser.role,
-    };
-  } else {
-    throw new Error("Mot de passe incorrect.");
-  }
+  // Mappage de la réponse plate de Go vers l'objet attendu par React
+  const userData = {
+    id: Number(data.id),
+    firstName: data.firstName,
+    lastName: data.lastName,
+    email: data.email,
+    role: data.role,
+  };
+
+  return {
+    user: userData,
+    token: data.token,
+  };
 }
 
 /**
- * Génère un jeton de réinitialisation et l'enregistre dans la base de données
+ * Demande un lien de réinitialisation via le service Go
  */
 export async function requestPasswordReset(email: string): Promise<string> {
-  const token = crypto.randomUUID();
+  const response = await fetch("http://localhost:8086/api/forgot-password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
 
-  const expirationDate = new Date();
-  expirationDate.setHours(expirationDate.getHours() + 1);
-  const expiresAt = expirationDate.toISOString();
-
-  const mutation = `
-    mutation SetResetToken($email: String!, $token: String!, $expiresAt: timestamptz!) {
-      update_Users(where: {email: {_eq: $email}}, _set: {reset_token: $token, reset_token_expires: $expiresAt}) {
-        affected_rows
-      }
-    }
-  `;
-
-  const data = await fetchHasura(mutation, { email, token, expiresAt });
-
-  if (!data.update_Users || data.update_Users.affected_rows === 0) {
+  if (!response.ok) {
     throw new Error("Si cet e-mail existe, un lien vous a été envoyé.");
   }
 
-  const resetLink = `http://localhost:5173/reset-password/${token}`;
-
-  console.log(
-    "%c=== SIMULATION D'ENVOI D'E-MAIL ===",
-    "color: #4CAF50; font-weight: bold;",
-  );
-  console.log(`%cDestinataire : ${email}`, "color: #2196F3");
-  console.log(`%cLien de réinitialisation : ${resetLink}`, "color: #2196F3");
-  console.log(
-    "%c==================================",
-    "color: #4CAF50; font-weight: bold;",
-  );
-
-  return resetLink;
+  const data = await response.json();
+  return data.resetLink || "";
 }
 
 /**
- * Valide le jeton et met à jour le mot de passe
+ * Valide et enregistre le nouveau mot de passe via le service Go
  */
 export async function resetPassword(
   token: string,
   newPasswordInput: string,
 ): Promise<boolean> {
-  const newPasswordHash = await hashPassword(newPasswordInput);
-  const now = new Date().toISOString();
-
-  const mutation = `
-    mutation UpdatePasswordWithToken($token: String!, $now: timestamptz!, $newHash: String!) {
-      update_Users(
-        where: {
-          reset_token: {_eq: $token},
-          reset_token_expires: {_gt: $now} 
-        },
-        _set: {
-          password_hash: $newHash,
-          reset_token: null,
-          reset_token_expires: null
-        }
-      ) {
-        affected_rows
-      }
-    }
-  `;
-
-  const data = await fetchHasura(mutation, {
-    token,
-    now,
-    newHash: newPasswordHash,
+  const response = await fetch("http://localhost:8086/api/reset-password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token, password: newPasswordInput }),
   });
 
-  if (!data.update_Users || data.update_Users.affected_rows === 0) {
+  if (!response.ok) {
     throw new Error("Ce lien de réinitialisation est invalide ou a expiré.");
   }
 
@@ -135,7 +80,7 @@ export async function resetPassword(
 }
 
 /**
- * Crée un nouvel utilisateur avec le rôle "User" par défaut
+ * Crée un nouvel utilisateur en passant par le microservice Go Auth (Format strict camelCase)
  */
 export async function registerUser(
   firstName: string,
@@ -143,109 +88,98 @@ export async function registerUser(
   email: string,
   passwordInput: string,
 ): Promise<boolean> {
-  const passwordHash = await hashPassword(passwordInput);
+  const response = await fetch("http://localhost:8086/api/register", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      password: passwordInput,
+    }),
+  });
 
-  const mutation = `
-    mutation RegisterUser($firstName: String!, $lastName: String!, $email: String!, $passwordHash: String!) {
-      insert_Users_one(object: {
-        first_name: $firstName,
-        last_name: $lastName,
-        email: $email,
-        password_hash: $passwordHash,
-        role: "User"
-      }) {
-        id
-      }
-    }
-  `;
-
-  try {
-    await fetchHasura(mutation, { firstName, lastName, email, passwordHash });
-    return true;
-  } catch (err: any) {
-    if (err.message.includes("Uniqueness violation")) {
+  if (!response.ok) {
+    const errorText = await response.text();
+    if (errorText.includes("Unique") || errorText.includes("already")) {
       throw new Error("Cette adresse e-mail est déjà associée à un compte.");
     }
-    throw new Error(err.message || "Erreur lors de l'inscription.");
+    throw new Error(errorText || "Erreur lors de l'inscription.");
   }
+
+  return true;
 }
 
 /**
- * Met à jour l'e-mail après avoir vérifié le mot de passe actuel
+ * Met à jour l'e-mail via le service Go (Format strict camelCase + userId en string)
  */
 export async function updateEmailSecure(
   userId: number,
   currentPasswordUnhashed: string,
   newEmail: string,
 ): Promise<boolean> {
-  const currentHash = await hashPassword(currentPasswordUnhashed);
+  const token = localStorage.getItem("jwt_token");
 
-  const checkQuery = `
-    query CheckPass($id: Int!, $hash: String!) {
-      Users(where: {id: {_eq: $id}, password_hash: {_eq: $hash}}) { id }
-    }
-  `;
+  const response = await fetch(
+    "http://localhost:8086/api/profile/update-email",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        userId: String(userId), // Forcer la conversion en texte requise par le type string en Go
+        currentPassword: currentPasswordUnhashed,
+        newEmail: newEmail,
+      }),
+    },
+  );
 
-  const checkData = await fetchHasura(checkQuery, {
-    id: userId,
-    hash: currentHash,
-  });
-
-  if (!checkData.Users || checkData.Users.length === 0) {
-    throw new Error("Le mot de passe actuel est incorrect.");
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      errorText || "Impossible de mettre à jour l'adresse e-mail.",
+    );
   }
 
-  const updateMutation = `
-    mutation UpdateEmail($id: Int!, $email: String!) {
-      update_Users_by_pk(pk_columns: {id: $id}, _set: {email: $email}) { id }
-    }
-  `;
-
-  try {
-    await fetchHasura(updateMutation, { id: userId, email: newEmail });
-    return true;
-  } catch (err: any) {
-    if (err.message.includes("Uniqueness violation")) {
-      throw new Error(
-        "Cette adresse e-mail est déjà utilisée par un autre compte.",
-      );
-    }
-    throw new Error("Erreur lors de la mise à jour de l'e-mail.");
-  }
+  return true;
 }
 
 /**
- * Met à jour le mot de passe après avoir vérifié l'actuel
+ * Met à jour le mot de passe via le service Go (Format strict camelCase + userId en string)
  */
 export async function updatePasswordSecure(
   userId: number,
   currentPasswordUnhashed: string,
   newPasswordUnhashed: string,
 ): Promise<boolean> {
-  const currentHash = await hashPassword(currentPasswordUnhashed);
+  const token = localStorage.getItem("jwt_token");
 
-  const checkQuery = `
-    query CheckPass($id: Int!, $hash: String!) {
-      Users(where: {id: {_eq: $id}, password_hash: {_eq: $hash}}) { id }
-    }
-  `;
+  const response = await fetch(
+    "http://localhost:8086/api/profile/update-password",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        userId: String(userId), // Forcer la conversion en texte requise par le type string en Go
+        currentPassword: currentPasswordUnhashed,
+        newPassword: newPasswordUnhashed,
+      }),
+    },
+  );
 
-  const checkData = await fetchHasura(checkQuery, {
-    id: userId,
-    hash: currentHash,
-  });
-
-  if (!checkData.Users || checkData.Users.length === 0) {
-    throw new Error("Le mot de passe actuel est incorrect.");
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      errorText || "Impossible de mettre à jour le mot de passe.",
+    );
   }
 
-  const newHash = await hashPassword(newPasswordUnhashed);
-  const updateMutation = `
-    mutation UpdatePassword($id: Int!, $hash: String!) {
-      update_Users_by_pk(pk_columns: {id: $id}, _set: {password_hash: $hash}) { id }
-    }
-  `;
-
-  await fetchHasura(updateMutation, { id: userId, hash: newHash });
   return true;
 }

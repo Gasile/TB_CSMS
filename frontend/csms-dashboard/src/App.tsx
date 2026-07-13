@@ -45,7 +45,7 @@ function AppRoutes() {
           path="/login"
           element={
             !user ? (
-              <LoginForm onLoginSuccess={login} />
+              <LoginForm onLoginSuccess={(user, token) => login(user, token)} />
             ) : (
               <Navigate to={getHomeRoute()} replace /> /* <-- MODIFIÉ */
             )

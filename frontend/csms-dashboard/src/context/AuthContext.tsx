@@ -11,7 +11,8 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (userData: User) => void;
+  // MODIFICATION : La fonction login accepte désormais le token en second paramètre
+  login: (userData: User, token: string) => void;
   logout: () => void;
 }
 
@@ -19,30 +20,49 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false); // Pour éviter les clignotements au F5
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // 1. Au chargement de l'application, on lit le sessionStorage
+  // 1. Vérification au chargement
   useEffect(() => {
     const storedUser = sessionStorage.getItem("csms_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const storedToken = localStorage.getItem("jwt_token");
+
+    // SÉCURITÉ : On s'assure que les données existent ET qu'elles ne sont pas corrompues ("undefined")
+    if (storedUser && storedUser !== "undefined" && storedToken) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        // Si le JSON est illisible, on vide la mémoire corrompue
+        sessionStorage.removeItem("csms_user");
+        localStorage.removeItem("jwt_token");
+      }
+    } else {
+      // Si l'un des deux manque, on nettoie tout par précaution
+      sessionStorage.removeItem("csms_user");
+      localStorage.removeItem("jwt_token");
     }
     setIsInitialized(true);
   }, []);
 
-  // 2. Fonction de connexion (appelée par le formulaire)
-  const login = (userData: User) => {
+  // La fonction login accepte désormais le token de manière optionnelle (token?)
+  const login = (userData: User, token?: string) => {
     setUser(userData);
-    sessionStorage.setItem("csms_user", JSON.stringify(userData)); // Sauvegarde
+    sessionStorage.setItem("csms_user", JSON.stringify(userData));
+
+    // 🔥 CORRECTION : On ne sauvegarde le token QUE s'il est explicitement fourni !
+    if (token) {
+      localStorage.setItem("jwt_token", token);
+    }
   };
 
-  // 3. Fonction de déconnexion (appelée par le menu)
+  // 3. Déconnexion
   const logout = () => {
     setUser(null);
-    sessionStorage.removeItem("csms_user"); // Nettoyage
+    sessionStorage.removeItem("csms_user");
+    localStorage.removeItem("jwt_token"); // NOUVEAU : Destruction du token
+    window.location.href = "/login"; // Redirection de sécurité
   };
 
-  // On ne rend l'application que lorsque la vérification initiale est terminée
   if (!isInitialized) return null;
 
   return (

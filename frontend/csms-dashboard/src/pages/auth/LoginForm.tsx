@@ -5,7 +5,8 @@ import { loginUser } from "../../api/authApi";
 export default function LoginForm({
   onLoginSuccess,
 }: {
-  onLoginSuccess: (user: any) => void;
+  // 1. MODIFIÉ : On précise que la fonction attend maintenant le user ET le token
+  onLoginSuccess: (user: any, token: string) => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,9 +18,11 @@ export default function LoginForm({
     setIsLoading(true);
 
     try {
-      // Ton API fait le fetch, le hash, et renvoie directement la session formatée !
-      const session = await loginUser(loginEmail, loginPassword);
-      onLoginSuccess(session);
+      // 2. MODIFIÉ : L'API renvoie maintenant un objet contenant { user, token }
+      const { user, token } = await loginUser(loginEmail, loginPassword);
+
+      // 3. MODIFIÉ : On envoie le user et le token au composant parent (qui gère l'AuthContext)
+      onLoginSuccess(user, token);
     } catch (err: any) {
       setError(err.message || "Erreur de connexion.");
     } finally {
