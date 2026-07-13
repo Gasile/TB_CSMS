@@ -39,7 +39,7 @@ select_permissions:
         - role
       filter:
         id:
-          _eq: X-Hasura-User-Id
+          _eq: x-hasura-user-id
     comment: ""
 update_permissions:
   - role: anonymous
@@ -65,6 +65,6 @@ update_permissions:
         - password_hash
       filter:
         id:
-          _eq: X-Hasura-User-Id
+          _eq: x-hasura-user-id
       check: null
     comment: ""

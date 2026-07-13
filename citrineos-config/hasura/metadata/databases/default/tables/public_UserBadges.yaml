@@ -13,7 +13,7 @@ insert_permissions:
     permission:
       check:
         user_id:
-          _eq: X-Hasura-User-Id
+          _eq: x-hasura-user-id
       columns:
         - authorization_id
         - user_id
@@ -27,12 +27,12 @@ select_permissions:
         - user_id
       filter:
         user_id:
-          _eq: X-Hasura-User-Id
+          _eq: x-hasura-user-id
     comment: ""
 delete_permissions:
   - role: user
     permission:
       filter:
         user_id:
-          _eq: X-Hasura-User-Id
+          _eq: x-hasura-user-id
     comment: ""

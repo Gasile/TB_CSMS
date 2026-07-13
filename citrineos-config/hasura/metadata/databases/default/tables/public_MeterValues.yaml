@@ -27,7 +27,7 @@ select_permissions:
       filter:
         Transaction:
           user_id:
-            _eq: X-Hasura-User-Id
+            _eq: x-hasura-user-id
       allow_aggregations: true
     comment: ""
 event_triggers:
