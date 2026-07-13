@@ -16,6 +16,17 @@ array_relationships:
         table:
           name: UserBadges
           schema: public
+insert_permissions:
+  - role: anonymous
+    permission:
+      check: {}
+      columns:
+        - email
+        - first_name
+        - last_name
+        - password_hash
+        - role
+    comment: ""
 select_permissions:
   - role: user
     permission:
@@ -31,6 +42,20 @@ select_permissions:
           _eq: X-Hasura-User-Id
     comment: ""
 update_permissions:
+  - role: anonymous
+    permission:
+      columns:
+        - password_hash
+        - reset_token
+        - reset_token_expires
+      filter:
+        _or:
+          - email:
+              _eq: X-Hasura-User-Id
+          - reset_token:
+              _eq: X-Hasura-User-Id
+      check: null
+    comment: ""
   - role: user
     permission:
       columns:
