@@ -199,6 +199,9 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 			}
 			stateMutex.Unlock()
 
+			// --- NOUVEAU : Sauvegarde de la limite dans Hasura ---
+			go updateTransactionLimitInDB(client, ev.TransactionID, ev.AllocatedLimit)
+
 			log.Printf("✅ [%s] Block %d | Profil envoyé à %s [%s] (Tx: %s, Poids: %d) : Limite %.1fA",
 				reason, powerBlockID, ev.OcppConnectionName, ev.Protocol, ev.TransactionID, ev.Weight, ev.AllocatedLimit)
 		} else {
@@ -449,6 +452,23 @@ func extractPowerBlockIDs(client *citrineclient.Client, payload HasuraEventPaylo
 		}
 	}
 	return result
+}
+
+// --- NOUVELLE FONCTION (à ajouter n'importe où, par exemple juste avant extractPowerBlockIDs) ---
+func updateTransactionLimitInDB(client *citrineclient.Client, txID string, limit float64) {
+	if client.HasuraURL == "" {
+		return
+	}
+	query := `
+		mutation UpdateTxLimit($txId: String!, $limit: numeric!) {
+			update_Transactions(where: {transactionId: {_eq: $txId}}, _set: {allocated_limit: $limit}) {
+				affected_rows
+			}
+		}
+	`
+	variables := map[string]interface{}{"txId": txID, "limit": limit}
+	var resp interface{}
+	_ = doGraphQLQuery(client, query, variables, &resp)
 }
 
 func fetchPowerBlockIDForStation(client *citrineclient.Client, stationID int) int {

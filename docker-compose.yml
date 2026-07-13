@@ -171,7 +171,7 @@ services:
       graphql-engine:
         condition: service_healthy
     environment:
-      - GRACE_PERIOD_MINUTES=2
+      - GRACE_PERIOD_MINUTES=20
       - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
       - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
 
@@ -195,6 +195,20 @@ services:
       ports:
         - "8085:8085"
       environment:
+        - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
+        - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
+      restart: always
+
+  notification-service:
+      build:
+        context: ./services/notification-service
+      ports:
+        - "8084:8084"
+      environment:
+        - SMTP_HOST=mail.hevs.ch
+        - SMTP_PORT=25
+        - MAIL_FROM=noreply.csms@hevs.ch
+        - ADMIN_EMAIL=basile.gasser@hes-so.ch
         - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
         - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
       restart: always

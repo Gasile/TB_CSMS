@@ -79,12 +79,20 @@ func (t *IdleTracker) startOrResetTimer(transactionID string) {
 	}
 
 	t.timers[transactionID] = time.AfterFunc(GracePeriod, func() {
-		log.Printf("🚨 DÉLAI DÉPASSÉ ! La transaction %s est maintenant en infraction.", transactionID)
-		markTransactionAsIllegal(transactionID)
+		// NOUVEAU : On vérifie la limite avant de punir
+		limit := fetchAllocatedLimit(transactionID)
 
-		t.Lock()
-		delete(t.timers, transactionID)
-		t.Unlock()
+		if limit == 0.0 {
+			log.Printf("⏸️  Délai dépassé pour la transaction %s, MAIS limite à 0A (en attente d'énergie). Chrono redémarré.", transactionID)
+			t.startOrResetTimer(transactionID)
+		} else {
+			log.Printf("🚨 DÉLAI DÉPASSÉ ! La transaction %s (Limite: %.1fA) est maintenant en infraction.", transactionID, limit)
+			markTransactionAsIllegal(transactionID)
+
+			t.Lock()
+			delete(t.timers, transactionID)
+			t.Unlock()
+		}
 	})
 }
 
@@ -97,19 +105,77 @@ func (t *IdleTracker) stopTimer(transactionID string) {
 		delete(t.timers, transactionID)
 		log.Printf("✅ Fin de session pour la transaction DB ID: %s. Chrono détruit.", transactionID)
 	} else {
-		// Ajout du log pour les transactions qui se terminent après l'infraction
 		log.Printf("✅ Fin de session pour la transaction DB ID: %s. Aucun chrono en cours (déjà expiré).", transactionID)
 	}
 }
 
 // --- COMMUNICATION AVEC HASURA ---
 
+// fetchAllocatedLimit récupère la limite de puissance actuelle enregistrée en DB
+func fetchAllocatedLimit(transactionID string) float64 {
+	idInt, err := strconv.Atoi(transactionID)
+	if err != nil || HasuraURL == "" || HasuraAdminSecret == "" {
+		return -1.0 // Valeur par défaut si erreur (différente de 0.0 pour éviter les faux positifs)
+	}
+
+	query := `
+		query GetLimit($id: Int!) {
+			Transactions_by_pk(id: $id) {
+				allocated_limit
+			}
+		}
+	`
+	payload := map[string]interface{}{
+		"query": query,
+		"variables": map[string]interface{}{
+			"id": idInt,
+		},
+	}
+	
+	jsonValue, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", HasuraURL, bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return -1.0
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-hasura-admin-secret", HasuraAdminSecret)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("❌ Erreur réseau lors de la récupération de la limite: %v", err)
+		return -1.0
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+
+	var result struct {
+		Data struct {
+			TransactionsByPk *struct {
+				AllocatedLimit *float64 `json:"allocated_limit"`
+			} `json:"Transactions_by_pk"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		return -1.0
+	}
+
+	// Si la limite existe bien, on la retourne
+	if result.Data.TransactionsByPk != nil && result.Data.TransactionsByPk.AllocatedLimit != nil {
+		return *result.Data.TransactionsByPk.AllocatedLimit
+	}
+
+	return -1.0
+}
+
 // markTransactionAsIllegal passe is_legal à false
 func markTransactionAsIllegal(transactionID string) {
 	idInt, _ := strconv.Atoi(transactionID)
 	overtimeStart := time.Now().UTC().Format(time.RFC3339)
 
-	// ATTENTION : J'ai mis "update_Transactions_by_pk" avec un T majuscule comme dans ta capture
 	query := `
 		mutation UpdateTransactionToIllegal($id: Int!, $timestamp: timestamptz!) {
 			update_Transactions_by_pk(
@@ -183,7 +249,6 @@ func sendGraphQLRequest(payload map[string]interface{}, actionName string) {
 	}
 	defer resp.Body.Close()
 
-	// Lecture du corps de la réponse pour détecter les erreurs internes de GraphQL
 	bodyBytes, _ := io.ReadAll(resp.Body)
 	bodyStr := string(bodyBytes)
 
