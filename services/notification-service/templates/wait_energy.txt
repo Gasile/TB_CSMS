@@ -1,0 +1,8 @@
+Bonjour,
+
+{{.Message}}
+
+Le système de gestion d'énergie (Smart Charging) équilibre actuellement la charge du parking. Dès que de la puissance sera à nouveau disponible, votre véhicule commencera à charger automatiquement. Vous n'avez aucune action à entreprendre.
+
+Cordialement,
+Le système CSMS

@@ -1,0 +1,14 @@
+Bonjour Administrateur,
+
+Une tentative de connexion avec un badge RFID non reconnu a été détectée sur le réseau.
+
+Détails de l'incident :
+
+Borne concernée : {{.Station}}
+
+Identifiant du badge (UID) : {{.Token}}
+
+Si cet utilisateur est légitime, vous pouvez ajouter ce badge directement depuis votre tableau de bord.
+
+Cordialement,
+Le système CSMS

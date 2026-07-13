@@ -1,0 +1,12 @@
+Bonjour,
+
+Le système a détecté un changement d'état matériel indiquant une erreur sur l'un des connecteurs du réseau.
+
+Détails du diagnostic :
+
+Code d'erreur signalé : {{.ErrorCode}}
+
+Merci de vous connecter au tableau de bord pour identifier la borne exacte et planifier une intervention si nécessaire.
+
+Cordialement,
+Le système CSMS

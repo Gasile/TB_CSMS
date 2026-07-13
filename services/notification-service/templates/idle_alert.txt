@@ -1,0 +1,9 @@
+Bonjour,
+
+Votre véhicule branché sur la borne {{.StationName}} a terminé sa charge ou ne consomme plus d'énergie.
+Afin de libérer la place pour les autres utilisateurs du parking, merci de bien vouloir déplacer votre véhicule dès que possible.
+
+Le statut de votre transaction est désormais considéré en infraction.
+
+Cordialement,
+Le système CSMS
