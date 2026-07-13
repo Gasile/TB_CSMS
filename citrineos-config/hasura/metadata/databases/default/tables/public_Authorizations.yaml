@@ -68,19 +68,24 @@ insert_permissions:
 select_permissions:
   - role: user
     permission:
-      columns: '*'
-      filter:
-        tenantId:
-          _eq: x-hasura-tenant-id
+      columns:
+        - badge_name
+        - createdAt
+        - id
+        - idToken
+        - idTokenType
+        - status
+        - updatedAt
+      filter: {}
       allow_aggregations: true
     comment: ""
 update_permissions:
   - role: user
     permission:
-      columns: '*'
-      filter:
-        tenantId:
-          _eq: x-hasura-tenant-id
+      columns:
+        - badge_name
+        - status
+      filter: {}
       check:
         tenantId:
           _eq: x-hasura-tenant-id

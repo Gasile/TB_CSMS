@@ -40,10 +40,9 @@ insert_permissions:
 select_permissions:
   - role: user
     permission:
-      columns: '*'
-      filter:
-        tenantId:
-          _eq: x-hasura-tenant-id
+      columns:
+        - connectorId
+      filter: {}
       allow_aggregations: true
     comment: ""
 update_permissions:

@@ -20,10 +20,14 @@ object_relationships:
 select_permissions:
   - role: user
     permission:
-      columns: '*'
+      columns:
+        - sampledValue
+        - timestamp
+        - transactionDatabaseId
       filter:
-        tenantId:
-          _eq: x-hasura-tenant-id
+        Transaction:
+          user_id:
+            _eq: X-Hasura-User-Id
       allow_aggregations: true
     comment: ""
 event_triggers:

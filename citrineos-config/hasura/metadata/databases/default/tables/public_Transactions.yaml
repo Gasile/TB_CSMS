@@ -72,10 +72,26 @@ array_relationships:
 select_permissions:
   - role: user
     permission:
-      columns: '*'
+      columns:
+        - allocated_limit
+        - chargingState
+        - connectorId
+        - endTime
+        - id
+        - isActive
+        - is_legal
+        - ocppConnectionName
+        - overtime_start_timestamp
+        - startTime
+        - stoppedReason
+        - totalKwh
+        - transactionId
       filter:
-        tenantId:
-          _eq: x-hasura-tenant-id
+        _or:
+          - user_id:
+              _eq: X-Hasura-User-Id
+          - isActive:
+              _eq: true
       allow_aggregations: true
     comment: ""
 event_triggers:
