@@ -86,6 +86,7 @@ select_permissions:
         - stoppedReason
         - totalKwh
         - transactionId
+        - user_id
       filter:
         _or:
           - user_id:

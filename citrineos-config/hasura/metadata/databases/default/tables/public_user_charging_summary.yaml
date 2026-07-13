@@ -1,3 +1,14 @@
 table:
   name: user_charging_summary
   schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - last_7_days_energy_kwh
+        - total_energy_kwh
+        - user_id
+      filter:
+        user_id:
+          _eq: x-hasura-user-id
+    comment: ""

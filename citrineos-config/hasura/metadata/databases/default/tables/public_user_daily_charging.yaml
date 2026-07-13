@@ -1,3 +1,14 @@
 table:
   name: user_daily_charging
   schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - charge_date
+        - daily_kwh
+        - user_id
+      filter:
+        user_id:
+          _eq: x-hasura-user-id
+    comment: ""
