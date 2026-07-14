@@ -154,6 +154,7 @@ services:
         \"oracle\":{\"uri\":\"http://data-connector-agent:8081/api/v1/oracle\"},\
         \"snowflake\":{\"uri\":\"http://data-connector-agent:8081/api/v1/snowfl\
         ake\"}}}}"
+      HASURA_GRAPHQL_JWT_SECRET: '{"type": "HS256", "key": "${JWT_SECRET}"}'
     healthcheck:
       test: ["CMD", "curl", "-f", "http://graphql-engine:8080/healthz"]
       interval: 5s
@@ -212,3 +213,16 @@ services:
         - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
         - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
       restart: always
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+    container_name: tb_csms-auth-service
+    ports:
+      - "8086:8086"
+    environment:
+      - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
+      - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
+      # ---> DOIT ÊTRE IDENTIQUE À CELLE DE HASURA <---
+      - JWT_SECRET=${JWT_SECRET}
+    restart: always
