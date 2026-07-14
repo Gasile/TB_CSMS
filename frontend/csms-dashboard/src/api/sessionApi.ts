@@ -98,7 +98,21 @@ export async function fetchUserDashboardData(
           }
         }
       }
-      # 2. La session la plus récente
+      # 2. TOUTES les sessions de charge en cours (actives)
+      ActiveTransactions: Transactions(where: {user_id: {_eq: $userId}, isActive: {_eq: true}}, order_by: {startTime: desc}) {
+        id
+        transactionId
+        ocppConnectionName
+        ChargingStation { chargePointModel }
+        isActive
+        chargingState
+        startTime
+        endTime
+        totalKwh
+        is_legal
+        overtime_start_timestamp
+      }
+      # 3. La session la plus récente globale (sert de fallback si rien n'est en cours)
       LastTransaction: Transactions(where: {user_id: {_eq: $userId}}, order_by: {startTime: desc}, limit: 1) {
         id
         transactionId
@@ -112,12 +126,12 @@ export async function fetchUserDashboardData(
         is_legal
         overtime_start_timestamp
       }
-      # 3. Les sessions récentes pour générer la Heatmap
+      # 4. Les sessions récentes pour générer la Heatmap
       RecentTransactions: Transactions(where: {user_id: {_eq: $userId}, startTime: {_gte: $cutoffDate}}) {
         startTime
         totalKwh
       }
-      # 4. L'état en direct de la flotte
+      # 5. L'état en direct de la flotte
       ChargingStations {
         isOnline
         Transactions(where: {isActive: {_eq: true}}) {

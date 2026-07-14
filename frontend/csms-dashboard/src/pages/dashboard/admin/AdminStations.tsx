@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   fetchAllStationsWithStatus,
   updateStationWeight,
-} from "../../../api/adminApi"; // Adapte le chemin si besoin
+} from "../../../api/adminApi";
 
 import { useNavigate } from "react-router-dom";
 
@@ -15,16 +15,13 @@ export default function AdminStations() {
 
   const handleWeightChange = async (stationId: number, newWeight: number) => {
     try {
-      // 1. Mise à jour visuelle immédiate (Optimistic UI)
       setStations((prev) =>
         prev.map((s) => (s.id === stationId ? { ...s, weight: newWeight } : s)),
       );
-
-      // 2. Envoi à la base de données
       await updateStationWeight(stationId, newWeight);
     } catch (err: any) {
       alert("Erreur lors de la modification de la priorité.");
-      loadStations(); // En cas d'erreur, on recharge les vraies données
+      loadStations();
     }
   };
 
@@ -45,22 +42,38 @@ export default function AdminStations() {
   };
 
   if (isLoading)
-    return <div style={{ padding: "20px" }}>Chargement de la flotte...</div>;
+    return (
+      <div style={{ padding: "20px", color: "var(--text-main)" }}>
+        Chargement de la flotte...
+      </div>
+    );
   if (error)
-    return <div style={{ padding: "20px", color: "red" }}>{error}</div>;
+    return (
+      <div style={{ padding: "20px", color: "var(--status-offline)" }}>
+        {error}
+      </div>
+    );
 
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "1.8rem",
+              color: "var(--text-main)",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Flotte de bornes
           </h1>
           <p
             style={{
               margin: "5px 0 0 0",
-              color: "#6b7280",
+              color: "var(--text-muted)",
               fontSize: "0.95rem",
+              transition: "var(--theme-transition)",
             }}
           >
             Vue d'ensemble et statuts en temps réel
@@ -81,30 +94,28 @@ export default function AdminStations() {
 
       <div style={gridStyle}>
         {stations.map((station) => {
-          // --- LOGIQUE DE STATUT ---
           const isOnline = station.isOnline;
           const hasActiveTransaction =
             station.Transactions && station.Transactions.length > 0;
 
           let statusText = "Offline";
-          let statusColor = "#dc2626"; // Rouge
-          let statusBg = "#fee2e2";
+          let statusColor = "var(--status-offline)";
+          let statusBg = "rgba(239, 68, 68, 0.15)";
 
           if (isOnline) {
             if (hasActiveTransaction) {
               statusText = "En charge";
-              statusColor = "#16a34a"; // Vert
-              statusBg = "#dcfce7";
+              statusColor = "var(--status-charging)";
+              statusBg = "rgba(0, 210, 143, 0.15)";
             } else {
               statusText = "Disponible";
-              statusColor = "#2563eb"; // Bleu
-              statusBg = "#dbeafe";
+              statusColor = "var(--status-available)";
+              statusBg = "rgba(14, 165, 233, 0.15)";
             }
           }
 
           return (
             <div key={station.id} style={cardStyle}>
-              {/* En-tête de la carte : Icone + Statut */}
               <div style={cardHeaderStyle}>
                 <div style={iconContainerStyle}>🔌</div>
                 <span
@@ -112,6 +123,7 @@ export default function AdminStations() {
                     ...badgeStyle,
                     color: statusColor,
                     backgroundColor: statusBg,
+                    transition: "var(--theme-transition)",
                   }}
                 >
                   <span
@@ -122,13 +134,13 @@ export default function AdminStations() {
                       borderRadius: "50%",
                       backgroundColor: statusColor,
                       marginRight: "6px",
+                      transition: "var(--theme-transition)",
                     }}
                   ></span>
                   {statusText}
                 </span>
               </div>
 
-              {/* Corps de la carte : Nom et infos */}
               <div style={cardBodyStyle}>
                 <h3 style={stationNameStyle}>
                   {station.chargePointModel
@@ -149,7 +161,6 @@ export default function AdminStations() {
                   </span>
                 </div>
 
-                {/* NOUVELLE LIGNE : PRIORITÉ SMART CHARGING */}
                 <div style={infoRowStyle}>
                   <span style={infoLabelStyle}>Priorité de charge:</span>
                   <div style={{ display: "flex", gap: "6px" }}>
@@ -159,19 +170,18 @@ export default function AdminStations() {
                         onClick={() => handleWeightChange(station.id, w)}
                         style={{
                           ...weightButtonStyle,
-                          // Si c'est le poids actuel ou si la borne n'a pas de poids (défaut = 1)
                           background:
                             station.weight === w || (!station.weight && w === 1)
-                              ? "#2563eb"
-                              : "#f9fafb",
+                              ? "var(--primary)"
+                              : "var(--bg-app)",
                           color:
                             station.weight === w || (!station.weight && w === 1)
                               ? "#fff"
-                              : "#4b5563",
+                              : "var(--text-main)",
                           borderColor:
                             station.weight === w || (!station.weight && w === 1)
-                              ? "#2563eb"
-                              : "#d1d5db",
+                              ? "var(--primary)"
+                              : "var(--border-color)",
                         }}
                         title={`Priorité ${w}`}
                       >
@@ -181,11 +191,9 @@ export default function AdminStations() {
                   </div>
                 </div>
 
-                {/* Bouton d'action : Historique des sessions de la borne */}
                 <div style={cardFooterStyle}>
                   <button
                     style={actionButtonStyle}
-                    // Le onClick est prêt à être câblé avec un navigate() quand tu créeras la page
                     onClick={() => navigate(`/admin-stations/${station.id}`)}
                   >
                     Détail des Sessions ➔
@@ -212,32 +220,29 @@ const headerStyle: React.CSSProperties = {
   alignItems: "flex-start",
 };
 const refreshButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#374151",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
-
-// CSS Grid : Crée des colonnes automatiques d'au moins 280px de large
 const gridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
   gap: "25px",
 };
-
 const cardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   borderRadius: "16px",
   padding: "20px",
-  boxShadow: "0 4px 6px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.05)",
   display: "flex",
   flexDirection: "column",
-  transition: "transform 0.2s, box-shadow 0.2s",
+  transition: "var(--theme-transition)",
 };
 const cardHeaderStyle: React.CSSProperties = {
   display: "flex",
@@ -247,13 +252,14 @@ const cardHeaderStyle: React.CSSProperties = {
 };
 const iconContainerStyle: React.CSSProperties = {
   fontSize: "2rem",
-  background: "#f3f4f6",
+  background: "var(--bg-app)",
   width: "50px",
   height: "50px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   borderRadius: "12px",
+  transition: "var(--theme-transition)",
 };
 const badgeStyle: React.CSSProperties = {
   padding: "6px 12px",
@@ -263,7 +269,6 @@ const badgeStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
 };
-
 const cardBodyStyle: React.CSSProperties = {
   flex: 1,
   display: "flex",
@@ -274,51 +279,55 @@ const cardBodyStyle: React.CSSProperties = {
 const stationNameStyle: React.CSSProperties = {
   margin: "0 0 10px 0",
   fontSize: "1.25rem",
-  color: "#111827",
+  color: "var(--text-main)",
   fontWeight: "700",
+  transition: "var(--theme-transition)",
 };
 const infoRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   fontSize: "0.9rem",
-  borderBottom: "1px dashed #e5e7eb",
+  borderBottom: "1px dashed var(--border-color)",
   paddingBottom: "5px",
+  transition: "var(--theme-transition)",
 };
-const infoLabelStyle: React.CSSProperties = { color: "#6b7280" };
+const infoLabelStyle: React.CSSProperties = {
+  color: "var(--text-muted)",
+  transition: "var(--theme-transition)",
+};
 const infoValueStyle: React.CSSProperties = {
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
-
 const cardFooterStyle: React.CSSProperties = {
   paddingTop: "15px",
-  borderTop: "1px solid #f3f4f6",
+  borderTop: "1px solid var(--border-color)",
+  transition: "var(--theme-transition)",
 };
 const actionButtonStyle: React.CSSProperties = {
   width: "100%",
-  background: "#f9fafb",
-  border: "1px solid #e5e7eb",
+  background: "var(--bg-app)",
+  border: "1px solid var(--border-color)",
   padding: "10px",
   borderRadius: "8px",
-  color: "#4b5563",
+  color: "var(--text-main)",
   fontWeight: "600",
   cursor: "pointer",
-  transition: "background 0.2s",
+  transition: "var(--theme-transition)",
 };
-
 const manageBlocksButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#374151",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
-
 const weightButtonStyle: React.CSSProperties = {
   width: "26px",
   height: "26px",
@@ -330,5 +339,5 @@ const weightButtonStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: "bold",
   cursor: "pointer",
-  transition: "all 0.2s ease",
+  transition: "all 0.2s ease, var(--theme-transition)",
 };

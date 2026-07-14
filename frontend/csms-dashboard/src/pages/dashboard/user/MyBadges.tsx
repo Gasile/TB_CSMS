@@ -124,10 +124,8 @@ export default function MyBadges() {
 
     try {
       if (editingBadge) {
-        // Mode Édition : L'utilisateur ne peut modifier que le nom de son badge
         await updateMyBadgeName(editingBadge.authId, formData.badge_name);
       } else {
-        // Mode Création : L'utilisateur associe un nouveau badge
         await linkNewBadge(userId!, formData.idToken, formData.badge_name);
       }
       setIsModalOpen(false);
@@ -160,20 +158,32 @@ export default function MyBadges() {
   };
 
   if (isLoading && badges.length === 0)
-    return <div style={{ padding: "30px" }}>Chargement de vos badges...</div>;
+    return (
+      <div style={{ padding: "30px", color: "var(--text-main)" }}>
+        Chargement de vos badges...
+      </div>
+    );
 
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "1.8rem",
+              color: "var(--text-main)",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Mes Badges
           </h1>
           <p
             style={{
               margin: "5px 0 0 0",
-              color: "#6b7280",
+              color: "var(--text-muted)",
               fontSize: "0.95rem",
+              transition: "var(--theme-transition)",
             }}
           >
             Gérez vos cartes RFID et moyens d'accès à la recharge.
@@ -214,7 +224,7 @@ export default function MyBadges() {
           }}
         >
           <thead>
-            <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+            <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
               <th
                 style={sortableThStyle}
                 onClick={() => handleSort("badge_name")}
@@ -234,13 +244,22 @@ export default function MyBadges() {
             {filteredBadges.map((badge: any) => (
               <tr
                 key={badge.authId}
-                style={{ borderBottom: "1px solid #f3f4f6" }}
+                style={{
+                  borderBottom: "1px solid var(--border-color)",
+                  transition: "var(--theme-transition)",
+                }}
               >
                 <td style={tdStyle}>
                   <strong>{badge.badge_name}</strong>
                 </td>
                 <td style={tdStyle}>
-                  <span style={{ fontFamily: "monospace", color: "#6b7280" }}>
+                  <span
+                    style={{
+                      fontFamily: "monospace",
+                      color: "var(--text-muted)",
+                      transition: "var(--theme-transition)",
+                    }}
+                  >
                     {badge.idToken}
                   </span>
                 </td>
@@ -266,7 +285,8 @@ export default function MyBadges() {
                   style={{
                     textAlign: "center",
                     padding: "30px",
-                    color: "#6b7280",
+                    color: "var(--text-muted)",
+                    transition: "var(--theme-transition)",
                   }}
                 >
                   Aucun badge trouvé.
@@ -281,7 +301,13 @@ export default function MyBadges() {
       {isModalOpen && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
-            <h2 style={{ marginTop: 0, color: "#1f2937" }}>
+            <h2
+              style={{
+                marginTop: 0,
+                color: "var(--text-main)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               {editingBadge ? "Modifier le badge" : "Associer un badge"}
             </h2>
             <form
@@ -305,17 +331,21 @@ export default function MyBadges() {
                 <label style={labelStyle}>ID Token (NFC/RFID)</label>
                 <input
                   required
-                  style={inputStyle}
                   value={formData.idToken}
                   onChange={(e) =>
                     setFormData({ ...formData, idToken: e.target.value })
                   }
                   placeholder="Ex: A1B2C3D4"
-                  disabled={!!editingBadge} // Grisé en mode édition, on ne modifie que le nom
+                  disabled={!!editingBadge}
                   style={{
                     ...inputStyle,
-                    background: editingBadge ? "#f3f4f6" : "#fff",
+                    background: editingBadge
+                      ? "var(--bg-app)"
+                      : "var(--bg-card)",
                     cursor: editingBadge ? "not-allowed" : "text",
+                    color: editingBadge
+                      ? "var(--text-muted)"
+                      : "var(--text-main)",
                   }}
                 />
               </div>
@@ -382,39 +412,51 @@ const searchInputStyle: React.CSSProperties = {
   flex: 1,
   padding: "10px 15px",
   borderRadius: "8px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
+  outline: "none",
+  transition: "var(--theme-transition)",
 };
 const selectFilterStyle: React.CSSProperties = {
   padding: "10px 15px",
   borderRadius: "8px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
-  backgroundColor: "#fff",
+  backgroundColor: "var(--bg-card)",
   cursor: "pointer",
+  outline: "none",
+  transition: "var(--theme-transition)",
 };
 
 const tableCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   padding: "25px",
   borderRadius: "12px",
+  border: "1px solid var(--border-color)",
   boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
   overflowX: "auto",
+  transition: "var(--theme-transition)",
 };
 const thStyle: React.CSSProperties = {
   padding: "12px 10px",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.05em",
   userSelect: "none",
+  transition: "var(--theme-transition)",
 };
 const sortableThStyle: React.CSSProperties = { ...thStyle, cursor: "pointer" };
 const tdStyle: React.CSSProperties = {
   padding: "15px 10px",
   fontSize: "0.95rem",
-  color: "#1f2937",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 
 const statusBadgeStyle = (status: string): React.CSSProperties => {
@@ -425,13 +467,16 @@ const statusBadgeStyle = (status: string): React.CSSProperties => {
     borderRadius: "20px",
     fontSize: "0.8rem",
     fontWeight: "600",
-    background: isAccepted ? "#dcfce7" : "#fee2e2",
-    color: isAccepted ? "#16a34a" : "#dc2626",
+    background: isAccepted
+      ? "rgba(16, 185, 129, 0.15)"
+      : "rgba(239, 68, 68, 0.15)",
+    color: isAccepted ? "var(--status-charging)" : "var(--status-offline)",
+    transition: "var(--theme-transition)",
   };
 };
 
 const createButtonStyle: React.CSSProperties = {
-  background: "#16a34a",
+  background: "var(--primary)",
   color: "#fff",
   border: "none",
   padding: "8px 16px",
@@ -439,36 +484,40 @@ const createButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "background 0.2s, var(--theme-transition)",
 };
 const editButtonStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  color: "#374151",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  color: "var(--text-main)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   cursor: "pointer",
   fontSize: "0.8rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const cancelButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  color: "#4b5563",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  color: "var(--text-muted)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const deleteButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  color: "#dc2626",
-  border: "1px solid #fca5a5",
+  background: "rgba(239, 68, 68, 0.15)",
+  color: "var(--status-offline)",
+  border: "1px solid var(--status-offline)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 
 const modalOverlayStyle: React.CSSProperties = {
@@ -477,32 +526,39 @@ const modalOverlayStyle: React.CSSProperties = {
   left: 0,
   right: 0,
   bottom: 0,
-  backgroundColor: "rgba(0, 0, 0, 0.5)",
+  backgroundColor: "rgba(0, 0, 0, 0.6)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   zIndex: 1000,
 };
 const modalContentStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "30px",
   borderRadius: "12px",
   width: "100%",
   maxWidth: "400px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+  transition: "var(--theme-transition)",
 };
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "5px",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-muted)",
+  transition: "var(--theme-transition)",
 };
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   padding: "10px",
   borderRadius: "6px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
+  outline: "none",
+  transition: "var(--theme-transition)",
 };

@@ -13,6 +13,8 @@ import {
 import { fetchSessionDetailData } from "../../api/sessionApi";
 import { useAuth } from "../../context/AuthContext";
 
+const EVENTS_PER_PAGE = 15; // <-- Configurable ici pour le journal technique
+
 export default function SessionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -24,6 +26,9 @@ export default function SessionDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [chartData, setChartData] = useState<any[]>([]);
+
+  // --- ÉTAT DE LA PAGINATION POUR LES ÉVÉNEMENTS ---
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (dbId) loadData();
@@ -45,13 +50,11 @@ export default function SessionDetail() {
     }
   };
 
-  // --- TRAITEMENT DU GRAPHIQUE ---
   const buildChartData = (tx: any, meterValues: any[]) => {
     const points: any[] = [];
     let lastPowerTime: number | null = null;
     let lastPowerValue = 0;
 
-    // 1. Point de départ
     if (tx.startTime) {
       points.push({
         time: new Date(tx.startTime).getTime(),
@@ -60,7 +63,6 @@ export default function SessionDetail() {
       });
     }
 
-    // 2. Traitement des MeterValues
     meterValues.forEach((mv) => {
       let powerKW = 0;
       let socValue = null;
@@ -73,12 +75,10 @@ export default function SessionDetail() {
             : mv.sampledValue;
         if (Array.isArray(parsed)) {
           parsed.forEach((item: any) => {
-            // On cherche la puissance totale (sans propriété 'phase')
             if (item.measurand === "Power.Active.Import" && !item.phase) {
               powerKW = item.value / 1000;
               hasPowerData = true;
             }
-            // On cherche l'état de la batterie (SoC)
             if (item.measurand === "SoC") {
               socValue = item.value;
             }
@@ -96,16 +96,13 @@ export default function SessionDetail() {
       }
     });
 
-    // 3. Traitement de la fin (Chute à 0 pour inactivité ou fin de session)
     if (tx.endTime && lastPowerTime) {
       const endMs = new Date(tx.endTime).getTime();
       if (endMs - lastPowerTime > 120000) {
-        // Si plus de 2 min d'inactivité avant la fin, on met à 0
         points.push({ time: lastPowerTime + 120000, power: 0 });
       }
       points.push({ time: endMs, power: 0 });
     } else if (tx.isActive && lastPowerTime) {
-      // Pour une session en cours, on prolonge la dernière valeur jusqu'à "maintenant" (optionnel)
       const nowMs = new Date().getTime();
       if (nowMs - lastPowerTime > 120000) {
         points.push({ time: lastPowerTime + 120000, power: 0 });
@@ -120,7 +117,6 @@ export default function SessionDetail() {
   };
 
   const handleForceStop = () => {
-    // Bouton factice pour le moment
     if (
       window.confirm(
         "Voulez-vous vraiment forcer l'arrêt de cette session à distance ?",
@@ -132,30 +128,46 @@ export default function SessionDetail() {
 
   if (isLoading)
     return (
-      <div style={{ padding: "30px" }}>
+      <div style={{ padding: "30px", color: "var(--text-main)" }}>
         Chargement des données de la session...
       </div>
     );
   if (!session)
     return (
-      <div style={{ padding: "30px", color: "red" }}>Session introuvable.</div>
+      <div style={{ padding: "30px", color: "var(--status-offline)" }}>
+        Session introuvable.
+      </div>
     );
 
-  // Calcul du format d'affichage de la date
   const startDate = new Date(session.startTime);
   const endDate = session.endTime ? new Date(session.endTime) : null;
-  const durationStr = endDate
-    ? new Date(endDate.getTime() - startDate.getTime())
-        .toISOString()
-        .slice(11, 19)
-    : "En cours";
 
-  // Calcul du temps de dépassement
+  const formatDuration = (start: Date, end: Date | null): string => {
+    if (!end) return "En cours";
+    const diffMs = end.getTime() - start.getTime();
+    if (diffMs < 0) return "00:00:00";
+
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const seconds = totalSeconds % 60;
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const minutes = totalMinutes % 60;
+    const totalHours = Math.floor(totalMinutes / 60);
+    const hours = totalHours % 24;
+    const days = Math.floor(totalHours / 24);
+    const pad = (num: number) => String(num).padStart(2, "0");
+
+    if (days > 0)
+      return `${days}j ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  };
+
+  const durationStr = formatDuration(startDate, endDate);
+
   const calculateOvertime = (timestamp: string) => {
     if (!timestamp) return "un temps indéterminé";
     const start = new Date(timestamp).getTime();
     const now = new Date().getTime();
-    const diffMs = Math.max(0, now - start); // Évite les valeurs négatives
+    const diffMs = Math.max(0, now - start);
 
     const diffMins = Math.floor(diffMs / 60000);
     const hours = Math.floor(diffMins / 60);
@@ -165,9 +177,16 @@ export default function SessionDetail() {
     return `${mins} min`;
   };
 
+  // --- LOGIQUE DE PAGINATION POUR LES ÉVÉNEMENTS ---
+  const events = session.TransactionEvents || [];
+  const totalPages = Math.ceil(events.length / EVENTS_PER_PAGE);
+  const paginatedEvents = events.slice(
+    (currentPage - 1) * EVENTS_PER_PAGE,
+    currentPage * EVENTS_PER_PAGE,
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
-      {/* --- EN-TÊTE --- */}
       <div style={headerCardStyle}>
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
           <button onClick={() => navigate(-1)} style={backButtonStyle}>
@@ -175,7 +194,14 @@ export default function SessionDetail() {
           </button>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <h1 style={{ margin: 0, fontSize: "1.6rem", color: "#1f2937" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "1.6rem",
+                  color: "var(--text-main)",
+                  transition: "var(--theme-transition)",
+                }}
+              >
                 Session #{session.transactionId || session.id}
               </h1>
               <span
@@ -186,7 +212,13 @@ export default function SessionDetail() {
                   : session.chargingState || "Terminé"}
               </span>
             </div>
-            <p style={{ margin: "5px 0 0 0", color: "#6b7280" }}>
+            <p
+              style={{
+                margin: "5px 0 0 0",
+                color: "var(--text-muted)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               Borne :{" "}
               <strong>
                 {session.ChargingStation?.chargePointModel
@@ -201,7 +233,6 @@ export default function SessionDetail() {
           </div>
         </div>
 
-        {/* Actions de l'en-tête (Uniquement Admin et Session Active) */}
         {isAdmin && session.isActive && (
           <button onClick={handleForceStop} style={forceStopButtonStyle}>
             🛑 Forcer l'arrêt
@@ -209,7 +240,6 @@ export default function SessionDetail() {
         )}
       </div>
 
-      {/* --- ALERTE SESSION ILLÉGALE --- */}
       {session.isActive && session.is_legal === false && (
         <div style={illegalAlertStyle}>
           <span style={{ fontSize: "1.5rem", marginRight: "15px" }}>⚠️</span>
@@ -221,7 +251,8 @@ export default function SessionDetail() {
               style={{
                 marginTop: "4px",
                 fontSize: "0.95rem",
-                color: "#b91c1c",
+                color: "var(--status-offline)",
+                transition: "var(--theme-transition)",
               }}
             >
               Le véhicule occupe la borne sans charger depuis{" "}
@@ -234,7 +265,6 @@ export default function SessionDetail() {
         </div>
       )}
 
-      {/* --- KPIs --- */}
       <div
         style={{
           display: "grid",
@@ -265,8 +295,9 @@ export default function SessionDetail() {
             style={{
               fontSize: "1.1rem",
               fontWeight: "bold",
-              color: "#111827",
+              color: "var(--text-main)",
               marginTop: "5px",
+              transition: "var(--theme-transition)",
             }}
           >
             {session.Authorization?.badge_name || "Inconnu"}
@@ -274,8 +305,9 @@ export default function SessionDetail() {
           <span
             style={{
               fontSize: "0.85rem",
-              color: "#6b7280",
+              color: "var(--text-muted)",
               fontFamily: "monospace",
+              transition: "var(--theme-transition)",
             }}
           >
             {session.Authorization?.idToken || "N/A"}
@@ -283,10 +315,14 @@ export default function SessionDetail() {
         </div>
       </div>
 
-      {/* --- GRAPHIQUE PRINCIPAL (kW + SoC) --- */}
       <div style={chartCardStyle}>
         <h2
-          style={{ margin: "0 0 20px 0", fontSize: "1.2rem", color: "#374151" }}
+          style={{
+            margin: "0 0 20px 0",
+            fontSize: "1.2rem",
+            color: "var(--text-main)",
+            transition: "var(--theme-transition)",
+          }}
         >
           Courbe de Puissance & Batterie
         </h2>
@@ -294,49 +330,58 @@ export default function SessionDetail() {
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
-                stroke="#e5e7eb"
+                stroke="var(--border-color)"
               />
-
               <XAxis
                 dataKey="time"
                 type="number"
                 domain={["dataMin", "dataMax"]}
-                tickFormatter={(unixTime) =>
-                  new Date(unixTime).toLocaleTimeString([], {
+                tickFormatter={(unixTime) => {
+                  const d = new Date(unixTime);
+                  const day = d.getDate().toString().padStart(2, "0");
+                  const month = (d.getMonth() + 1).toString().padStart(2, "0");
+                  const time = d.toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
-                  })
-                }
-                stroke="#9ca3af"
-                fontSize={12}
+                  });
+                  return `${day}/${month} ${time}`;
+                }}
+                stroke="var(--text-muted)"
+                fontSize={11}
                 tickMargin={10}
               />
-
-              {/* Axe Y de Gauche (Puissance en kW) */}
               <YAxis
                 yAxisId="left"
+                width={50}
                 tickFormatter={(val) => `${val} kW`}
-                stroke="#9ca3af"
+                stroke="var(--text-muted)"
                 fontSize={12}
               />
-
-              {/* Axe Y de Droite (Batterie en %) */}
               <YAxis
                 yAxisId="right"
+                width={40}
                 orientation="right"
                 domain={[0, 100]}
                 tickFormatter={(val) => `${val}%`}
-                stroke="#9ca3af"
+                stroke="var(--text-muted)"
                 fontSize={12}
               />
-
               <Tooltip
-                labelFormatter={(label) => new Date(label).toLocaleTimeString()}
+                contentStyle={{
+                  background: "var(--bg-card)",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-color)",
+                  color: "var(--text-main)",
+                }}
+                labelFormatter={(label) => {
+                  const d = new Date(label);
+                  return `${d.toLocaleDateString()} à ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                }}
                 formatter={(value: any, name: string) => [
                   name === "power"
                     ? `${Number(value).toFixed(2)} kW`
@@ -344,24 +389,20 @@ export default function SessionDetail() {
                   name === "power" ? "Puissance" : "Batterie",
                 ]}
               />
-
-              {/* Courbe en escalier pour la puissance */}
               <Area
                 yAxisId="left"
                 type="stepAfter"
                 dataKey="power"
-                stroke="#3b82f6"
-                fill="#dbeafe"
+                stroke="var(--status-available)"
+                fill="rgba(14, 165, 233, 0.15)"
                 strokeWidth={2}
                 isAnimationActive={false}
               />
-
-              {/* Ligne lissée pour la batterie (Ne s'affiche que s'il y a des données 'soc') */}
               <Line
                 yAxisId="right"
                 type="monotone"
                 dataKey="soc"
-                stroke="#10b981"
+                stroke="var(--primary)"
                 strokeWidth={3}
                 dot={false}
                 connectNulls={true}
@@ -372,26 +413,35 @@ export default function SessionDetail() {
         </div>
       </div>
 
-      {/* --- SECTION ADMIN : JOURNAL TECHNIQUE --- */}
       {isAdmin && (
-        <div style={chartCardStyle}>
+        <div style={{ ...chartCardStyle, padding: 0 }}>
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "20px",
+              padding: "25px",
             }}
           >
-            <h2 style={{ margin: 0, fontSize: "1.2rem", color: "#374151" }}>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "1.2rem",
+                color: "var(--text-main)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               Journal Technique (Admin)
             </h2>
             <span
               style={{
                 fontSize: "0.85rem",
-                background: "#f3f4f6",
+                background: "var(--bg-app)",
+                border: "1px solid var(--border-color)",
+                color: "var(--text-main)",
                 padding: "4px 10px",
                 borderRadius: "6px",
+                transition: "var(--theme-transition)",
               }}
             >
               Raison d'arrêt finale :{" "}
@@ -408,7 +458,7 @@ export default function SessionDetail() {
               }}
             >
               <thead>
-                <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
                   <th style={thStyle}>Horodatage</th>
                   <th style={thStyle}>Type d'Événement</th>
                   <th style={thStyle}>Déclencheur</th>
@@ -416,21 +466,23 @@ export default function SessionDetail() {
                 </tr>
               </thead>
               <tbody>
-                {(session.TransactionEvents || []).length === 0 ? (
+                {events.length === 0 ? (
                   <tr>
                     <td
                       colSpan={4}
                       style={{
-                        ...tdStyle,
                         textAlign: "center",
                         padding: "40px 20px",
-                        color: "#6b7280",
+                        color: "var(--text-muted)",
+                        transition: "var(--theme-transition)",
                       }}
                     >
                       <div style={{ fontSize: "2rem", marginBottom: "10px" }}>
                         📭
                       </div>
-                      <strong style={{ color: "#374151", fontSize: "1rem" }}>
+                      <strong
+                        style={{ color: "var(--text-main)", fontSize: "1rem" }}
+                      >
                         Journal technique non disponible
                       </strong>
                       <p
@@ -440,71 +492,93 @@ export default function SessionDetail() {
                           lineHeight: "1.4",
                         }}
                       >
-                        Le suivi détaillé par événements (TransactionEvents) est
-                        une fonctionnalité native du protocole{" "}
-                        <strong>OCPP 2.0.1+</strong>.<br />
-                        Pour les bornes utilisant <strong>OCPP 1.6</strong>, le
-                        diagnostic s'effectue via les informations de l'en-tête
-                        et la courbe de puissance ci-dessus.
+                        Le suivi détaillé par événements est une fonctionnalité
+                        native d'OCPP 2.0.1+.
                       </p>
                     </td>
                   </tr>
                 ) : (
-                  (session.TransactionEvents || []).map(
-                    (event: any, idx: number) => {
-                      const timeStr = new Date(
-                        event.timestamp,
-                      ).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      });
-                      let infoStr = "";
-                      try {
-                        const parsed =
-                          typeof event.transactionInfo === "string"
-                            ? JSON.parse(event.transactionInfo)
-                            : event.transactionInfo;
-                        infoStr = parsed?.chargingState
-                          ? `Statut: ${parsed.chargingState}`
-                          : "";
-                        if (parsed?.stoppedReason)
-                          infoStr += ` | Motif: ${parsed.stoppedReason}`;
-                      } catch (e) {}
+                  paginatedEvents.map((event: any, idx: number) => {
+                    const timeStr = new Date(
+                      event.timestamp,
+                    ).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    });
+                    let infoStr = "";
+                    try {
+                      const parsed =
+                        typeof event.transactionInfo === "string"
+                          ? JSON.parse(event.transactionInfo)
+                          : event.transactionInfo;
+                      infoStr = parsed?.chargingState
+                        ? `Statut: ${parsed.chargingState}`
+                        : "";
+                      if (parsed?.stoppedReason)
+                        infoStr += ` | Motif: ${parsed.stoppedReason}`;
+                    } catch (e) {}
 
-                      return (
-                        <tr
-                          key={idx}
-                          style={{ borderBottom: "1px solid #f3f4f6" }}
+                    return (
+                      <tr
+                        key={idx}
+                        style={{
+                          borderBottom: "1px solid var(--border-color)",
+                          transition: "var(--theme-transition)",
+                        }}
+                      >
+                        <td style={{ ...tdStyle, color: "var(--text-muted)" }}>
+                          {timeStr}
+                        </td>
+                        <td style={tdStyle}>
+                          <strong>{event.eventType}</strong>
+                        </td>
+                        <td style={tdStyle}>
+                          <span style={badgeSmallStyle}>
+                            {event.triggerReason}
+                          </span>
+                        </td>
+                        <td
+                          style={{
+                            ...tdStyle,
+                            fontFamily: "monospace",
+                            fontSize: "0.85rem",
+                          }}
                         >
-                          <td style={{ ...tdStyle, color: "#6b7280" }}>
-                            {timeStr}
-                          </td>
-                          <td style={tdStyle}>
-                            <strong>{event.eventType}</strong>
-                          </td>
-                          <td style={tdStyle}>
-                            <span style={badgeSmallStyle}>
-                              {event.triggerReason}
-                            </span>
-                          </td>
-                          <td
-                            style={{
-                              ...tdStyle,
-                              fontFamily: "monospace",
-                              fontSize: "0.85rem",
-                            }}
-                          >
-                            {infoStr}
-                          </td>
-                        </tr>
-                      );
-                    },
-                  )
+                          {infoStr}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* CONTRÔLES DE PAGINATION */}
+          {totalPages > 1 && (
+            <div style={paginationContainerStyle}>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={paginationButtonStyle(currentPage === 1)}
+              >
+                Précédent
+              </button>
+              <span style={paginationTextStyle}>
+                Page {currentPage} sur {totalPages}
+              </span>
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={currentPage === totalPages}
+                style={paginationButtonStyle(currentPage === totalPages)}
+              >
+                Suivant
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -513,108 +587,147 @@ export default function SessionDetail() {
 
 // --- STYLES ---
 const headerCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   padding: "25px",
   borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+  border: "1px solid var(--border-color)",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   flexWrap: "wrap",
   gap: "20px",
+  transition: "var(--theme-transition)",
 };
 const backButtonStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#4b5563",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 const forceStopButtonStyle: React.CSSProperties = {
-  background: "#fee2e2",
-  border: "1px solid #fca5a5",
+  background: "rgba(239, 68, 68, 0.15)",
+  border: "1px solid var(--status-offline)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#dc2626",
+  color: "var(--status-offline)",
+  transition: "var(--theme-transition)",
 };
-
 const statusBadgeStyle = (status: string): React.CSSProperties => {
-  const isCharging = status === "Charging" || status === "EVConnected";
+  const isCharging =
+    status === "Charging" || status === "EVConnected" || status === "En charge";
   return {
     display: "inline-block",
     padding: "4px 12px",
     borderRadius: "20px",
     fontSize: "0.85rem",
     fontWeight: "600",
-    background: isCharging ? "#dcfce7" : "#f3f4f6",
-    color: isCharging ? "#16a34a" : "#4b5563",
+    background: isCharging ? "rgba(16, 185, 129, 0.15)" : "var(--bg-app)",
+    color: isCharging ? "var(--status-charging)" : "var(--text-muted)",
+    transition: "var(--theme-transition)",
   };
 };
-
 const kpiCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   padding: "20px",
   borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+  border: "1px solid var(--border-color)",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
+  transition: "var(--theme-transition)",
 };
 const kpiLabelStyle: React.CSSProperties = {
   fontSize: "0.85rem",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   fontWeight: "600",
   letterSpacing: "0.05em",
   marginBottom: "5px",
+  transition: "var(--theme-transition)",
 };
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "1.8rem",
   fontWeight: "bold",
-  color: "#111827",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
-
 const chartCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   padding: "25px",
   borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+  border: "1px solid var(--border-color)",
+  transition: "var(--theme-transition)",
 };
-
 const thStyle: React.CSSProperties = {
-  padding: "12px 10px",
+  padding: "15px 20px",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
+  transition: "var(--theme-transition)",
 };
 const tdStyle: React.CSSProperties = {
-  padding: "12px 10px",
+  padding: "15px 20px",
   fontSize: "0.95rem",
-  color: "#1f2937",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 const badgeSmallStyle: React.CSSProperties = {
-  background: "#e0e7ff",
-  color: "#4338ca",
+  background: "var(--bg-app)",
+  border: "1px solid var(--border-color)",
+  color: "var(--status-available)",
   padding: "3px 8px",
   borderRadius: "6px",
   fontSize: "0.8rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
-
 const illegalAlertStyle: React.CSSProperties = {
-  background: "#fef2f2",
-  border: "1px solid #fecaca",
-  color: "#991b1b",
+  background: "rgba(239, 68, 68, 0.15)",
+  border: "1px solid var(--status-offline)",
+  color: "var(--status-offline)",
   padding: "15px 20px",
   borderRadius: "12px",
   display: "flex",
   alignItems: "center",
   boxShadow: "0 2px 10px rgba(220, 38, 38, 0.05)",
+  transition: "var(--theme-transition)",
+};
+
+const paginationContainerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "15px 20px",
+  borderTop: "1px solid var(--border-color)",
+  background: "var(--bg-app)",
+  borderBottomLeftRadius: "12px",
+  borderBottomRightRadius: "12px",
+  transition: "var(--theme-transition)",
+};
+const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
+  padding: "6px 12px",
+  borderRadius: "6px",
+  border: "1px solid var(--border-color)",
+  background: disabled ? "transparent" : "var(--bg-card)",
+  color: disabled ? "var(--text-muted)" : "var(--text-main)",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontSize: "0.85rem",
+  fontWeight: "600",
+  transition: "var(--theme-transition)",
+  opacity: disabled ? 0.5 : 1,
+});
+const paginationTextStyle: React.CSSProperties = {
+  fontSize: "0.85rem",
+  color: "var(--text-muted)",
+  fontWeight: "500",
+  transition: "var(--theme-transition)",
 };

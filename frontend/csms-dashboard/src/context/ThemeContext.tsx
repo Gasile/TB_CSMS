@@ -1,54 +1,97 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+// ThemeContext.tsx
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "dark" | "light";
+export type Theme = "light" | "dark";
 
 interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  // On initialise le thème avec la valeur sauvegardée dans le navigateur, ou "dark" par défaut
-  const [theme, setTheme] = useState<Theme>(() => {
-    const savedTheme = localStorage.getItem("csms-theme");
-    return (savedTheme as Theme) || "dark";
+const LOCAL_STORAGE_KEY = "csms-theme-preference";
+
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  // Initialisation de l'état avec lazy-loading pour éviter les lectures inutiles au re-render
+  const [theme, setThemeState] = useState<Theme>(() => {
+    const savedTheme = localStorage.getItem(LOCAL_STORAGE_KEY) as Theme | null;
+
+    if (savedTheme === "light" || savedTheme === "dark") {
+      return savedTheme;
+    }
+
+    // Fallback sur la préférence système
+    if (
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+    ) {
+      return "dark";
+    }
+
+    return "light";
   });
 
-  // À chaque fois que 'theme' change, on met à jour le DOM et le localStorage
+  // Effet pour appliquer la classe sur la balise <html> et sauvegarder dans le localStorage
   useEffect(() => {
-    if (theme === "light") {
-      document.body.setAttribute("data-theme", "light");
+    const root = window.document.documentElement;
+
+    // Ajout d'une classe temporaire pour éviter les flashs visuels brutaux durant la transition
+    root.classList.add("theme-transitioning");
+
+    if (theme === "dark") {
+      root.classList.add("dark");
     } else {
-      document.body.removeAttribute("data-theme"); // Retire l'attribut pour retomber sur le dark par défaut
+      root.classList.remove("dark");
     }
-    localStorage.setItem("csms-theme", theme);
+
+    localStorage.setItem(LOCAL_STORAGE_KEY, theme);
+
+    // Retrait de la classe de transition après la fin de l'animation
+    const timeout = setTimeout(() => {
+      root.classList.remove("theme-transitioning");
+    }, 300);
+
+    return () => clearTimeout(timeout);
   }, [theme]);
 
+  // Écoute des changements de préférence système en temps réel (si l'utilisateur n'a pas forcé de choix)
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const handleChange = (e: MediaQueryListEvent) => {
+      const hasUserPreference = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (!hasUserPreference) {
+        setThemeState(e.matches ? "dark" : "light");
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
   const toggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === "dark" ? "light" : "dark"));
+    setThemeState((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
+  };
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
-}
+};
 
-export function useTheme() {
+export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error(
-      "useTheme doit être utilisé à l'intérieur d'un ThemeProvider",
-    );
+    throw new Error("useTheme must be used within a ThemeProvider");
   }
   return context;
-}
+};

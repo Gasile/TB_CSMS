@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { fetchUserSessions } from "../../../api/userApi";
 
+const SESSIONS_PER_PAGE = 10; // <-- Configurable ici
+
 export default function MySessions() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -11,14 +13,16 @@ export default function MySessions() {
   const [isLoading, setIsLoading] = useState(true);
   const [sessions, setSessions] = useState<any[]>([]);
 
-  // --- ÉTAT DU TRI ---
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
   }>({
     key: "startTime",
-    direction: "desc", // Par défaut, la plus récente en premier
+    direction: "desc",
   });
+
+  // --- ÉTAT DE LA PAGINATION ---
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (userId) loadSessions();
@@ -29,6 +33,7 @@ export default function MySessions() {
     try {
       const data = await fetchUserSessions(userId!);
       setSessions(data || []);
+      setCurrentPage(1); // Retour à la première page au chargement
     } catch (error) {
       console.error("Erreur lors du chargement des sessions :", error);
     } finally {
@@ -36,26 +41,24 @@ export default function MySessions() {
     }
   };
 
-  // --- LOGIQUE DE TRI ---
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc"; // Inverse le tri si on reclique sur la même colonne
+      direction = "desc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1); // Retour à la première page lors d'un tri
   };
 
   const sortedSessions = [...sessions].sort((a, b) => {
     let valA = a[sortConfig.key];
     let valB = b[sortConfig.key];
 
-    // Cas particulier : on veut trier correctement le statut "En cours"
     if (sortConfig.key === "status") {
       valA = a.isActive ? "0_En_cours" : a.chargingState || "Terminé";
       valB = b.isActive ? "0_En_cours" : b.chargingState || "Terminé";
     }
 
-    // Sécurité contre les valeurs nulles
     if (valA == null) valA = "";
     if (valB == null) valB = "";
 
@@ -64,7 +67,13 @@ export default function MySessions() {
     return 0;
   });
 
-  // Petit Helper pour afficher les flèches (↑, ↓, ↕)
+  // --- LOGIQUE DE PAGINATION ---
+  const totalPages = Math.ceil(sortedSessions.length / SESSIONS_PER_PAGE);
+  const paginatedSessions = sortedSessions.slice(
+    (currentPage - 1) * SESSIONS_PER_PAGE,
+    currentPage * SESSIONS_PER_PAGE,
+  );
+
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -76,24 +85,39 @@ export default function MySessions() {
   };
 
   if (isLoading)
-    return <div style={{ padding: "30px" }}>Chargement de vos sessions...</div>;
+    return (
+      <div style={{ padding: "30px", color: "var(--text-main)" }}>
+        Chargement de vos sessions...
+      </div>
+    );
 
   const totalKwh = sessions.reduce((sum, s) => sum + (s.totalKwh || 0), 0);
 
   return (
     <div style={containerStyle}>
-      {/* --- EN-TÊTE --- */}
       <div style={headerCardStyle}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "1.8rem",
+              color: "var(--text-main)",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Mes Sessions de Charge
           </h1>
-          <p style={{ margin: "5px 0 0 0", color: "#6b7280" }}>
+          <p
+            style={{
+              margin: "5px 0 0 0",
+              color: "var(--text-muted)",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Retrouvez l'historique complet de vos recharges.
           </p>
         </div>
 
-        {/* KPIs */}
         <div style={{ display: "flex", gap: "30px" }}>
           <div style={kpiStyle}>
             <span style={kpiLabelStyle}>Énergie totale</span>
@@ -109,7 +133,6 @@ export default function MySessions() {
         </div>
       </div>
 
-      {/* --- HISTORIQUE DES SESSIONS --- */}
       <div style={cardStyle}>
         <div style={{ overflowX: "auto" }}>
           <table
@@ -120,7 +143,7 @@ export default function MySessions() {
             }}
           >
             <thead>
-              <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+              <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
                 <th
                   style={sortableThStyle}
                   onClick={() => handleSort("startTime")}
@@ -149,15 +172,15 @@ export default function MySessions() {
               </tr>
             </thead>
             <tbody>
-              {sortedSessions.length ===
-              0 /* ATTENTION ICI : On boucle sur sortedSessions */ ? (
+              {paginatedSessions.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
                     style={{
                       textAlign: "center",
                       padding: "30px",
-                      color: "#6b7280",
+                      color: "var(--text-muted)",
+                      transition: "var(--theme-transition)",
                     }}
                   >
                     Vous n'avez effectué aucune session de charge pour le
@@ -165,8 +188,7 @@ export default function MySessions() {
                   </td>
                 </tr>
               ) : (
-                sortedSessions.map((s: any) => {
-                  /* ATTENTION ICI : On boucle sur sortedSessions */
+                paginatedSessions.map((s: any) => {
                   const dateStr = s.startTime
                     ? new Date(s.startTime).toLocaleDateString()
                     : "N/A";
@@ -174,8 +196,11 @@ export default function MySessions() {
                     <tr
                       key={s.id}
                       style={{
-                        borderBottom: "1px solid #f3f4f6",
-                        background: s.isActive ? "#f0fdf4" : "transparent",
+                        borderBottom: "1px solid var(--border-color)",
+                        background: s.isActive
+                          ? "rgba(16, 185, 129, 0.08)"
+                          : "transparent",
+                        transition: "var(--theme-transition)",
                       }}
                     >
                       <td style={tdStyle}>
@@ -183,8 +208,9 @@ export default function MySessions() {
                         <div
                           style={{
                             fontSize: "0.85rem",
-                            color: "#6b7280",
+                            color: "var(--text-muted)",
                             wordBreak: "break-all",
+                            transition: "var(--theme-transition)",
                           }}
                         >
                           #{s.transactionId || s.id}
@@ -229,6 +255,29 @@ export default function MySessions() {
             </tbody>
           </table>
         </div>
+
+        {/* CONTRÔLES DE PAGINATION */}
+        {totalPages > 1 && (
+          <div style={paginationContainerStyle}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              style={paginationButtonStyle(currentPage === 1)}
+            >
+              Précédent
+            </button>
+            <span style={paginationTextStyle}>
+              Page {currentPage} sur {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              style={paginationButtonStyle(currentPage === totalPages)}
+            >
+              Suivant
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -242,17 +291,17 @@ const containerStyle: React.CSSProperties = {
   paddingBottom: "30px",
 };
 const headerCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "25px",
   borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   flexWrap: "wrap",
   gap: "20px",
+  transition: "var(--theme-transition)",
 };
-
 const txBadgeStyle = (
   status: string,
   isActive: boolean,
@@ -264,11 +313,11 @@ const txBadgeStyle = (
     borderRadius: "20px",
     fontSize: "0.8rem",
     fontWeight: "600",
-    background: isCharging ? "#dcfce7" : "#f3f4f6",
-    color: isCharging ? "#16a34a" : "#4b5563",
+    background: isCharging ? "rgba(16, 185, 129, 0.15)" : "var(--bg-app)",
+    color: isCharging ? "var(--status-charging)" : "var(--text-muted)",
+    transition: "var(--theme-transition)",
   };
 };
-
 const kpiStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -276,52 +325,82 @@ const kpiStyle: React.CSSProperties = {
 };
 const kpiLabelStyle: React.CSSProperties = {
   fontSize: "0.8rem",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   fontWeight: "600",
   letterSpacing: "0.05em",
+  transition: "var(--theme-transition)",
 };
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "1.8rem",
   fontWeight: "bold",
-  color: "#111827",
+  color: "var(--text-main)",
   lineHeight: "1.2",
+  transition: "var(--theme-transition)",
 };
-
 const cardStyle: React.CSSProperties = {
-  background: "#fff",
-  padding: "25px",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+  transition: "var(--theme-transition)",
 };
 const thStyle: React.CSSProperties = {
-  padding: "12px 10px",
+  padding: "15px",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
+  transition: "var(--theme-transition)",
 };
-
-// NOUVEAU STYLE POUR RENDRE L'EN-TÊTE CLIQUABLE
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
   userSelect: "none",
 };
-
 const tdStyle: React.CSSProperties = {
-  padding: "15px 10px",
+  padding: "15px",
   fontSize: "0.95rem",
-  color: "#1f2937",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 const detailsButtonStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   fontSize: "0.8rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-main)",
   cursor: "pointer",
-  transition: "all 0.2s ease",
+  transition: "all 0.2s ease, var(--theme-transition)",
+};
+
+const paginationContainerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "15px",
+  borderTop: "1px solid var(--border-color)",
+  background: "var(--bg-app)",
+  borderBottomLeftRadius: "12px",
+  borderBottomRightRadius: "12px",
+  transition: "var(--theme-transition)",
+};
+const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
+  padding: "6px 12px",
+  borderRadius: "6px",
+  border: "1px solid var(--border-color)",
+  background: disabled ? "transparent" : "var(--bg-card)",
+  color: disabled ? "var(--text-muted)" : "var(--text-main)",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontSize: "0.85rem",
+  fontWeight: "600",
+  transition: "var(--theme-transition)",
+  opacity: disabled ? 0.5 : 1,
+});
+const paginationTextStyle: React.CSSProperties = {
+  fontSize: "0.85rem",
+  color: "var(--text-muted)",
+  fontWeight: "500",
+  transition: "var(--theme-transition)",
 };

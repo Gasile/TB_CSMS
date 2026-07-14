@@ -1,0 +1,100 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+}
+
+/* ----------------------------------
+   MODE CLAIR (Clean SaaS)
+----------------------------------- */
+:root {
+  /* Arrière-plans & Panneaux */
+  --bg-app: #f4f6f8;
+  --bg-card: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+
+  /* NOUVELLE COULEUR PRIMAIRE : Un beau vert émeraude distinctif */
+  --primary: #059669; /* Vert émeraude profond */
+  --primary-hover: #047857; /* Plus foncé au survol */
+
+  /* COULEURS DE STATUTS AMÉLIORÉES (Plus fraîches et lumineuses) */
+  --status-charging: #10b981; /* Un beau vert menthe dynamique */
+  --status-available: #0ea5e9; /* Disponible (Bleu cyan restant) */
+  --status-maintenance: #f59e0b; /* Maintenance (Orange) */
+  --status-offline: #ef4444; /* Hors ligne (Rouge) */
+
+  --theme-transition:
+    background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease,
+    box-shadow 0.3s ease, transform 0.3s ease, stroke 0.3s ease, fill 0.3s ease;
+}
+
+/* ----------------------------------
+   MODE SOMBRE (Ajusté façon "VoltCharge")
+----------------------------------- */
+html.dark {
+  /* Arrière-plans (La clé de la profondeur est ici) */
+  --bg-app: #0b101e; /* Fond principal de l'application (très sombre) */
+  --bg-card: #171d2b; /* Surface des cartes, Sidebar et Topbar (plus clair) */
+
+  /* Textes */
+  --text-main: #ffffff; /* Blanc pur pour les données clés */
+  --text-muted: #8e9bb0; /* Gris-bleuté pour les libellés */
+
+  /* Bordures et Lignes */
+  --border-color: #262d3d; /* Séparateurs subtils */
+
+  /* Couleur Primaire */
+  --primary: #00d28f;
+  --primary-hover: #00eb9f;
+
+  /* Couleurs de Statuts CSMS */
+  --status-charging: #00d28f;
+  --status-available: #0ea5e9;
+  --status-maintenance: #fbbf24;
+  --status-offline: #f87171;
+}
+
+/* Règle utilitaire pour la transition fluide */
+.theme-transitioning * {
+  transition: var(--theme-transition);
+}
+
+/* ----------------------------------
+   SCROLLBAR PERSONNALISÉE
+----------------------------------- */
+
+/* 1. Pour Firefox (standard web) */
+html {
+  scrollbar-width: thin; /* Rend la barre plus fine */
+  scrollbar-color: var(--text-muted) transparent; /* thumb | track */
+}
+
+/* 2. Pour les navigateurs Webkit (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 8px; /* Largeur de la barre verticale */
+  height: 8px; /* Hauteur de la barre horizontale (pour les tableaux) */
+}
+
+/* Le fond (piste) de la barre de défilement */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Le curseur (thumb) de la barre de défilement */
+::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 10px;
+}
+
+/* Le curseur au survol de la souris */
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}

@@ -95,7 +95,6 @@ export default function AdminOverview() {
       // 2. Construire le profil de puissance pour CHAQUE transaction indépendamment
       const txProfiles: Record<number, { time: number; power: number }[]> = {};
 
-      // On force l'existence du point de départ et de fin du graphique pour toujours avoir une ligne
       const allTimestamps = new Set<number>([startTimestamp, endTimestamp]);
 
       allTx.forEach((tx: any) => {
@@ -106,21 +105,16 @@ export default function AdminOverview() {
         allTimestamps.add(startTime);
 
         const mvs = mvsByTx[tx.id] || [];
-        mvs.sort((a, b) => a.time - b.time); // Tri chronologique
+        mvs.sort((a, b) => a.time - b.time);
 
         let lastTime = startTime;
 
-        // NOUVEAU : Si la session a commencé AVANT le début du graphique, on extrapole
-        // sa puissance avec le premier point de mesure disponible dans la fenêtre
         if (startTime <= startTimestamp && mvs.length > 0) {
           profile.push({ time: startTimestamp, power: mvs[0].power });
-          // On avance lastTime au début du graphique pour ne pas déclencher la chute
-          // d'inactivité de 2 min sur le "trou" temporel des données non téléchargées
           lastTime = startTimestamp;
         }
 
         mvs.forEach((mv) => {
-          // Si plus de 2 min d'inactivité, la borne tombe à 0
           if (mv.time - lastTime > 120000) {
             profile.push({ time: lastTime + 120000, power: 0 });
             allTimestamps.add(lastTime + 120000);
@@ -130,7 +124,6 @@ export default function AdminOverview() {
           lastTime = mv.time;
         });
 
-        // Gestion de la fin ou de l'inactivité actuelle
         if (tx.endTime) {
           const endTime = new Date(tx.endTime).getTime();
           if (endTime - lastTime > 120000) {
@@ -140,15 +133,11 @@ export default function AdminOverview() {
           profile.push({ time: endTime, power: 0 });
           allTimestamps.add(endTime);
         } else {
-          // Session active (si pas de endTime, elle est forcément en cours)
           if (endTimestamp - lastTime > 120000) {
             profile.push({ time: lastTime + 120000, power: 0 });
             allTimestamps.add(lastTime + 120000);
-
-            // Inspiration SessionDetail : on force un point à 0 pour la fin du graphique
             profile.push({ time: endTimestamp, power: 0 });
           } else {
-            // Si on a des données récentes, on prolonge la puissance jusqu'à "maintenant"
             const lastPowerValue =
               profile.length > 0 ? profile[profile.length - 1].power : 0;
             profile.push({ time: endTimestamp, power: lastPowerValue });
@@ -168,12 +157,10 @@ export default function AdminOverview() {
       sortedTimestamps.forEach((t) => {
         let currentTotalPower = 0;
 
-        // Pour chaque transaction, on évalue sa puissance à l'instant T exact
         allTx.forEach((tx: any) => {
           const profile = txProfiles[tx.id];
           let powerAtT = 0;
 
-          // On cherche la valeur du dernier événement qui s'est produit AVANT ou PENDANT l'instant T
           for (let i = profile.length - 1; i >= 0; i--) {
             if (profile[i].time <= t) {
               powerAtT = profile[i].power;
@@ -204,13 +191,10 @@ export default function AdminOverview() {
   ).length;
   const availableStations = totalStations - offlineStations - chargingStations;
 
-  // --- PUISSANCE INSTANTANÉE ---
-  let instantPowerKW = 0;
   const nowMs = new Date().getTime();
 
-  activeSessions.forEach((session) => {
+  const getSessionInstantPower = (session: any): number => {
     if (session.MeterValues && session.MeterValues.length > 0) {
-      // On parcourt les dernières MeterValues jusqu'à trouver celle qui contient la puissance
       for (const mv of session.MeterValues) {
         try {
           const parsed =
@@ -222,21 +206,25 @@ export default function AdminOverview() {
               (item: any) => item.measurand === "Power.Active.Import",
             );
             if (powerItem && powerItem.value !== undefined) {
-              // NOUVEAU : On vérifie que la donnée date de moins de 2 minutes (120 000 ms)
               const mvTime = new Date(mv.timestamp).getTime();
               if (nowMs - mvTime <= 120000) {
-                instantPowerKW += powerItem.value / 1000;
+                return powerItem.value / 1000;
               }
-              break; // TRÈS IMPORTANT : On arrête de chercher dès qu'on a trouvé la vraie dernière puissance
+              break;
             }
           }
         } catch (e) {}
       }
     }
+    return 0;
+  };
+
+  let instantPowerKW = 0;
+  activeSessions.forEach((session) => {
+    instantPowerKW += getSessionInstantPower(session);
   });
   const currentPower = instantPowerKW;
 
-  // Formateur de date
   const formatTime = (unixTime: number) => {
     const d = new Date(unixTime);
     return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
@@ -244,10 +232,16 @@ export default function AdminOverview() {
 
   if (isLoading && chartData.length === 0)
     return (
-      <div style={{ padding: "20px" }}>Chargement du centre de contrôle...</div>
+      <div style={{ padding: "20px", color: "var(--text-main)" }}>
+        Chargement du centre de contrôle...
+      </div>
     );
   if (error)
-    return <div style={{ padding: "20px", color: "red" }}>{error}</div>;
+    return (
+      <div style={{ padding: "20px", color: "var(--status-offline)" }}>
+        {error}
+      </div>
+    );
 
   return (
     <div style={containerStyle}>
@@ -259,7 +253,14 @@ export default function AdminOverview() {
           marginBottom: "20px",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "1.8rem",
+            color: "var(--text-main)",
+            transition: "var(--theme-transition)",
+          }}
+        >
           Vue d'ensemble du réseau
         </h1>
         <button onClick={loadDashboardData} style={refreshButtonStyle}>
@@ -282,8 +283,9 @@ export default function AdminOverview() {
             <span
               style={{
                 fontSize: "0.9rem",
-                color: "#6b7280",
+                color: "var(--text-muted)",
                 marginBottom: "4px",
+                transition: "var(--theme-transition)",
               }}
             >
               Total
@@ -298,13 +300,28 @@ export default function AdminOverview() {
               fontWeight: "600",
             }}
           >
-            <span style={{ color: "#16a34a" }}>
+            <span
+              style={{
+                color: "var(--status-charging)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               🟢 {chargingStations} Actif
             </span>
-            <span style={{ color: "#2563eb" }}>
+            <span
+              style={{
+                color: "var(--status-available)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               🔵 {availableStations} Dispo
             </span>
-            <span style={{ color: "#dc2626" }}>
+            <span
+              style={{
+                color: "var(--status-offline)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               🔴 {offlineStations} Offline
             </span>
           </div>
@@ -365,16 +382,24 @@ export default function AdminOverview() {
             marginBottom: "20px",
           }}
         >
-          <h2 style={{ margin: 0, fontSize: "1.1rem", color: "#374151" }}>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "1.1rem",
+              color: "var(--text-main)",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Consommation de la flotte (24h)
           </h2>
           <span
             style={{
               fontSize: "0.85rem",
-              background: "#f3f4f6",
+              background: "var(--bg-app)",
               padding: "4px 10px",
               borderRadius: "12px",
-              color: "#4b5563",
+              color: "var(--text-muted)",
+              transition: "var(--theme-transition)",
             }}
           >
             Puissance en kW
@@ -389,14 +414,22 @@ export default function AdminOverview() {
             >
               <defs>
                 <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#16a34a" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
+                  <stop
+                    offset="5%"
+                    stopColor="var(--primary)"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="var(--primary)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
-                stroke="#e5e7eb"
+                stroke="var(--border-color)"
               />
 
               <XAxis
@@ -409,14 +442,15 @@ export default function AdminOverview() {
                 tickFormatter={formatTime}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: "#6b7280" }}
+                tick={{ fontSize: 12, fill: "var(--text-muted)" }}
                 minTickGap={50}
               />
 
               <YAxis
+                width={50}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fontSize: 12, fill: "#6b7280" }}
+                tick={{ fontSize: 12, fill: "var(--text-muted)" }}
               />
 
               <Tooltip
@@ -426,13 +460,15 @@ export default function AdminOverview() {
                   "Puissance totale",
                 ]}
                 contentStyle={{
+                  background: "var(--bg-card)",
                   borderRadius: "8px",
-                  border: "none",
+                  border: "1px solid var(--border-color)",
                   boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                  color: "var(--text-main)",
                 }}
                 labelStyle={{
                   fontWeight: "bold",
-                  color: "#374151",
+                  color: "var(--text-main)",
                   marginBottom: "5px",
                 }}
               />
@@ -440,7 +476,7 @@ export default function AdminOverview() {
               <Area
                 type="StepAfter"
                 dataKey="puissance"
-                stroke="#16a34a"
+                stroke="var(--primary)"
                 strokeWidth={3}
                 fillOpacity={1}
                 fill="url(#colorPower)"
@@ -452,7 +488,12 @@ export default function AdminOverview() {
 
       <div style={tableCardStyle}>
         <h2
-          style={{ margin: "0 0 20px 0", fontSize: "1.1rem", color: "#374151" }}
+          style={{
+            margin: "0 0 20px 0",
+            fontSize: "1.1rem",
+            color: "var(--text-main)",
+            transition: "var(--theme-transition)",
+          }}
         >
           ⚡ Sessions actives en temps réel
         </h2>
@@ -462,9 +503,10 @@ export default function AdminOverview() {
             style={{
               textAlign: "center",
               padding: "30px",
-              color: "#6b7280",
-              background: "#f9fafb",
+              color: "var(--text-muted)",
+              background: "var(--bg-app)",
               borderRadius: "8px",
+              transition: "var(--theme-transition)",
             }}
           >
             Aucune session de charge en cours actuellement.
@@ -478,60 +520,104 @@ export default function AdminOverview() {
             }}
           >
             <thead>
-              <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+              <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
                 <th style={thStyle}>Borne</th>
                 <th style={thStyle}>Utilisateur</th>
                 <th style={thStyle}>Heure de début</th>
+                <th style={thStyle}>Puissance (kW)</th>
                 <th style={thStyle}>Énergie (kWh)</th>
                 <th style={thStyle}>Statut</th>
               </tr>
             </thead>
             <tbody>
-              {activeSessions.map((session) => (
-                <tr
-                  key={session.id}
-                  style={{ borderBottom: "1px solid #f3f4f6" }}
-                >
-                  <td style={tdStyle}>
-                    <strong>
-                      {session.ChargingStation?.chargePointModel
-                        ? `${session.ChargingStation.chargePointModel} `
-                        : ""}
-                      {session.ocppConnectionName}
-                    </strong>
-                  </td>
-                  <td style={tdStyle}>
-                    {session.User
-                      ? `${session.User.first_name} ${session.User.last_name}`
-                      : "Badge inconnu"}
-                  </td>
-                  <td style={tdStyle}>
-                    {new Date(session.startTime).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </td>
-                  <td style={tdStyle}>
-                    {session.totalKwh ? session.totalKwh.toFixed(2) : "0.00"}
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={statusBadgeStyle(session.chargingState)}>
-                      {session.chargingState || "Charging"}
-                    </span>
-                    {session.is_legal === false && (
-                      <span style={illegalBadgeStyle}>Illégal</span>
-                    )}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>
-                    <button
-                      onClick={() => navigate(`/session/${session.id}`)}
-                      style={detailsButtonStyle}
-                    >
-                      Détails ➔
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {activeSessions.map((session) => {
+                const sessionPower = getSessionInstantPower(session);
+                const percentOfTotal =
+                  currentPower > 0 ? (sessionPower / currentPower) * 100 : 0;
+
+                return (
+                  <tr
+                    key={session.id}
+                    style={{
+                      borderBottom: "1px solid var(--border-color)",
+                      transition: "var(--theme-transition)",
+                    }}
+                  >
+                    <td style={tdStyle}>
+                      <strong>
+                        {session.ChargingStation?.chargePointModel
+                          ? `${session.ChargingStation.chargePointModel} `
+                          : ""}
+                        {session.ocppConnectionName}
+                      </strong>
+                    </td>
+                    <td style={tdStyle}>
+                      {session.User
+                        ? `${session.User.first_name} ${session.User.last_name}`
+                        : "Badge inconnu"}
+                    </td>
+                    <td style={tdStyle}>
+                      {new Date(session.startTime).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                    <td style={tdStyle}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "2px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: "bold",
+                            color:
+                              sessionPower > 0
+                                ? "var(--status-charging)"
+                                : "var(--text-muted)",
+                            transition: "var(--theme-transition)",
+                          }}
+                        >
+                          {sessionPower.toFixed(2)} kW
+                        </span>
+                        {sessionPower > 0 && currentPower > 0 && (
+                          <span
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "var(--text-muted)",
+                              fontWeight: "500",
+                              transition: "var(--theme-transition)",
+                            }}
+                          >
+                            {percentOfTotal.toFixed(1)}% du total
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={tdStyle}>
+                      {session.totalKwh ? session.totalKwh.toFixed(2) : "0.00"}
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={statusBadgeStyle(session.chargingState)}>
+                        {session.chargingState || "Charging"}
+                      </span>
+                      {session.is_legal === false && (
+                        <span style={illegalBadgeStyle}>Illégal</span>
+                      )}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <button
+                        onClick={() => navigate(`/session/${session.id}`)}
+                        style={detailsButtonStyle}
+                      >
+                        Détails ➔
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -546,15 +632,17 @@ const containerStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: "25px",
 };
+
 const refreshButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   cursor: "pointer",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#4b5563",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 
 const kpiGridStyle: React.CSSProperties = {
@@ -562,61 +650,75 @@ const kpiGridStyle: React.CSSProperties = {
   gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   gap: "20px",
 };
+
 const kpiCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   padding: "20px",
   borderRadius: "12px",
   boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
   display: "flex",
   flexDirection: "column",
   justifyContent: "center",
+  transition: "var(--theme-transition)",
 };
+
 const kpiTitleStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.05em",
+  transition: "var(--theme-transition)",
 };
+
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "2rem",
   fontWeight: "bold",
-  color: "#111827",
+  color: "var(--text-main)",
   lineHeight: "1",
+  transition: "var(--theme-transition)",
 };
+
 const kpiUnitStyle: React.CSSProperties = {
   fontSize: "1rem",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   fontWeight: "600",
   marginBottom: "4px",
+  transition: "var(--theme-transition)",
 };
 
 const chartCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   padding: "25px",
   borderRadius: "12px",
   boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+  transition: "var(--theme-transition)",
 };
+
 const tableCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   padding: "25px",
   borderRadius: "12px",
   boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
   overflowX: "auto",
+  transition: "var(--theme-transition)",
 };
 
 const thStyle: React.CSSProperties = {
   padding: "12px 10px",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.05em",
+  transition: "var(--theme-transition)",
 };
+
 const tdStyle: React.CSSProperties = {
   padding: "15px 10px",
   fontSize: "0.95rem",
-  color: "#1f2937",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 
 const statusBadgeStyle = (state: string): React.CSSProperties => {
@@ -627,21 +729,22 @@ const statusBadgeStyle = (state: string): React.CSSProperties => {
     borderRadius: "20px",
     fontSize: "0.8rem",
     fontWeight: "600",
-    background: isCharging ? "#dcfce7" : "#f3f4f6",
-    color: isCharging ? "#16a34a" : "#4b5563",
+    background: isCharging ? "var(--border-color)" : "var(--bg-app)",
+    color: isCharging ? "var(--status-charging)" : "var(--text-muted)",
+    transition: "var(--theme-transition)",
   };
 };
 
 const detailsButtonStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   fontSize: "0.8rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-main)",
   cursor: "pointer",
-  transition: "all 0.2s ease",
+  transition: "all 0.2s ease, var(--theme-transition)",
 };
 
 const illegalBadgeStyle: React.CSSProperties = {
@@ -650,7 +753,8 @@ const illegalBadgeStyle: React.CSSProperties = {
   borderRadius: "20px",
   fontSize: "0.8rem",
   fontWeight: "600",
-  background: "#fee2e2",
-  color: "#dc2626",
+  background: "var(--border-color)",
+  color: "var(--status-offline)",
   marginLeft: "8px",
+  transition: "var(--theme-transition)",
 };

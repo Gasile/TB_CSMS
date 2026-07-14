@@ -28,7 +28,8 @@ const layoutContainerStyle: React.CSSProperties = {
   flexDirection: "column",
   height: "100vh",
   width: "100vw",
-  backgroundColor: "#f4f6f8",
+  backgroundColor: "var(--bg-app)", // Corrigé : utilise maintenant notre variable dynamique !
+  transition: "var(--theme-transition)", // Pour un basculement fluide
 };
 // La zone du bas prend le reste de l'espace (flex: 1) et aligne de gauche à droite (row par défaut)
 const bottomAreaStyle: React.CSSProperties = {
@@ -42,4 +43,6 @@ const scrollableMainStyle: React.CSSProperties = {
   overflowY: "auto",
   padding: "40px",
   boxSizing: "border-box",
+  backgroundColor: "var(--bg-app)", // Assure que la zone centrale utilise également le fond
+  transition: "var(--theme-transition)",
 };

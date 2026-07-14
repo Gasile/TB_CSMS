@@ -5,6 +5,8 @@ import {
   fetchStationTransactions,
 } from "../../../api/stationApi";
 
+const SESSIONS_PER_PAGE = 10; // <-- Configurable ici
+
 export default function StationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -14,14 +16,16 @@ export default function StationDetail() {
   const [station, setStation] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
 
-  // --- ÉTAT DU TRI ---
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
   }>({
     key: "startTime",
-    direction: "desc", // Par défaut, la plus récente en premier
+    direction: "desc",
   });
+
+  // --- ÉTAT DE LA PAGINATION ---
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (stationId) {
@@ -32,16 +36,15 @@ export default function StationDetail() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // 1. On récupère les infos de la borne
       const stationData = await fetchStationById(stationId);
       setStation(stationData);
 
-      // 2. Si la borne existe, on utilise son ocppConnectionName pour chercher ses sessions
       if (stationData && stationData.ocppConnectionName) {
         const sessionsData = await fetchStationTransactions(
           stationData.ocppConnectionName,
         );
         setSessions(sessionsData || []);
+        setCurrentPage(1);
       }
     } catch (error) {
       console.error("Erreur lors du chargement de la borne :", error);
@@ -50,40 +53,34 @@ export default function StationDetail() {
     }
   };
 
-  // --- LOGIQUE DE TRI ---
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc"; // Inverse le tri si on reclique sur la même colonne
+      direction = "desc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1); // Reset de la pagination au tri
   };
 
   const sortedSessions = [...sessions].sort((a, b) => {
     let valA = a[sortConfig.key];
     let valB = b[sortConfig.key];
 
-    // Cas particulier 1 : Trier par Statut
     if (sortConfig.key === "status") {
       valA = a.isActive ? "0_En_cours" : a.chargingState || "Terminé";
       valB = b.isActive ? "0_En_cours" : b.chargingState || "Terminé";
-    }
-    // Cas particulier 2 : Trier par Utilisateur (on concatène nom + prénom)
-    else if (sortConfig.key === "User") {
+    } else if (sortConfig.key === "User") {
       valA = a.User
         ? `${a.User.last_name} ${a.User.first_name}`.toLowerCase()
-        : "zzzz"; // "zzzz" pour les mettre à la fin
+        : "zzzz";
       valB = b.User
         ? `${b.User.last_name} ${b.User.first_name}`.toLowerCase()
         : "zzzz";
-    }
-    // Cas particulier 3 : Trier par Date (startTime)
-    else if (sortConfig.key === "startTime") {
+    } else if (sortConfig.key === "startTime") {
       valA = a.startTime ? new Date(a.startTime).getTime() : 0;
       valB = b.startTime ? new Date(b.startTime).getTime() : 0;
     }
 
-    // Sécurité contre les valeurs nulles
     if (valA == null) valA = "";
     if (valB == null) valB = "";
 
@@ -92,7 +89,13 @@ export default function StationDetail() {
     return 0;
   });
 
-  // Petit Helper pour afficher les flèches (↑, ↓, ↕)
+  // --- LOGIQUE DE PAGINATION ---
+  const totalPages = Math.ceil(sortedSessions.length / SESSIONS_PER_PAGE);
+  const paginatedSessions = sortedSessions.slice(
+    (currentPage - 1) * SESSIONS_PER_PAGE,
+    currentPage * SESSIONS_PER_PAGE,
+  );
+
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -105,22 +108,22 @@ export default function StationDetail() {
 
   if (isLoading && !station)
     return (
-      <div style={{ padding: "30px" }}>
+      <div style={{ padding: "30px", color: "var(--text-main)" }}>
         Chargement du dossier de la borne...
       </div>
     );
   if (!station)
     return (
-      <div style={{ padding: "30px", color: "red" }}>Borne introuvable.</div>
+      <div style={{ padding: "30px", color: "var(--status-offline)" }}>
+        Borne introuvable.
+      </div>
     );
 
-  // Calculs rapides pour les KPIs
   const totalKwh = sessions.reduce((sum, s) => sum + (s.totalKwh || 0), 0);
   const activeSessions = sessions.filter((s) => s.isActive).length;
 
   return (
     <div style={containerStyle}>
-      {/* --- EN-TÊTE : BOUTON RETOUR ET INFOS BORNE --- */}
       <div style={headerCardStyle}>
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
           <button
@@ -131,21 +134,33 @@ export default function StationDetail() {
           </button>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "1.8rem",
+                  color: "var(--text-main)",
+                  transition: "var(--theme-transition)",
+                }}
+              >
                 {station.ocppConnectionName}
               </h1>
               <span style={onlineBadgeStyle(station.isOnline)}>
                 {station.isOnline ? "En ligne" : "Hors ligne"}
               </span>
             </div>
-            <p style={{ margin: "5px 0 0 0", color: "#6b7280" }}>
+            <p
+              style={{
+                margin: "5px 0 0 0",
+                color: "var(--text-muted)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               {station.chargePointVendor || "Marque inconnue"} •{" "}
               {station.chargePointModel || "Modèle inconnu"}
             </p>
           </div>
         </div>
 
-        {/* Résumé (KPIs) */}
         <div style={{ display: "flex", gap: "30px" }}>
           <div style={kpiStyle}>
             <span style={kpiLabelStyle}>Énergie totale délivrée</span>
@@ -161,14 +176,13 @@ export default function StationDetail() {
         </div>
       </div>
 
-      {/* --- HISTORIQUE DES SESSIONS (Pleine largeur) --- */}
       <div style={cardStyle}>
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: "20px",
+            padding: "20px",
           }}
         >
           <h2 style={sectionTitleStyle}>Historique des sessions de charge</h2>
@@ -176,11 +190,12 @@ export default function StationDetail() {
             <span
               style={{
                 fontSize: "0.85rem",
-                color: "#16a34a",
+                color: "var(--status-charging)",
                 fontWeight: "bold",
-                background: "#dcfce7",
+                background: "rgba(0, 210, 143, 0.15)",
                 padding: "4px 10px",
                 borderRadius: "20px",
+                transition: "var(--theme-transition)",
               }}
             >
               {activeSessions} session(s) en cours
@@ -197,7 +212,7 @@ export default function StationDetail() {
             }}
           >
             <thead>
-              <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+              <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
                 <th
                   style={sortableThStyle}
                   onClick={() => handleSort("startTime")}
@@ -223,39 +238,51 @@ export default function StationDetail() {
               </tr>
             </thead>
             <tbody>
-              {sessions.length === 0 ? (
+              {paginatedSessions.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
                     style={{
                       textAlign: "center",
                       padding: "30px",
-                      color: "#6b7280",
+                      color: "var(--text-muted)",
                     }}
                   >
                     Aucune session de charge enregistrée sur cette borne.
                   </td>
                 </tr>
               ) : (
-                sortedSessions.map((s: any) => {
+                paginatedSessions.map((s: any) => {
                   const dateStr = s.startTime
                     ? new Date(s.startTime).toLocaleDateString()
                     : "N/A";
+
+                  let rowBg = "transparent";
+                  if (s.isActive) {
+                    rowBg =
+                      s.is_legal === false
+                        ? "rgba(239, 68, 68, 0.08)"
+                        : "rgba(16, 185, 129, 0.08)";
+                  }
+
                   return (
                     <tr
                       key={s.id}
                       style={{
-                        borderBottom: "1px solid #f3f4f6",
-                        background: s.isActive
-                          ? s.is_legal === false
-                            ? "#fee2e2" // Fond rouge clair si illégal
-                            : "#f0fdf4" // Fond vert clair si légal
-                          : "transparent",
+                        borderBottom: "1px solid var(--border-color)",
+                        background: rowBg,
+                        transition: "var(--theme-transition)",
                       }}
                     >
                       <td style={tdStyle}>
                         <strong>{dateStr}</strong>
-                        <div style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+                        <div
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "var(--text-muted)",
+                            transition: "var(--theme-transition)",
+                          }}
+                        >
                           #{s.transactionId || s.id}
                         </div>
                       </td>
@@ -266,7 +293,11 @@ export default function StationDetail() {
                           </span>
                         ) : (
                           <span
-                            style={{ color: "#9ca3af", fontStyle: "italic" }}
+                            style={{
+                              color: "var(--text-muted)",
+                              fontStyle: "italic",
+                              transition: "var(--theme-transition)",
+                            }}
                           >
                             Utilisateur inconnu
                           </span>
@@ -305,6 +336,29 @@ export default function StationDetail() {
             </tbody>
           </table>
         </div>
+
+        {/* CONTRÔLES DE PAGINATION */}
+        {totalPages > 1 && (
+          <div style={paginationContainerStyle}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              style={paginationButtonStyle(currentPage === 1)}
+            >
+              Précédent
+            </button>
+            <span style={paginationTextStyle}>
+              Page {currentPage} sur {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              style={paginationButtonStyle(currentPage === totalPages)}
+            >
+              Suivant
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -317,37 +371,38 @@ const containerStyle: React.CSSProperties = {
   gap: "25px",
 };
 const headerCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "25px",
   borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   flexWrap: "wrap",
   gap: "20px",
+  transition: "var(--theme-transition)",
 };
 const backButtonStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#4b5563",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
-
 const onlineBadgeStyle = (isOnline: boolean): React.CSSProperties => ({
   display: "inline-block",
   padding: "4px 10px",
   borderRadius: "20px",
   fontSize: "0.8rem",
   fontWeight: "600",
-  background: isOnline ? "#dcfce7" : "#fee2e2",
-  color: isOnline ? "#16a34a" : "#dc2626",
+  background: isOnline ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
+  color: isOnline ? "var(--status-charging)" : "var(--status-offline)",
+  transition: "var(--theme-transition)",
 });
-
 const statusBadgeStyle = (
   status: string,
   isActive: boolean,
@@ -359,11 +414,11 @@ const statusBadgeStyle = (
     borderRadius: "20px",
     fontSize: "0.8rem",
     fontWeight: "600",
-    background: isCharging ? "#dcfce7" : "#f3f4f6",
-    color: isCharging ? "#16a34a" : "#4b5563",
+    background: isCharging ? "rgba(16, 185, 129, 0.15)" : "var(--bg-app)",
+    color: isCharging ? "var(--status-charging)" : "var(--text-muted)",
+    transition: "var(--theme-transition)",
   };
 };
-
 const kpiStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -371,58 +426,88 @@ const kpiStyle: React.CSSProperties = {
 };
 const kpiLabelStyle: React.CSSProperties = {
   fontSize: "0.8rem",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   fontWeight: "600",
   letterSpacing: "0.05em",
+  transition: "var(--theme-transition)",
 };
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "1.8rem",
   fontWeight: "bold",
-  color: "#111827",
+  color: "var(--text-main)",
   lineHeight: "1.2",
+  transition: "var(--theme-transition)",
 };
-
 const cardStyle: React.CSSProperties = {
-  background: "#fff",
-  padding: "25px",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+  transition: "var(--theme-transition)",
 };
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.2rem",
-  color: "#374151",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
-
 const thStyle: React.CSSProperties = {
-  padding: "12px 10px",
+  padding: "12px 20px",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
+  transition: "var(--theme-transition)",
 };
-const tdStyle: React.CSSProperties = {
-  padding: "15px 10px",
-  fontSize: "0.95rem",
-  color: "#1f2937",
-};
-
-const detailsButtonStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #d1d5db",
-  padding: "6px 12px",
-  borderRadius: "6px",
-  fontSize: "0.8rem",
-  fontWeight: "600",
-  color: "#374151",
-  cursor: "pointer",
-  transition: "all 0.2s ease",
-};
-
-// NOUVEAU STYLE POUR RENDRE L'EN-TÊTE CLIQUABLE
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
   userSelect: "none",
+};
+const tdStyle: React.CSSProperties = {
+  padding: "15px 20px",
+  fontSize: "0.95rem",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
+};
+const detailsButtonStyle: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
+  padding: "6px 12px",
+  borderRadius: "6px",
+  fontSize: "0.8rem",
+  fontWeight: "600",
+  color: "var(--text-main)",
+  cursor: "pointer",
+  transition: "all 0.2s ease, var(--theme-transition)",
+};
+
+const paginationContainerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "15px",
+  borderTop: "1px solid var(--border-color)",
+  background: "var(--bg-app)",
+  borderBottomLeftRadius: "12px",
+  borderBottomRightRadius: "12px",
+  transition: "var(--theme-transition)",
+};
+const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
+  padding: "6px 12px",
+  borderRadius: "6px",
+  border: "1px solid var(--border-color)",
+  background: disabled ? "transparent" : "var(--bg-card)",
+  color: disabled ? "var(--text-muted)" : "var(--text-main)",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontSize: "0.85rem",
+  fontWeight: "600",
+  transition: "var(--theme-transition)",
+  opacity: disabled ? 0.5 : 1,
+});
+const paginationTextStyle: React.CSSProperties = {
+  fontSize: "0.85rem",
+  color: "var(--text-muted)",
+  fontWeight: "500",
+  transition: "var(--theme-transition)",
 };

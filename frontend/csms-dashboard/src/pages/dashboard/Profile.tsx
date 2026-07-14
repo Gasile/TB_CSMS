@@ -114,7 +114,14 @@ export default function Profile() {
             marginBottom: "20px",
           }}
         >
-          <h2 style={{ margin: 0, color: "#1a1a1a", fontSize: "1.8rem" }}>
+          <h2
+            style={{
+              margin: 0,
+              color: "var(--text-main)",
+              fontSize: "1.8rem",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Mon Profil
           </h2>
           {!isEditing && securityAction === "none" && (
@@ -136,7 +143,8 @@ export default function Profile() {
                 style={{
                   margin: "0 0 5px 0",
                   fontSize: "1.4rem",
-                  color: "#1a1a1a",
+                  color: "var(--text-main)",
+                  transition: "var(--theme-transition)",
                 }}
               >
                 {user.firstName} {user.lastName}
@@ -181,7 +189,7 @@ export default function Profile() {
             </div>
             <div style={infoBlockStyle}>
               <span style={labelStyle}>Adresse E-mail</span>
-              <span style={{ ...valueStyle, color: "#6b7280" }}>
+              <span style={{ ...valueStyle, color: "var(--text-muted)" }}>
                 {user.email}
               </span>
             </div>
@@ -232,8 +240,9 @@ export default function Profile() {
               <h4
                 style={{
                   margin: "0 0 15px 0",
-                  color: "#1a1a1a",
+                  color: "var(--text-main)",
                   fontSize: "1.1rem",
+                  transition: "var(--theme-transition)",
                 }}
               >
                 {securityAction === "email"
@@ -350,13 +359,14 @@ const containerStyle: React.CSSProperties = {
   padding: "20px 0",
 };
 const cardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   borderRadius: "16px",
   padding: "30px",
   boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
   display: "flex",
   flexDirection: "column",
   gap: "20px",
+  transition: "var(--theme-transition)",
 };
 const headerStyle: React.CSSProperties = {
   display: "flex",
@@ -367,7 +377,7 @@ const avatarLargeStyle: React.CSSProperties = {
   width: "80px",
   height: "80px",
   borderRadius: "50%",
-  background: "#32a823",
+  background: "var(--primary)",
   color: "#fff",
   display: "flex",
   alignItems: "center",
@@ -375,7 +385,8 @@ const avatarLargeStyle: React.CSSProperties = {
   fontWeight: "bold",
   fontSize: "2rem",
   letterSpacing: "2px",
-  boxShadow: "0 4px 15px rgba(50, 168, 35, 0.3)",
+  boxShadow: "0 4px 15px rgba(0, 210, 143, 0.2)",
+  transition: "var(--theme-transition)",
 };
 const roleBadgeStyle = (role: string): React.CSSProperties => ({
   display: "inline-block",
@@ -383,13 +394,16 @@ const roleBadgeStyle = (role: string): React.CSSProperties => ({
   borderRadius: "20px",
   fontSize: "0.8rem",
   fontWeight: "600",
-  background: role === "Admin" ? "#ecfdf5" : "#f3f4f6",
-  color: role === "Admin" ? "#15803d" : "#4b5563",
+  background:
+    role === "Admin" ? "rgba(0, 210, 143, 0.15)" : "var(--border-color)",
+  color: role === "Admin" ? "var(--status-charging)" : "var(--text-muted)",
+  transition: "var(--theme-transition)",
 });
 const separatorStyle: React.CSSProperties = {
   height: "1px",
-  background: "#f3f4f6",
+  background: "var(--border-color)",
   width: "100%",
+  transition: "var(--theme-transition)",
 };
 const infoGridStyle: React.CSSProperties = {
   display: "grid",
@@ -400,25 +414,28 @@ const infoBlockStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "6px",
-  background: "#f9fafb",
+  background: "var(--bg-app)",
   padding: "12px 15px",
   borderRadius: "8px",
+  transition: "var(--theme-transition)",
 };
 const labelStyle: React.CSSProperties = {
   fontSize: "0.75rem",
   textTransform: "uppercase",
   letterSpacing: "0.5px",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const valueStyle: React.CSSProperties = {
   fontSize: "1rem",
-  color: "#1f2937",
+  color: "var(--text-main)",
   fontWeight: "500",
+  transition: "var(--theme-transition)",
 };
 const errorStyle: React.CSSProperties = {
-  background: "#fee2e2",
-  color: "#dc2626",
+  background: "rgba(239, 68, 68, 0.15)",
+  color: "var(--status-offline)",
   padding: "12px",
   borderRadius: "8px",
   fontSize: "0.85rem",
@@ -426,8 +443,8 @@ const errorStyle: React.CSSProperties = {
   fontWeight: "500",
 };
 const successStyle: React.CSSProperties = {
-  background: "#dcfce7",
-  color: "#166534",
+  background: "rgba(16, 185, 129, 0.15)",
+  color: "var(--status-charging)",
   padding: "12px",
   borderRadius: "8px",
   fontSize: "0.85rem",
@@ -443,39 +460,45 @@ const inputGroupStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   padding: "8px 12px",
   borderRadius: "6px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
   outline: "none",
+  transition: "var(--theme-transition)",
 };
 const editToggleButtonStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   cursor: "pointer",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#4b5563",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 const saveButtonStyle = (disabled: boolean): React.CSSProperties => ({
   flex: 1,
   padding: "10px",
-  background: disabled ? "#a5d6a7" : "#32a823",
+  background: disabled ? "var(--border-color)" : "var(--primary)",
   color: "#fff",
   border: "none",
   borderRadius: "8px",
   fontWeight: "600",
   cursor: disabled ? "not-allowed" : "pointer",
+  transition: "var(--theme-transition)",
 });
 const cancelButtonStyle: React.CSSProperties = {
   flex: 1,
   padding: "10px",
-  background: "#f3f4f6",
-  color: "#4b5563",
+  background: "var(--bg-app)",
+  color: "var(--text-muted)",
   border: "none",
   borderRadius: "8px",
   fontWeight: "600",
   cursor: "pointer",
+  transition: "var(--theme-transition)",
 };
 
 const actionsContainerStyle: React.CSSProperties = {
@@ -492,9 +515,10 @@ const actionLinkStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: "0.95rem",
   fontWeight: "600",
-  color: "#4b5563",
+  color: "var(--text-muted)",
   textDecoration: "underline",
   textUnderlineOffset: "4px",
+  transition: "var(--theme-transition)",
 };
 const logoutLinkStyle: React.CSSProperties = {
   background: "transparent",
@@ -503,15 +527,17 @@ const logoutLinkStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: "0.95rem",
   fontWeight: "600",
-  color: "#dc2626",
+  color: "var(--status-offline)",
   textDecoration: "underline",
   textUnderlineOffset: "4px",
   marginTop: "10px",
+  transition: "var(--theme-transition)",
 };
 const securityFormContainerStyle: React.CSSProperties = {
-  background: "#f9fafb",
+  background: "var(--bg-app)",
   padding: "20px",
   borderRadius: "10px",
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--border-color)",
   marginTop: "5px",
+  transition: "var(--theme-transition)",
 };

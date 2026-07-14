@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { requestPasswordReset } from "../../api/authApi"; // <-- IMPORT CRUCIAL ICI
+import { requestPasswordReset } from "../../api/authApi";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState(""); // <-- Ajout de l'état d'erreur
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -14,7 +14,6 @@ export default function ForgotPassword() {
     setError("");
 
     try {
-      // --- LE VÉRITABLE APPEL API EST ICI ---
       await requestPasswordReset(email);
       setSuccess(true);
     } catch (err: any) {
@@ -32,18 +31,25 @@ export default function ForgotPassword() {
           <h1
             style={{
               margin: "10px 0 5px 0",
-              color: "#1a1a1a",
+              color: "var(--text-main)",
               fontSize: "1.5rem",
+              transition: "var(--theme-transition)",
             }}
           >
             Mot de passe oublié
           </h1>
-          <p style={{ margin: 0, color: "#666", fontSize: "0.9rem" }}>
+          <p
+            style={{
+              margin: 0,
+              color: "var(--text-muted)",
+              fontSize: "0.9rem",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Saisissez votre e-mail pour recevoir un lien de réinitialisation.
           </p>
         </div>
 
-        {/* Affichage des erreurs remontées par Hasura */}
         {error && <div style={errorStyle}>{error}</div>}
 
         {success ? (
@@ -52,8 +58,13 @@ export default function ForgotPassword() {
             envoyé à <strong>{email}</strong>.
             <br />
             <br />
-            {/* Petit texte pour te rappeler de regarder la console */}
-            <span style={{ fontSize: "0.8rem", color: "#15803d" }}>
+            <span
+              style={{
+                fontSize: "0.8rem",
+                color: "var(--status-charging)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               (Vérifiez la console du navigateur pour le lien de test)
             </span>
             <br />
@@ -106,35 +117,41 @@ const containerStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "20px",
+  background: "var(--bg-app)",
+  transition: "var(--theme-transition)",
 };
 const cardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   padding: "40px",
   borderRadius: "16px",
+  border: "1px solid var(--border-color)",
   boxShadow: "0 10px 40px rgba(0,0,0,0.08)",
   width: "100%",
   maxWidth: "400px",
   display: "flex",
   flexDirection: "column",
   gap: "20px",
+  transition: "var(--theme-transition)",
 };
 const errorStyle: React.CSSProperties = {
-  background: "#fee2e2",
-  color: "#dc2626",
+  background: "rgba(239, 68, 68, 0.15)",
+  color: "var(--status-offline)",
   padding: "12px",
   borderRadius: "8px",
   fontSize: "0.85rem",
   textAlign: "center",
   fontWeight: "500",
+  transition: "var(--theme-transition)",
 };
 const successStyle: React.CSSProperties = {
-  background: "#dcfce7",
-  color: "#166534",
+  background: "rgba(16, 185, 129, 0.15)",
+  color: "var(--status-charging)",
   padding: "20px",
   borderRadius: "10px",
   fontSize: "0.9rem",
   textAlign: "center",
   lineHeight: "1.5",
+  transition: "var(--theme-transition)",
 };
 const inputGroupStyle: React.CSSProperties = {
   display: "flex",
@@ -144,33 +161,37 @@ const inputGroupStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#444",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.5px",
+  transition: "var(--theme-transition)",
 };
 const inputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: "10px",
-  border: "1px solid #ddd",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-app)",
+  color: "var(--text-main)",
   fontSize: "1rem",
   outline: "none",
-  transition: "border-color 0.2s",
+  transition: "var(--theme-transition)",
 };
 const linkStyle: React.CSSProperties = {
-  color: "#32a823",
+  color: "var(--primary)",
   textDecoration: "none",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const buttonStyle = (disabled: boolean): React.CSSProperties => ({
   marginTop: "10px",
   padding: "16px",
   borderRadius: "10px",
   border: "none",
-  background: disabled ? "#a5d6a7" : "#32a823",
+  background: disabled ? "var(--border-color)" : "var(--primary)",
   color: "#fff",
   fontSize: "1rem",
   fontWeight: "bold",
   cursor: disabled ? "not-allowed" : "pointer",
-  transition: "background 0.2s",
+  transition: "var(--theme-transition)",
 });

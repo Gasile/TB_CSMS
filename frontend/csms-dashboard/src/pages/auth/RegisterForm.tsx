@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { registerUser } from "../../api/authApi"; //
+import { registerUser } from "../../api/authApi";
 
 export default function RegisterForm() {
   const [firstName, setFirstName] = useState("");
@@ -24,7 +24,6 @@ export default function RegisterForm() {
     setIsSubmitting(true);
 
     try {
-      // Appel direct à ton API
       await registerUser(firstName, lastName, email, password);
       setSuccess(true);
     } catch (err: any) {
@@ -42,8 +41,9 @@ export default function RegisterForm() {
           <h1
             style={{
               margin: "10px 0 0 0",
-              color: "#1a1a1a",
+              color: "var(--text-main)",
               fontSize: "1.8rem",
+              transition: "var(--theme-transition)",
             }}
           >
             Créer un compte
@@ -59,7 +59,8 @@ export default function RegisterForm() {
               style={{
                 marginTop: "10px",
                 fontSize: "0.9rem",
-                color: "#166534",
+                color: "var(--status-charging)",
+                transition: "var(--theme-transition)",
               }}
             >
               Votre profil est désormais enregistré. Vous pouvez vous connecter
@@ -75,7 +76,6 @@ export default function RegisterForm() {
             onSubmit={handleSubmit}
             style={{ display: "flex", flexDirection: "column", gap: "15px" }}
           >
-            {/* --- MODIFICATION ICI : Prénom et Nom empilés --- */}
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Prénom</label>
               <input
@@ -99,7 +99,6 @@ export default function RegisterForm() {
                 placeholder="Dupont"
               />
             </div>
-            {/* ----------------------------------------------- */}
 
             <div style={inputGroupStyle}>
               <label style={labelStyle}>Email</label>
@@ -146,7 +145,13 @@ export default function RegisterForm() {
             </button>
 
             <div style={{ textAlign: "center", marginTop: "10px" }}>
-              <span style={{ color: "#666", fontSize: "0.9rem" }}>
+              <span
+                style={{
+                  color: "var(--text-muted)",
+                  fontSize: "0.9rem",
+                  transition: "var(--theme-transition)",
+                }}
+              >
                 Déjà un compte ?{" "}
               </span>
               <Link to="/login" style={linkStyle}>
@@ -167,34 +172,40 @@ const containerStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "20px",
+  background: "var(--bg-app)",
+  transition: "var(--theme-transition)",
 };
 const cardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   padding: "40px",
   borderRadius: "16px",
+  border: "1px solid var(--border-color)",
   boxShadow: "0 10px 40px rgba(0,0,0,0.08)",
   width: "100%",
   maxWidth: "450px",
   display: "flex",
   flexDirection: "column",
   gap: "20px",
+  transition: "var(--theme-transition)",
 };
 const errorStyle: React.CSSProperties = {
-  background: "#fee2e2",
-  color: "#dc2626",
+  background: "rgba(239, 68, 68, 0.15)",
+  color: "var(--status-offline)",
   padding: "12px",
   borderRadius: "8px",
   fontSize: "0.85rem",
   textAlign: "center",
   fontWeight: "500",
+  transition: "var(--theme-transition)",
 };
 const successStyle: React.CSSProperties = {
-  background: "#dcfce7",
-  color: "#166534",
+  background: "rgba(16, 185, 129, 0.15)",
+  color: "var(--status-charging)",
   padding: "25px",
   borderRadius: "10px",
   textAlign: "center",
   lineHeight: "1.5",
+  transition: "var(--theme-transition)",
 };
 const inputGroupStyle: React.CSSProperties = {
   display: "flex",
@@ -204,31 +215,37 @@ const inputGroupStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#444",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.5px",
+  transition: "var(--theme-transition)",
 };
 const inputStyle: React.CSSProperties = {
   padding: "12px 14px",
   borderRadius: "10px",
-  border: "1px solid #ddd",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-app)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
   outline: "none",
+  transition: "var(--theme-transition)",
 };
 const linkStyle: React.CSSProperties = {
-  color: "#32a823",
+  color: "var(--primary)",
   textDecoration: "none",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const buttonStyle = (disabled: boolean): React.CSSProperties => ({
   marginTop: "10px",
   padding: "16px",
   borderRadius: "10px",
   border: "none",
-  background: disabled ? "#a5d6a7" : "#32a823",
+  background: disabled ? "var(--border-color)" : "var(--primary)",
   color: "#fff",
   fontSize: "1rem",
   fontWeight: "bold",
   cursor: disabled ? "not-allowed" : "pointer",
+  transition: "var(--theme-transition)",
 });

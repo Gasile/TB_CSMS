@@ -20,13 +20,10 @@ import {
 import { useNavigate } from "react-router-dom";
 
 // --- SOUS-COMPOSANT : BORNE DÉPLAÇABLE ---
-// --- SOUS-COMPOSANT : BORNE DÉPLAÇABLE ---
 function DraggableStation({ station }: { station: any }) {
-  // 1. On vérifie si la borne a une transaction active en cours
   const isStationActive =
     station.Transactions && station.Transactions.length > 0;
 
-  // 2. On désactive le drag and drop si la station est active
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `station-${station.id}`,
     data: { station },
@@ -36,8 +33,12 @@ function DraggableStation({ station }: { station: any }) {
   const style: React.CSSProperties = {
     opacity: isDragging ? 0.2 : isStationActive ? 0.6 : 1,
     cursor: isStationActive ? "not-allowed" : "grab",
-    backgroundColor: isStationActive ? "#fef2f2" : "#fff", // Fond légèrement rouge si active
-    border: isStationActive ? "1px solid #fecaca" : "1px solid #e5e7eb",
+    backgroundColor: isStationActive
+      ? "rgba(239, 68, 68, 0.08)"
+      : "var(--bg-card)",
+    border: isStationActive
+      ? "1px solid var(--status-offline)"
+      : "1px solid var(--border-color)",
     borderRadius: "10px",
     padding: "10px 12px",
     display: "flex",
@@ -46,11 +47,11 @@ function DraggableStation({ station }: { station: any }) {
     width: "140px",
     boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
     userSelect: "none",
-    position: "relative", // Permet de positionner le petit badge "Bloqué"
+    position: "relative",
+    transition: "var(--theme-transition)",
   };
 
   return (
-    // On ne passe pas les listeners (clics) si la station est active pour éviter tout bug d'interaction
     <div
       ref={setNodeRef}
       style={style}
@@ -60,12 +61,15 @@ function DraggableStation({ station }: { station: any }) {
       <div
         style={{
           fontSize: "1.3rem",
-          background: isStationActive ? "#fee2e2" : "#f3f4f6",
+          background: isStationActive
+            ? "rgba(239, 68, 68, 0.15)"
+            : "var(--bg-app)",
           padding: "6px",
           borderRadius: "6px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          transition: "var(--theme-transition)",
         }}
       >
         {isStationActive ? "⚡" : "🔌"}
@@ -81,10 +85,13 @@ function DraggableStation({ station }: { station: any }) {
         <strong
           style={{
             fontSize: "0.85rem",
-            color: isStationActive ? "#991b1b" : "#111827",
+            color: isStationActive
+              ? "var(--status-offline)"
+              : "var(--text-main)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            transition: "var(--theme-transition)",
           }}
         >
           {station.ocppConnectionName}
@@ -92,24 +99,26 @@ function DraggableStation({ station }: { station: any }) {
         <span
           style={{
             fontSize: "0.7rem",
-            color: isStationActive ? "#b91c1c" : "#6b7280",
+            color: isStationActive
+              ? "var(--status-offline)"
+              : "var(--text-muted)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            transition: "var(--theme-transition)",
           }}
         >
           {station.chargePointModel || "Modèle inconnu"}
         </span>
       </div>
 
-      {/* Badge indicateur de blocage */}
       {isStationActive && (
         <div
           style={{
             position: "absolute",
             top: "-6px",
             right: "-6px",
-            background: "#ef4444",
+            background: "var(--status-offline)",
             color: "white",
             fontSize: "0.6rem",
             padding: "2px 6px",
@@ -125,7 +134,7 @@ function DraggableStation({ station }: { station: any }) {
   );
 }
 
-// --- SOUS-COMPOSANT : ZONE DE DÉPÔT (DROPPABLE) ---
+// --- SOUS-COMPOSANT : ZONE DE DÉPÔT ---
 function DroppableZone({
   id,
   children,
@@ -139,9 +148,11 @@ function DroppableZone({
 
   const zoneStyle: React.CSSProperties = {
     ...style,
-    backgroundColor: isOver ? "#eff6ff" : style.backgroundColor,
-    borderColor: isOver ? "#3b82f6" : style.borderColor,
-    transition: "all 0.2s ease",
+    backgroundColor: isOver
+      ? "rgba(14, 165, 233, 0.08)"
+      : style.backgroundColor,
+    borderColor: isOver ? "var(--status-available)" : style.borderColor,
+    transition: "all 0.2s ease, var(--theme-transition)",
   };
 
   return (
@@ -151,28 +162,22 @@ function DroppableZone({
   );
 }
 
-// Calcule la puissance en kW à partir de U, I et du nombre de phases
 const calculateKw = (v: number, a: number, phases: number): string => {
   if (!v || !a) return "0.0";
   const multiplier = phases === 3 ? Math.sqrt(3) : 1;
   const powerWatts = v * a * multiplier;
-  return (powerWatts / 1000).toFixed(1); // Retourne un string propre (ex: "22.2")
+  return (powerWatts / 1000).toFixed(1);
 };
 
-// --- COMPOSANT PRINCIPAL ---
 export default function PowerBlockManagement() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // États de données
   const [powerBlocks, setPowerBlocks] = useState<any[]>([]);
   const [unassignedStations, setUnassignedStations] = useState<any[]>([]);
-
-  // États d'interactivité (Drag & Drop)
   const [activeStation, setActiveStation] = useState<any>(null);
 
-  // États pour la modale de création
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [blockForm, setBlockForm] = useState({
     name: "",
@@ -181,8 +186,7 @@ export default function PowerBlockManagement() {
     nPhase: "3",
   });
 
-  // États pour la modale d'édition/suppression
-  const [editingBlock, setEditingBlock] = useState<any>(null); // Reçoit le bloc complet lors du clic sur modifier
+  const [editingBlock, setEditingBlock] = useState<any>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -198,7 +202,6 @@ export default function PowerBlockManagement() {
     setIsLoading(true);
     try {
       const data = await fetchPowerBlocksWithStations();
-
       const blocks = data?.PowerBlocks || [];
       const allStations = data?.ChargingStations || [];
 
@@ -222,7 +225,6 @@ export default function PowerBlockManagement() {
     }
   };
 
-  // --- ACTIONS FORMULAIRE ---
   const handleCreateBlock = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -230,12 +232,10 @@ export default function PowerBlockManagement() {
       const a = Number(blockForm.maxA);
       const phase = Number(blockForm.nPhase);
 
-      // On calcule la puissance en kW sous forme de nombre
       const multiplier = phase === 3 ? Math.sqrt(3) : 1;
       const computedKw = Number(((v * a * multiplier) / 1000).toFixed(2));
 
       await createPowerBlock(blockForm.name, v, a, phase, computedKw);
-
       setIsModalOpen(false);
       setBlockForm({ name: "", maxV: "400", maxA: "32", nPhase: "3" });
       loadData();
@@ -252,7 +252,6 @@ export default function PowerBlockManagement() {
       const a = Number(editingBlock.max_a);
       const phase = Number(editingBlock.n_phase);
 
-      // Même calcul pour la mise à jour
       const multiplier = phase === 3 ? Math.sqrt(3) : 1;
       const computedKw = Number(((v * a * multiplier) / 1000).toFixed(2));
 
@@ -264,7 +263,6 @@ export default function PowerBlockManagement() {
         phase,
         computedKw,
       );
-
       setEditingBlock(null);
       loadData();
     } catch (err: any) {
@@ -291,7 +289,6 @@ export default function PowerBlockManagement() {
     }
   };
 
-  // --- LOGIQUE DRAG & DROP ---
   const handleDragStart = (event: any) => {
     const { active } = event;
     const activeData = active.data.current;
@@ -302,14 +299,13 @@ export default function PowerBlockManagement() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    setActiveStation(null); // Nettoyage immédiat de l'overlay
+    setActiveStation(null);
 
     if (!over) return;
 
     const activeData = active.data.current;
     if (!activeData || !activeData.station) return;
     const draggedStation = activeData.station;
-
     const targetZoneId = over.id as string;
 
     let newBlockId: number | null = null;
@@ -319,7 +315,6 @@ export default function PowerBlockManagement() {
 
     if (draggedStation.power_block_id === newBlockId) return;
 
-    // --- NOUVEAU : VÉRIFICATION MANUELLE EN TEMPS RÉEL ---
     try {
       const isCurrentlyActive = await checkStationActiveStatus(
         draggedStation.id,
@@ -328,15 +323,14 @@ export default function PowerBlockManagement() {
         alert(
           "Action refusée : Une session de charge a démarré sur cette borne depuis votre dernière actualisation.",
         );
-        loadData(); // On recharge les données pour afficher le vrai statut (rouge)
-        return; // On stoppe tout, la carte retournera à sa place
+        loadData();
+        return;
       }
     } catch (err) {
       console.error("Erreur lors de la vérification du statut :", err);
       return;
     }
 
-    // Mise à jour optimiste de l'UI
     setPowerBlocks((prev) =>
       prev.map((b) => {
         let stations = b.stations.filter(
@@ -377,13 +371,17 @@ export default function PowerBlockManagement() {
     unassignedStations.length === 0
   ) {
     return (
-      <div style={{ padding: "20px" }}>
-        Chargement de la configuration de puissance...
+      <div style={{ padding: "20px", color: "var(--text-main)" }}>
+        Configuration de puissance...
       </div>
     );
   }
   if (error)
-    return <div style={{ padding: "20px", color: "red" }}>{error}</div>;
+    return (
+      <div style={{ padding: "20px", color: "var(--status-offline)" }}>
+        {error}
+      </div>
+    );
 
   return (
     <DndContext
@@ -392,21 +390,28 @@ export default function PowerBlockManagement() {
       onDragEnd={handleDragEnd}
     >
       <div style={containerStyle}>
-        {/* En-tête de la page */}
         <div style={headerStyle}>
           <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
             <button onClick={() => navigate(-1)} style={backButtonStyle}>
               ← Retour
             </button>
             <div>
-              <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "1.8rem",
+                  color: "var(--text-main)",
+                  transition: "var(--theme-transition)",
+                }}
+              >
                 Gestion du Smart Charging
               </h1>
               <p
                 style={{
                   margin: "5px 0 0 0",
-                  color: "#6b7280",
+                  color: "var(--text-muted)",
                   fontSize: "0.95rem",
+                  transition: "var(--theme-transition)",
                 }}
               >
                 Répartissez vos bornes de recharge sur vos différents blocs de
@@ -427,12 +432,9 @@ export default function PowerBlockManagement() {
           </div>
         </div>
 
-        {/* --- GRILLE DES BLOCS DE PUISSANCE --- */}
         <div style={blocksGridStyle}>
           {powerBlocks.map((block) => (
             <div key={block.id} style={blockCardStyle}>
-              {/* Sommet du bloc : Nom et P_Max */}
-              {/* Sommet du bloc : Nom, P_Max et Actions */}
               <div style={blockHeaderStyle}>
                 <h3 style={blockTitleStyle}>📦 {block.name}</h3>
                 <div
@@ -459,7 +461,10 @@ export default function PowerBlockManagement() {
                   </button>
                   <button
                     onClick={() => handleDeleteBlock(block.id, block.name)}
-                    style={{ ...iconActionButtonStyle, color: "#dc2626" }}
+                    style={{
+                      ...iconActionButtonStyle,
+                      color: "var(--status-offline)",
+                    }}
                     title="Supprimer le bloc"
                   >
                     🗑️
@@ -467,7 +472,6 @@ export default function PowerBlockManagement() {
                 </div>
               </div>
 
-              {/* Zone de dépôt du bloc */}
               <DroppableZone
                 id={`block-${block.id}`}
                 style={stationDropZoneStyle}
@@ -484,12 +488,10 @@ export default function PowerBlockManagement() {
           ))}
         </div>
 
-        {/* --- SECTION DES BORNES NON ASSIGNÉES (BAC DU BAS) --- */}
         <div style={unassignedSectionStyle}>
           <h2 style={unassignedTitleStyle}>
             📥 Bornes non assignées ({unassignedStations.length})
           </h2>
-
           <DroppableZone id="unassigned" style={unassignedDropZoneStyle}>
             {unassignedStations.length === 0 ? (
               <div style={emptyZoneTextStyle}>
@@ -504,27 +506,26 @@ export default function PowerBlockManagement() {
         </div>
       </div>
 
-      {/* --- CLONE OVERLAY PROPRE --- */}
       <DragOverlay dropAnimation={null}>
         {activeStation ? (
           <div
             style={{
-              background: "#fff",
-              border: "2px solid #3b82f6", // Bordure bleue nette
+              background: "var(--bg-card)",
+              border: "2px solid var(--status-available)",
               borderRadius: "10px",
               padding: "10px 12px",
               display: "flex",
               alignItems: "center",
               gap: "10px",
               width: "140px",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
               userSelect: "none",
             }}
           >
             <div
               style={{
                 fontSize: "1.3rem",
-                background: "#eff6ff",
+                background: "var(--bg-app)",
                 padding: "6px",
                 borderRadius: "6px",
                 display: "flex",
@@ -544,7 +545,7 @@ export default function PowerBlockManagement() {
               <strong
                 style={{
                   fontSize: "0.85rem",
-                  color: "#111827",
+                  color: "var(--text-main)",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -556,7 +557,7 @@ export default function PowerBlockManagement() {
               <span
                 style={{
                   fontSize: "0.7rem",
-                  color: "#6b7280",
+                  color: "var(--text-muted)",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -569,17 +570,22 @@ export default function PowerBlockManagement() {
         ) : null}
       </DragOverlay>
 
-      {/* --- MODALE DE CRÉATION DE BLOC --- */}
       {isModalOpen && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
-            <h2 style={{ marginTop: 0, color: "#1f2937", fontSize: "1.4rem" }}>
+            <h2
+              style={{
+                marginTop: 0,
+                color: "var(--text-main)",
+                fontSize: "1.4rem",
+              }}
+            >
               Créer un Bloc de Puissance
             </h2>
             <p
               style={{
                 fontSize: "0.85rem",
-                color: "#6b7280",
+                color: "var(--text-muted)",
                 marginBottom: "20px",
               }}
             >
@@ -599,7 +605,7 @@ export default function PowerBlockManagement() {
                   onChange={(e) =>
                     setBlockForm({ ...blockForm, name: e.target.value })
                   }
-                  placeholder="Ex: Secteur A, Bloc principal, Étage 1..."
+                  placeholder="Ex: Secteur A, Étage 1..."
                 />
               </div>
               <div style={{ display: "flex", gap: "10px" }}>
@@ -613,7 +619,6 @@ export default function PowerBlockManagement() {
                     onChange={(e) =>
                       setBlockForm({ ...blockForm, maxV: e.target.value })
                     }
-                    placeholder="230 ou 400"
                   />
                 </div>
                 <div style={{ flex: 1 }}>
@@ -626,7 +631,6 @@ export default function PowerBlockManagement() {
                     onChange={(e) =>
                       setBlockForm({ ...blockForm, maxA: e.target.value })
                     }
-                    placeholder="16, 32, 63..."
                   />
                 </div>
               </div>
@@ -666,17 +670,23 @@ export default function PowerBlockManagement() {
           </div>
         </div>
       )}
-      {/* --- MODALE DE MODIFICATION DE BLOC --- */}
+
       {editingBlock && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
-            <h2 style={{ marginTop: 0, color: "#1f2937", fontSize: "1.4rem" }}>
+            <h2
+              style={{
+                marginTop: 0,
+                color: "var(--text-main)",
+                fontSize: "1.4rem",
+              }}
+            >
               Modifier le Bloc de Puissance
             </h2>
             <p
               style={{
                 fontSize: "0.85rem",
-                color: "#6b7280",
+                color: "var(--text-muted)",
                 marginBottom: "20px",
               }}
             >
@@ -695,7 +705,6 @@ export default function PowerBlockManagement() {
                   onChange={(e) =>
                     setEditingBlock({ ...editingBlock, name: e.target.value })
                   }
-                  placeholder="Ex: Secteur A..."
                 />
               </div>
               <div style={{ display: "flex", gap: "10px" }}>
@@ -712,7 +721,6 @@ export default function PowerBlockManagement() {
                         max_v: e.target.value,
                       })
                     }
-                    placeholder="400"
                   />
                 </div>
                 <div style={{ flex: 1 }}>
@@ -728,7 +736,6 @@ export default function PowerBlockManagement() {
                         max_a: e.target.value,
                       })
                     }
-                    placeholder="32"
                   />
                 </div>
               </div>
@@ -775,7 +782,7 @@ export default function PowerBlockManagement() {
   );
 }
 
-// --- STYLES CSS ---
+// --- STYLES CSS ADAPTÉS ---
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -787,18 +794,18 @@ const headerStyle: React.CSSProperties = {
   alignItems: "flex-start",
 };
 const refreshButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#374151",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 const addBlockButtonStyle: React.CSSProperties = {
-  background: "#2563eb",
+  background: "var(--primary)",
   border: "none",
   color: "#fff",
   padding: "8px 16px",
@@ -806,7 +813,7 @@ const addBlockButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  boxShadow: "0 1px 2px rgba(37,99,235,0.2)",
+  transition: "var(--theme-transition)",
 };
 const blocksGridStyle: React.CSSProperties = {
   display: "grid",
@@ -814,36 +821,38 @@ const blocksGridStyle: React.CSSProperties = {
   gap: "25px",
 };
 const blockCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   borderRadius: "16px",
   padding: "20px",
-  boxShadow: "0 4px 6px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.05)",
   display: "flex",
   flexDirection: "column",
   minHeight: "220px",
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--border-color)",
+  transition: "var(--theme-transition)",
 };
 const blockHeaderStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   marginBottom: "15px",
-  borderBottom: "1px solid #f3f4f6",
+  borderBottom: "1px solid var(--border-color)",
   paddingBottom: "10px",
 };
 const blockTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.15rem",
-  color: "#111827",
+  color: "var(--text-main)",
   fontWeight: "700",
+  transition: "var(--theme-transition)",
 };
 const pMaxBadgeStyle: React.CSSProperties = {
-  background: "#eff6ff",
-  color: "#1d4ed8",
+  background: "rgba(14, 165, 233, 0.15)",
+  color: "var(--status-available)",
   padding: "4px 10px",
   borderRadius: "12px",
   fontSize: "0.8rem",
   fontWeight: "700",
+  transition: "var(--theme-transition)",
 };
 const stationDropZoneStyle: React.CSSProperties = {
   flex: 1,
@@ -852,94 +861,65 @@ const stationDropZoneStyle: React.CSSProperties = {
   gap: "12px",
   alignContent: "flex-start",
   padding: "10px",
-  background: "#f9fafb",
+  background: "var(--bg-app)",
   borderRadius: "8px",
-  border: "1px dashed #e5e7eb",
+  border: "1px dashed var(--border-color)",
   minHeight: "100px",
 };
 const emptyZoneTextStyle: React.CSSProperties = {
-  color: "#9ca3af",
+  color: "var(--text-muted)",
   fontSize: "0.85rem",
   fontStyle: "italic",
   width: "100%",
   textAlign: "center",
   padding: "20px 0",
+  transition: "var(--theme-transition)",
 };
 const unassignedSectionStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
   borderRadius: "16px",
   padding: "25px",
-  boxShadow: "0 4px 6px rgba(0,0,0,0.02)",
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--border-color)",
+  transition: "var(--theme-transition)",
 };
 const unassignedTitleStyle: React.CSSProperties = {
   margin: "0 0 15px 0",
   fontSize: "1.2rem",
-  color: "#374151",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 const unassignedDropZoneStyle: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: "12px",
   padding: "15px",
-  background: "#f9fafb",
+  background: "var(--bg-app)",
   borderRadius: "12px",
-  border: "1px dashed #d1d5db",
+  border: "1px dashed var(--border-color)",
   minHeight: "80px",
-};
-const overlayStationCardStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #3b82f6",
-  borderRadius: "10px",
-  padding: "10px 12px",
-  display: "flex",
-  alignItems: "center",
-  gap: "10px",
-  width: "140px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-  userSelect: "none",
-};
-
-// MODALE STYLES
-const modalOverlayStyle: React.CSSProperties = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: "rgba(0, 0, 0, 0.4)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 1000,
-};
-const modalContentStyle: React.CSSProperties = {
-  background: "#fff",
-  padding: "30px",
-  borderRadius: "12px",
-  width: "100%",
-  maxWidth: "400px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
 };
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "6px",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-muted)",
 };
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   padding: "10px",
   borderRadius: "6px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
+  outline: "none",
 };
 const cancelButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  color: "#4b5563",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  color: "var(--text-muted)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
@@ -947,7 +927,7 @@ const cancelButtonStyle: React.CSSProperties = {
   fontWeight: "600",
 };
 const submitButtonStyle: React.CSSProperties = {
-  background: "#2563eb",
+  background: "var(--primary)",
   color: "#fff",
   border: "none",
   padding: "8px 16px",
@@ -956,7 +936,6 @@ const submitButtonStyle: React.CSSProperties = {
   fontSize: "0.9rem",
   fontWeight: "600",
 };
-
 const iconActionButtonStyle: React.CSSProperties = {
   background: "none",
   border: "none",
@@ -967,16 +946,15 @@ const iconActionButtonStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  transition: "background 0.2s",
 };
-
 const backButtonStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#4b5563",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };

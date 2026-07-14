@@ -53,7 +53,6 @@ export default function AdminBadges() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // On charge les deux tables en parallèle
       const [resKnown, resUnknown] = await Promise.all([
         fetchAdminBadgesData(),
         fetchUnknownBadges(),
@@ -68,7 +67,6 @@ export default function AdminBadges() {
   };
 
   // --- 1. MAPPAGE DES DONNÉES ---
-  // On croise les Authorizations avec UserBadges pour avoir le propriétaire sur chaque ligne
   const enrichedBadges = (data.Authorizations || []).map((auth: any) => {
     const userBadge = (data.UserBadges || []).find(
       (ub: any) => ub.authorization_id === auth.id,
@@ -123,7 +121,6 @@ export default function AdminBadges() {
 
   // --- 3. ACTIONS ---
   const handleToggleStatus = async (badge: any) => {
-    // RÈGLE MÉTIER : On bloque l'activation si pas de propriétaire
     if (badge.status === "Blocked" && !badge.userId) {
       alert(
         "Action impossible : Un badge sans propriétaire ne peut pas être activé. Veuillez d'abord lui assigner un utilisateur.",
@@ -144,11 +141,10 @@ export default function AdminBadges() {
       setIsLoading(true);
       try {
         await deleteBadge(authId);
-        setIsModalOpen(false); // On ferme la modale si elle était ouverte
+        setIsModalOpen(false);
         loadData();
       } catch (err: any) {
         console.error("Erreur lors de la suppression :", err);
-        // Affiche le message clair qu'on vient de créer dans l'API
         alert(err.message);
       } finally {
         setIsLoading(false);
@@ -194,11 +190,9 @@ export default function AdminBadges() {
     setIsLoading(true);
 
     try {
-      // RÈGLE MÉTIER : Statut forcé à Blocked si pas de user
       const finalStatus = formData.user_id ? formData.status : "Blocked";
 
       if (editingBadge) {
-        // --- MODE ÉDITION ---
         await updateBadgeDetails(
           editingBadge.id,
           formData.idToken,
@@ -212,7 +206,6 @@ export default function AdminBadges() {
           } else if (!editingBadge.userBadgeId && newUserId) {
             await assignBadge(editingBadge.id, newUserId);
           } else if (editingBadge.userBadgeId && !newUserId) {
-            // Le badge perd son propriétaire : on supprime le lien ET on le bloque dans la base !
             await unassignAndBlockBadge(
               editingBadge.userBadgeId,
               editingBadge.id,
@@ -220,7 +213,6 @@ export default function AdminBadges() {
           }
         }
       } else {
-        // --- MODE CRÉATION ---
         const res = await adminCreateBadge(
           formData.idToken,
           formData.badge_name,
@@ -232,12 +224,9 @@ export default function AdminBadges() {
           await assignBadge(newAuthId, parseInt(formData.user_id));
         }
 
-        // NOUVEAU : Nettoyage de la table des inconnus
         try {
           await deleteUnknownBadge(formData.idToken);
-        } catch (e) {
-          // Si le badge n'était pas dans la table (création manuelle), on ignore l'erreur
-        }
+        } catch (e) {}
       }
 
       setIsModalOpen(false);
@@ -250,7 +239,6 @@ export default function AdminBadges() {
     }
   };
 
-  // Petit Helper pour afficher les flèches (↑, ↓, ↕)
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -262,20 +250,32 @@ export default function AdminBadges() {
   };
 
   if (isLoading && data.Authorizations.length === 0)
-    return <div style={{ padding: "30px" }}>Chargement des badges...</div>;
+    return (
+      <div style={{ padding: "30px", color: "var(--text-main)" }}>
+        Chargement des badges...
+      </div>
+    );
 
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "1.8rem",
+              color: "var(--text-main)",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Gestion des Badges
           </h1>
           <p
             style={{
               margin: "5px 0 0 0",
-              color: "#6b7280",
+              color: "var(--text-muted)",
               fontSize: "0.95rem",
+              transition: "var(--theme-transition)",
             }}
           >
             Administrez les accès RFID de la flotte
@@ -332,9 +332,8 @@ export default function AdminBadges() {
                 textAlign: "left",
               }}
             >
-              {/* Le thead et tbody d'origine restent identiques */}
               <thead>
-                <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+                <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
                   <th
                     style={sortableThStyle}
                     onClick={() => handleSort("badge_name")}
@@ -366,14 +365,21 @@ export default function AdminBadges() {
                 {filteredBadges.map((badge: any) => (
                   <tr
                     key={badge.id}
-                    style={{ borderBottom: "1px solid #f3f4f6" }}
+                    style={{
+                      borderBottom: "1px solid var(--border-color)",
+                      transition: "var(--theme-transition)",
+                    }}
                   >
                     <td style={tdStyle}>
                       <strong>{badge.badge_name}</strong>
                     </td>
                     <td style={tdStyle}>
                       <span
-                        style={{ fontFamily: "monospace", color: "#6b7280" }}
+                        style={{
+                          fontFamily: "monospace",
+                          color: "var(--text-muted)",
+                          transition: "var(--theme-transition)",
+                        }}
                       >
                         {badge.idToken}
                       </span>
@@ -425,7 +431,8 @@ export default function AdminBadges() {
                       style={{
                         textAlign: "center",
                         padding: "30px",
-                        color: "#6b7280",
+                        color: "var(--text-muted)",
+                        transition: "var(--theme-transition)",
                       }}
                     >
                       Aucun badge ne correspond à votre recherche.
@@ -449,7 +456,7 @@ export default function AdminBadges() {
             }}
           >
             <thead>
-              <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+              <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
                 <th style={thStyle}>Token Scanné</th>
                 <th style={thStyle}>Dernière vue</th>
                 <th style={thStyle}>Borne</th>
@@ -461,14 +468,18 @@ export default function AdminBadges() {
               {unknownBadges.map((badge: any) => (
                 <tr
                   key={badge.id_token}
-                  style={{ borderBottom: "1px solid #f3f4f6" }}
+                  style={{
+                    borderBottom: "1px solid var(--border-color)",
+                    transition: "var(--theme-transition)",
+                  }}
                 >
                   <td style={tdStyle}>
                     <span
                       style={{
                         fontFamily: "monospace",
-                        color: "#111827",
+                        color: "var(--text-main)",
                         fontWeight: "bold",
+                        transition: "var(--theme-transition)",
                       }}
                     >
                       {badge.id_token}
@@ -481,10 +492,11 @@ export default function AdminBadges() {
                   <td style={{ ...tdStyle, textAlign: "center" }}>
                     <span
                       style={{
-                        background: "#f3f4f6",
+                        background: "var(--bg-app)",
                         padding: "4px 8px",
                         borderRadius: "12px",
                         fontSize: "0.85rem",
+                        transition: "var(--theme-transition)",
                       }}
                     >
                       {badge.attempt_count}
@@ -507,7 +519,8 @@ export default function AdminBadges() {
                     style={{
                       textAlign: "center",
                       padding: "30px",
-                      color: "#6b7280",
+                      color: "var(--text-muted)",
+                      transition: "var(--theme-transition)",
                     }}
                   >
                     Aucun scan inconnu. Votre flotte est sécurisée !
@@ -523,7 +536,13 @@ export default function AdminBadges() {
       {isModalOpen && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
-            <h2 style={{ marginTop: 0, color: "#1f2937" }}>
+            <h2
+              style={{
+                marginTop: 0,
+                color: "var(--text-main)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               {editingBadge ? "Éditer le Badge" : "Nouveau Badge"}
             </h2>
             <form
@@ -566,7 +585,6 @@ export default function AdminBadges() {
                     setFormData({
                       ...formData,
                       user_id: selectedUserId,
-                      // RÈGLE MÉTIER : On bascule le statut si l'utilisateur est retiré
                       status: selectedUserId ? formData.status : "Blocked",
                     });
                   }}
@@ -595,7 +613,7 @@ export default function AdminBadges() {
                     onChange={(e) =>
                       setFormData({ ...formData, status: e.target.value })
                     }
-                    disabled={!formData.user_id} // RÈGLE MÉTIER : Désactivé si aucun user
+                    disabled={!formData.user_id}
                   >
                     <option value="Accepted">Accepté (Actif)</option>
                     <option value="Blocked">Bloqué</option>
@@ -604,9 +622,10 @@ export default function AdminBadges() {
                     <span
                       style={{
                         fontSize: "0.8rem",
-                        color: "#dc2626",
+                        color: "var(--status-offline)",
                         marginTop: "4px",
                         display: "block",
+                        transition: "var(--theme-transition)",
                       }}
                     >
                       * Un badge non assigné est obligatoirement bloqué.
@@ -623,12 +642,15 @@ export default function AdminBadges() {
                   marginTop: "10px",
                 }}
               >
-                <button
-                  onClick={() => handleDeleteBadge(editingBadge.id)}
-                  style={deleteButtonStyle}
-                >
-                  Supprimer
-                </button>
+                {editingBadge && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteBadge(editingBadge.id)}
+                    style={deleteButtonStyle}
+                  >
+                    Supprimer
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -669,38 +691,50 @@ const searchInputStyle: React.CSSProperties = {
   flex: 1,
   padding: "10px 15px",
   borderRadius: "8px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
+  outline: "none",
+  transition: "var(--theme-transition)",
 };
 const selectFilterStyle: React.CSSProperties = {
   padding: "10px 15px",
   borderRadius: "8px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
-  backgroundColor: "#fff",
+  backgroundColor: "var(--bg-card)",
   cursor: "pointer",
+  outline: "none",
+  transition: "var(--theme-transition)",
 };
 
 const tableCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "25px",
   borderRadius: "12px",
   boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
   overflowX: "auto",
+  transition: "var(--theme-transition)",
 };
 const thStyle: React.CSSProperties = {
   padding: "12px 10px",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.05em",
   userSelect: "none",
+  transition: "var(--theme-transition)",
 };
 const tdStyle: React.CSSProperties = {
   padding: "15px 10px",
   fontSize: "0.95rem",
-  color: "#1f2937",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 
 const statusBadgeStyle = (status: string): React.CSSProperties => {
@@ -711,13 +745,16 @@ const statusBadgeStyle = (status: string): React.CSSProperties => {
     borderRadius: "20px",
     fontSize: "0.8rem",
     fontWeight: "600",
-    background: isAccepted ? "#dcfce7" : "#fee2e2",
-    color: isAccepted ? "#16a34a" : "#dc2626",
+    background: isAccepted
+      ? "rgba(16, 185, 129, 0.15)"
+      : "rgba(239, 68, 68, 0.15)",
+    color: isAccepted ? "var(--status-charging)" : "var(--status-offline)",
+    transition: "var(--theme-transition)",
   };
 };
 
 const createButtonStyle: React.CSSProperties = {
-  background: "#16a34a",
+  background: "var(--primary)",
   color: "#fff",
   border: "none",
   padding: "8px 16px",
@@ -725,109 +762,120 @@ const createButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const editButtonStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  color: "#374151",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  color: "var(--text-main)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   cursor: "pointer",
   fontSize: "0.8rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const blockButtonStyle: React.CSSProperties = {
-  background: "#fee2e2",
-  color: "#dc2626",
-  border: "1px solid #fca5a5",
+  background: "rgba(239, 68, 68, 0.15)",
+  color: "var(--status-offline)",
+  border: "1px solid var(--status-offline)",
   padding: "6px 12px",
   borderRadius: "6px",
   cursor: "pointer",
   fontSize: "0.8rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const activateButtonStyle: React.CSSProperties = {
-  background: "#dcfce7",
-  color: "#16a34a",
-  border: "1px solid #86efac",
+  background: "rgba(16, 185, 129, 0.15)",
+  color: "var(--status-charging)",
+  border: "1px solid var(--status-charging)",
   padding: "6px 12px",
   borderRadius: "6px",
   cursor: "pointer",
   fontSize: "0.8rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const cancelButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  color: "#4b5563",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  color: "var(--text-muted)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 
-// Styles Modale
 const modalOverlayStyle: React.CSSProperties = {
   position: "fixed",
   top: 0,
   left: 0,
   right: 0,
   bottom: 0,
-  backgroundColor: "rgba(0, 0, 0, 0.5)",
+  backgroundColor: "rgba(0, 0, 0, 0.6)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   zIndex: 1000,
 };
 const modalContentStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "30px",
   borderRadius: "12px",
   width: "100%",
   maxWidth: "400px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+  transition: "var(--theme-transition)",
 };
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "5px",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-muted)",
+  transition: "var(--theme-transition)",
 };
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   padding: "10px",
   borderRadius: "6px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
+  outline: "none",
+  transition: "var(--theme-transition)",
 };
 
 const deleteButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  color: "#dc2626",
-  border: "1px solid #fca5a5",
+  background: "rgba(239, 68, 68, 0.15)",
+  color: "var(--status-offline)",
+  border: "1px solid var(--status-offline)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 
 const detailsButtonStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   fontSize: "0.8rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-main)",
   cursor: "pointer",
-  transition: "all 0.2s ease",
+  transition: "all 0.2s ease, var(--theme-transition)",
 };
 
-// NOUVEAU STYLE POUR RENDRE L'EN-TÊTE CLIQUABLE
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
@@ -837,12 +885,13 @@ const sortableThStyle: React.CSSProperties = {
 const tabsContainerStyle: React.CSSProperties = {
   display: "flex",
   gap: "10px",
-  borderBottom: "2px solid #e5e7eb",
+  borderBottom: "2px solid var(--border-color)",
   paddingBottom: "10px",
+  transition: "var(--theme-transition)",
 };
 
 const activeTabStyle: React.CSSProperties = {
-  background: "#2563eb",
+  background: "var(--primary)",
   color: "#fff",
   border: "none",
   padding: "8px 16px",
@@ -850,17 +899,17 @@ const activeTabStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: "0.95rem",
   fontWeight: "600",
-  transition: "all 0.2s ease",
+  transition: "all 0.2s ease, var(--theme-transition)",
 };
 
 const inactiveTabStyle: React.CSSProperties = {
   background: "transparent",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   border: "none",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.95rem",
   fontWeight: "600",
-  transition: "all 0.2s ease",
+  transition: "all 0.2s ease, var(--theme-transition)",
 };

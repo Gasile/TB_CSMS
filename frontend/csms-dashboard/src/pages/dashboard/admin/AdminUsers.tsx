@@ -38,7 +38,7 @@ export default function AdminUsers() {
   const loadUsers = async () => {
     setIsLoading(true);
     try {
-      const usersList = await fetchAllUsers(); // Retourne directement le tableau des utilisateurs
+      const usersList = await fetchAllUsers();
       setUsers(usersList || []);
     } catch (error) {
       console.error("Erreur de chargement des utilisateurs:", error);
@@ -48,7 +48,6 @@ export default function AdminUsers() {
   };
 
   // --- FILTRAGE ET TRI ---
-  // 1. On crée une VRAIE copie pour ne jamais muter l'état React original
   let filteredUsers = [...users];
 
   if (roleFilter !== "All") {
@@ -65,19 +64,15 @@ export default function AdminUsers() {
     );
   }
 
-  // 2. On trie la copie
   filteredUsers.sort((a: any, b: any) => {
     let valA = a[sortConfig.key]?.toString().toLowerCase() || "";
     let valB = b[sortConfig.key]?.toString().toLowerCase() || "";
 
-    // Cas particulier : on concatène "Prénom Nom" pour correspondre EXACTEMENT
-    // à ce qui est affiché à l'écran, de gauche à droite.
     if (sortConfig.key === "last_name") {
       valA = `${a.first_name} ${a.last_name}`.toLowerCase();
       valB = `${b.first_name} ${b.last_name}`.toLowerCase();
     }
 
-    // localeCompare est parfait pour trier correctement les accents en français (ex: Métrailler)
     if (sortConfig.direction === "asc") {
       return valA.localeCompare(valB, "fr");
     } else {
@@ -95,7 +90,6 @@ export default function AdminUsers() {
     });
   };
 
-  // --- ACTIONS ---
   const handleToggleRole = async (userId: number, currentRole: string) => {
     const newRole = currentRole === "Admin" ? "User" : "Admin";
     if (
@@ -122,7 +116,6 @@ export default function AdminUsers() {
 
   const openEditModal = (user: any) => {
     setEditingUser(user);
-    // On pré-remplit les infos, le mot de passe reste vide car on ne le modifie pas ici
     setFormData({
       first_name: user.first_name,
       last_name: user.last_name,
@@ -138,7 +131,6 @@ export default function AdminUsers() {
     setIsLoading(true);
     try {
       if (editingUser) {
-        // --- MODE ÉDITION ---
         await updateUserDetails(
           editingUser.id,
           formData.first_name,
@@ -147,7 +139,6 @@ export default function AdminUsers() {
           formData.role,
         );
       } else {
-        // --- MODE CRÉATION ---
         await createNewUser(
           formData.first_name,
           formData.last_name,
@@ -183,7 +174,6 @@ export default function AdminUsers() {
     }
   };
 
-  // Petit Helper pour afficher les flèches (↑, ↓, ↕)
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -196,21 +186,31 @@ export default function AdminUsers() {
 
   if (isLoading && users.length === 0)
     return (
-      <div style={{ padding: "30px" }}>Chargement des utilisateurs...</div>
+      <div style={{ padding: "30px", color: "var(--text-main)" }}>
+        Chargement des utilisateurs...
+      </div>
     );
 
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "1.8rem",
+              color: "var(--text-main)",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Gestion des Utilisateurs
           </h1>
           <p
             style={{
               margin: "5px 0 0 0",
-              color: "#6b7280",
+              color: "var(--text-muted)",
               fontSize: "0.95rem",
+              transition: "var(--theme-transition)",
             }}
           >
             Annuaire et droits d'accès
@@ -249,7 +249,7 @@ export default function AdminUsers() {
           }}
         >
           <thead>
-            <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+            <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
               <th
                 style={sortableThStyle}
                 onClick={() => handleSort("last_name")}
@@ -267,7 +267,13 @@ export default function AdminUsers() {
           </thead>
           <tbody>
             {filteredUsers.map((user: any) => (
-              <tr key={user.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+              <tr
+                key={user.id}
+                style={{
+                  borderBottom: "1px solid var(--border-color)",
+                  transition: "var(--theme-transition)",
+                }}
+              >
                 <td style={tdStyle}>
                   <strong>
                     {user.first_name} {user.last_name}
@@ -278,7 +284,6 @@ export default function AdminUsers() {
                   <span style={roleBadgeStyle(user.role)}>{user.role}</span>
                 </td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>
-                  {/* Utilisation d'une div interne pour un alignement parfait à droite */}
                   <div
                     style={{
                       display: "flex",
@@ -309,7 +314,13 @@ export default function AdminUsers() {
       {isModalOpen && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
-            <h2 style={{ marginTop: 0, color: "#1f2937" }}>
+            <h2
+              style={{
+                marginTop: 0,
+                color: "var(--text-main)",
+                transition: "var(--theme-transition)",
+              }}
+            >
               {editingUser ? "Éditer l'Utilisateur" : "Nouvel Utilisateur"}
             </h2>
             <form
@@ -353,7 +364,6 @@ export default function AdminUsers() {
                 />
               </div>
 
-              {/* Le mot de passe n'est demandé qu'à la création */}
               {!editingUser && (
                 <div>
                   <label style={labelStyle}>Mot de passe provisoire</label>
@@ -437,60 +447,67 @@ const searchInputStyle: React.CSSProperties = {
   flex: 1,
   padding: "10px 15px",
   borderRadius: "8px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
+  outline: "none",
+  transition: "var(--theme-transition)",
 };
 const selectFilterStyle: React.CSSProperties = {
   padding: "10px 15px",
   borderRadius: "8px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
-  backgroundColor: "#fff",
+  backgroundColor: "var(--bg-card)",
   cursor: "pointer",
+  outline: "none",
+  transition: "var(--theme-transition)",
 };
 const tableCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "25px",
   borderRadius: "12px",
   boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
   overflowX: "auto",
+  transition: "var(--theme-transition)",
 };
 const thStyle: React.CSSProperties = {
   padding: "12px 10px",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   letterSpacing: "0.05em",
   userSelect: "none",
+  transition: "var(--theme-transition)",
 };
 const tdStyle: React.CSSProperties = {
   padding: "15px 10px",
   fontSize: "0.95rem",
-  color: "#1f2937",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 
-const roleBadgeStyle = (role: string): React.CSSProperties => ({
-  display: "inline-block",
-  padding: "4px 10px",
-  borderRadius: "20px",
-  fontSize: "0.8rem",
-  fontWeight: "600",
-  background: role === "Admin" ? "#fef08a" : "#f3f4f6",
-  color: role === "Admin" ? "#854d0e" : "#4b5563",
-});
-const smallBadgeStyle = (status: string): React.CSSProperties => ({
-  padding: "3px 8px",
-  borderRadius: "12px",
-  fontSize: "0.75rem",
-  fontWeight: "600",
-  border: "1px solid #e5e7eb",
-  background: status === "Accepted" ? "#dcfce7" : "#fee2e2",
-  color: status === "Accepted" ? "#16a34a" : "#dc2626",
-});
+const roleBadgeStyle = (role: string): React.CSSProperties => {
+  const isAdmin = role === "Admin";
+  return {
+    display: "inline-block",
+    padding: "4px 10px",
+    borderRadius: "20px",
+    fontSize: "0.8rem",
+    fontWeight: "600",
+    background: isAdmin ? "rgba(251, 191, 36, 0.15)" : "var(--border-color)",
+    color: isAdmin ? "var(--status-maintenance)" : "var(--text-muted)",
+    transition: "var(--theme-transition)",
+  };
+};
 
 const createButtonStyle: React.CSSProperties = {
-  background: "#16a34a",
+  background: "var(--primary)",
   color: "#fff",
   border: "none",
   padding: "8px 16px",
@@ -498,26 +515,29 @@ const createButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const editButtonStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  color: "#374151",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  color: "var(--text-main)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   cursor: "pointer",
   fontSize: "0.8rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 const cancelButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  color: "#4b5563",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  color: "var(--text-muted)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 
 const modalOverlayStyle: React.CSSProperties = {
@@ -526,60 +546,67 @@ const modalOverlayStyle: React.CSSProperties = {
   left: 0,
   right: 0,
   bottom: 0,
-  backgroundColor: "rgba(0, 0, 0, 0.5)",
+  backgroundColor: "rgba(0, 0, 0, 0.6)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   zIndex: 1000,
 };
 const modalContentStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "30px",
   borderRadius: "12px",
   width: "100%",
   maxWidth: "400px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+  transition: "var(--theme-transition)",
 };
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "5px",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-muted)",
+  transition: "var(--theme-transition)",
 };
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   padding: "10px",
   borderRadius: "6px",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--border-color)",
+  background: "var(--bg-card)",
+  color: "var(--text-main)",
   fontSize: "0.95rem",
+  outline: "none",
+  transition: "var(--theme-transition)",
 };
 
 const detailsButtonStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   fontSize: "0.8rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-main)",
   cursor: "pointer",
-  transition: "all 0.2s ease",
+  transition: "all 0.2s ease, var(--theme-transition)",
 };
 
 const deleteButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  color: "#dc2626",
-  border: "1px solid #fca5a5",
+  background: "rgba(239, 68, 68, 0.15)",
+  color: "var(--status-offline)",
+  border: "1px solid var(--status-offline)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
+  transition: "var(--theme-transition)",
 };
 
-// NOUVEAU STYLE POUR RENDRE L'EN-TÊTE CLIQUABLE
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",

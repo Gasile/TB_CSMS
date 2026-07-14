@@ -12,8 +12,6 @@ import {
   CartesianGrid,
 } from "recharts";
 
-// --- CONFIGURATION DYNAMIQUE ---
-// Modifie cette valeur (ex: 4, 8, 12) et l'API ainsi que le graphique s'adapteront automatiquement !
 const NUM_WEEKS = 16;
 
 export default function UserDashboard() {
@@ -34,7 +32,6 @@ export default function UserDashboard() {
   const loadDashboard = async () => {
     setIsLoading(true);
     try {
-      // Calcul dynamique de la date limite en fonction de NUM_WEEKS (avec 2 jours de marge)
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - (NUM_WEEKS * 7 + 2));
 
@@ -54,19 +51,14 @@ export default function UserDashboard() {
     }
   };
 
-  // --- HISTOGRAMME DYNAMIQUE ---
-  // --- HISTOGRAMME DYNAMIQUE (Semaines calendaires - Lundi au Dimanche) ---
   const buildWeeklyChart = (transactions: any[]) => {
-    // 1. Initialiser le tableau des colonnes
     const weeks = Array.from({ length: NUM_WEEKS }, (_, i) => ({
       name: i === NUM_WEEKS - 1 ? "Cette sem." : `S-${NUM_WEEKS - 1 - i}`,
       kwh: 0,
     }));
 
-    // 2. Trouver le début de la semaine courante (Lundi à 00:00:00)
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Dimanche, 1 = Lundi, ... 6 = Samedi
-    // En Europe, la semaine commence lundi. On calcule le décalage pour retomber sur lundi.
+    const dayOfWeek = now.getDay();
     const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
     const startOfCurrentWeek = new Date(now);
@@ -76,22 +68,18 @@ export default function UserDashboard() {
     const startOfCurrentWeekMs = startOfCurrentWeek.getTime();
     const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
 
-    // 3. Répartir les transactions
     transactions.forEach((tx) => {
       if (!tx.startTime || !tx.totalKwh) return;
       const txTime = new Date(tx.startTime).getTime();
 
       let diffWeeks = 0;
 
-      // Si la transaction a lieu APRÈS lundi matin minuit, c'est la semaine 0
       if (txTime >= startOfCurrentWeekMs) {
         diffWeeks = 0;
       } else {
-        // Sinon, on calcule combien de semaines complètes se sont écoulées avant ce Lundi
         diffWeeks = Math.floor((startOfCurrentWeekMs - txTime) / oneWeekMs) + 1;
       }
 
-      // On place les kWh dans la bonne colonne si elle est dans la limite de NUM_WEEKS
       if (diffWeeks >= 0 && diffWeeks < NUM_WEEKS) {
         const index = NUM_WEEKS - 1 - diffWeeks;
         weeks[index].kwh += tx.totalKwh;
@@ -102,9 +90,14 @@ export default function UserDashboard() {
   };
 
   if (isLoading || !dashboardData)
-    return <div style={{ padding: "30px" }}>Chargement de votre espace...</div>;
+    return (
+      <div style={{ padding: "30px", color: "var(--text-main)" }}>
+        Chargement de votre espace...
+      </div>
+    );
 
   const lastTx = dashboardData.LastTransaction[0];
+  const activeTxs = dashboardData.ActiveTransactions || [];
   const stats = dashboardData.Transactions_aggregate.aggregate;
   const totalStations = dashboardData.ChargingStations.length;
   const availableStations = dashboardData.ChargingStations.filter(
@@ -113,12 +106,26 @@ export default function UserDashboard() {
 
   return (
     <div style={containerStyle}>
+      {/* --- EN-TÊTE --- */}
       <div style={headerStyle}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "1.8rem",
+              color: "var(--text-main)",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Vue d'ensemble
           </h1>
-          <p style={{ margin: "5px 0 0 0", color: "#6b7280" }}>
+          <p
+            style={{
+              margin: "5px 0 0 0",
+              color: "var(--text-muted)",
+              transition: "var(--theme-transition)",
+            }}
+          >
             Bienvenue sur votre espace de recharge.
           </p>
         </div>
@@ -127,243 +134,340 @@ export default function UserDashboard() {
         </button>
       </div>
 
-      {/* --- LIGNE 1 : FLOTTE (1/3) + DERNIÈRE SESSION (2/3) --- */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "25px" }}>
-        {/* WIDGET FLOTTE */}
-        <div
-          style={{
-            ...cardStyle,
-            flex: "1 1 250px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-          }}
-        >
-          <h3 style={{ margin: "0 0 15px 0", color: "#374151" }}>
-            Statut de l'infrastructure
-          </h3>
-          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            <div style={{ fontSize: "3rem" }}>
-              {availableStations > 0 ? "🟢" : "🔴"}
+      {/* --- AGENCEMENT EN DEUX GRANDES COLONNES RESPONSIVES --- */}
+      <div style={dashboardGridStyle}>
+        {/* ================= COLONNE DE GAUCHE (1/3) : KPIs fixes ================= */}
+        <div style={leftColumnStyle}>
+          {/* WIDGET 1 : STATUT INFRASTRUCTURE */}
+          <div style={cardStyle}>
+            <h3
+              style={{
+                margin: "0 0 15px 0",
+                color: "var(--text-main)",
+                fontSize: "1rem",
+                fontWeight: "600",
+                transition: "var(--theme-transition)",
+              }}
+            >
+              Statut de l'infrastructure
+            </h3>
+            <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+              <div style={{ fontSize: "3rem" }}>
+                {availableStations > 0 ? "🟢" : "🔴"}
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    color: "var(--text-main)",
+                    transition: "var(--theme-transition)",
+                  }}
+                >
+                  {availableStations} / {totalStations}
+                </div>
+                <div
+                  style={{
+                    color: "var(--text-muted)",
+                    fontWeight: "500",
+                    transition: "var(--theme-transition)",
+                  }}
+                >
+                  Bornes disponibles
+                </div>
+              </div>
             </div>
-            <div>
-              <div
-                style={{
-                  fontSize: "2rem",
-                  fontWeight: "bold",
-                  color: "#111827",
-                }}
-              >
-                {availableStations} / {totalStations}
-              </div>
-              <div style={{ color: "#6b7280", fontWeight: "500" }}>
-                Bornes disponibles
-              </div>
+          </div>
+
+          {/* WIDGET 2 : STATISTIQUES ACCUMULÉES */}
+          <div style={cardStyle}>
+            <h3
+              style={{
+                margin: "0 0 20px 0",
+                color: "var(--text-main)",
+                fontSize: "1rem",
+                fontWeight: "600",
+                transition: "var(--theme-transition)",
+              }}
+            >
+              Mes statistiques (Total)
+            </h3>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "15px",
+              }}
+            >
+              <span style={{ color: "var(--text-muted)" }}>
+                Énergie consommée
+              </span>
+              <strong style={{ fontSize: "1.1rem", color: "var(--text-main)" }}>
+                {stats.sum.totalKwh ? stats.sum.totalKwh.toFixed(1) : "0.0"} kWh
+              </strong>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "15px",
+                borderTop: "1px solid var(--border-color)",
+                paddingTop: "15px",
+                transition: "var(--theme-transition)",
+              }}
+            >
+              <span style={{ color: "var(--text-muted)" }}>
+                Sessions effectuées
+              </span>
+              <strong style={{ fontSize: "1.1rem", color: "var(--text-main)" }}>
+                {stats.count}
+              </strong>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                borderTop: "1px solid var(--border-color)",
+                paddingTop: "15px",
+                transition: "var(--theme-transition)",
+              }}
+            >
+              <span style={{ color: "var(--text-muted)" }}>Coût estimé</span>
+              <strong style={{ fontSize: "1.1rem", color: "var(--text-main)" }}>
+                0.00 CHF
+              </strong>
             </div>
           </div>
         </div>
 
-        {/* WIDGET DERNIÈRE SESSION */}
-        <div
-          style={{
-            ...(lastTx?.isActive
-              ? lastTx.is_legal === false
-                ? illegalSessionCardStyle
-                : activeSessionCardStyle
-              : cardStyle),
-            flex: "2 1 450px",
-          }}
-        >
+        {/* ================= COLONNE DE DROITE (2/3) : Activité & Graphique ================= */}
+        <div style={rightColumnStyle}>
+          {/* SECTION : SESSIONS ACTIVES (OU DERNIÈRE SÉANCE) */}
           <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "15px",
-            }}
+            style={{ display: "flex", flexDirection: "column", gap: "15px" }}
           >
-            <h2
-              style={{
-                margin: 0,
-                fontSize: "1.2rem",
-                color: lastTx?.isActive
-                  ? lastTx.is_legal === false
-                    ? "#991b1b"
-                    : "#166534"
-                  : "#374151",
-              }}
-            >
-              {lastTx?.isActive
-                ? lastTx.is_legal === false
-                  ? "⚠️ Charge illégale"
-                  : "⚡ Charge en cours"
-                : "Dernière charge effectuée"}
-            </h2>
-            {lastTx && (
-              <button
-                onClick={() => navigate(`/session/${lastTx.id}`)}
-                style={detailsButtonStyle}
-              >
-                Détails ➔
-              </button>
+            {activeTxs.length > 0
+              ? activeTxs.map((tx: any) => (
+                  <div
+                    key={tx.id}
+                    style={
+                      tx.is_legal === false
+                        ? illegalSessionCardStyle
+                        : activeSessionCardStyle
+                    }
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "15px",
+                      }}
+                    >
+                      <h2
+                        style={{
+                          margin: 0,
+                          fontSize: "1.2rem",
+                          color:
+                            tx.is_legal === false
+                              ? "var(--status-offline)"
+                              : "var(--status-charging)",
+                          transition: "var(--theme-transition)",
+                        }}
+                      >
+                        {tx.is_legal === false
+                          ? "⚠️ Charge illégale"
+                          : "⚡ Charge en cours"}
+                      </h2>
+                      <button
+                        onClick={() => navigate(`/session/${tx.id}`)}
+                        style={detailsButtonStyle}
+                      >
+                        Détails ➔
+                      </button>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(130px, 1fr))",
+                        gap: "15px",
+                        marginTop: "20px",
+                      }}
+                    >
+                      <div>
+                        <div style={smallLabelStyle}>Borne utilisée</div>
+                        <div style={strongValueStyle}>
+                          {tx.ChargingStation?.chargePointModel
+                            ? `${tx.ChargingStation.chargePointModel} `
+                            : ""}
+                          {tx.ocppConnectionName || "Inconnue"}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={smallLabelStyle}>Débutée le</div>
+                        <div style={strongValueStyle}>
+                          {new Date(tx.startTime).toLocaleDateString()} à{" "}
+                          {new Date(tx.startTime).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={smallLabelStyle}>Énergie</div>
+                        <div style={strongValueStyle}>
+                          {tx.totalKwh ? tx.totalKwh.toFixed(2) : "0.00"} kWh
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              : lastTx && (
+                  <div style={cardStyle}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "15px",
+                      }}
+                    >
+                      <h2
+                        style={{
+                          margin: 0,
+                          fontSize: "1.2rem",
+                          color: "var(--text-main)",
+                          transition: "var(--theme-transition)",
+                        }}
+                      >
+                        Dernière charge effectuée
+                      </h2>
+                      <button
+                        onClick={() => navigate(`/session/${lastTx.id}`)}
+                        style={detailsButtonStyle}
+                      >
+                        Détails ➔
+                      </button>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(130px, 1fr))",
+                        gap: "15px",
+                        marginTop: "20px",
+                      }}
+                    >
+                      <div>
+                        <div style={smallLabelStyle}>Borne utilisée</div>
+                        <div style={strongValueStyle}>
+                          {lastTx.ChargingStation?.chargePointModel
+                            ? `${lastTx.ChargingStation.chargePointModel} `
+                            : ""}
+                          {lastTx.ocppConnectionName || "Inconnue"}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={smallLabelStyle}>Date</div>
+                        <div style={strongValueStyle}>
+                          {new Date(lastTx.startTime).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={smallLabelStyle}>Énergie</div>
+                        <div style={strongValueStyle}>
+                          {lastTx.totalKwh
+                            ? lastTx.totalKwh.toFixed(2)
+                            : "0.00"}{" "}
+                          kWh
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+            {!lastTx && activeTxs.length === 0 && (
+              <div style={cardStyle}>
+                <p
+                  style={{
+                    color: "var(--text-muted)",
+                    margin: 0,
+                    transition: "var(--theme-transition)",
+                  }}
+                >
+                  Vous n'avez effectué aucune charge pour le moment.
+                </p>
+              </div>
             )}
           </div>
 
-          {lastTx ? (
-            <div
+          {/* WIDGET : HISTOGRAMME MENSUEL */}
+          <div
+            style={{ ...cardStyle, display: "flex", flexDirection: "column" }}
+          >
+            <h3
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-                gap: "15px",
-                marginTop: "20px",
+                margin: "0 0 20px 0",
+                color: "var(--text-main)",
+                fontSize: "1.1rem",
+                fontWeight: "600",
+                transition: "var(--theme-transition)",
               }}
             >
-              <div>
-                <div style={smallLabelStyle}>Borne utilisée</div>
-                <div style={strongValueStyle}>
-                  {lastTx.ChargingStation?.chargePointModel
-                    ? `${lastTx.ChargingStation.chargePointModel} `
-                    : ""}
-                  {lastTx.ocppConnectionName || "Inconnue"}
-                </div>
-              </div>
-              <div>
-                <div style={smallLabelStyle}>Date</div>
-                <div style={strongValueStyle}>
-                  {new Date(lastTx.startTime).toLocaleDateString()}
-                </div>
-              </div>
-              <div>
-                <div style={smallLabelStyle}>Énergie</div>
-                <div style={strongValueStyle}>
-                  {lastTx.totalKwh ? lastTx.totalKwh.toFixed(2) : "0.00"} kWh
-                </div>
-              </div>
+              Consommation ({NUM_WEEKS} dernières semaines)
+            </h3>
+            <div style={{ flex: 1, minHeight: "220px", width: "100%" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={weeklyData}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="var(--border-color)"
+                  />
+                  <XAxis
+                    dataKey="name"
+                    stroke="var(--text-muted)"
+                    fontSize={11}
+                    tickMargin={10}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(val) => `${val}`}
+                    stroke="var(--text-muted)"
+                    fontSize={11}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
+                    contentStyle={{
+                      background: "var(--bg-card)",
+                      borderRadius: "8px",
+                      border: "1px solid var(--border-color)",
+                      boxShadow: "0 4px 6px rgba(0,0,0,0.15)",
+                      color: "var(--text-main)",
+                    }}
+                    formatter={(value: any) => [
+                      `${Number(value).toFixed(2)} kWh`,
+                      "Énergie",
+                    ]}
+                  />
+                  <Bar
+                    dataKey="kwh"
+                    fill="var(--status-available)"
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          ) : (
-            <p style={{ color: "#6b7280", marginTop: "20px" }}>
-              Vous n'avez effectué aucune charge pour le moment.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* --- LIGNE 2 : STATISTIQUES GLOBALES (1/3) + HISTOGRAMME (2/3) --- */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "25px" }}>
-        {/* WIDGET STATISTIQUES (Maintenant à gauche) */}
-        <div
-          style={{
-            ...cardStyle,
-            flex: "1 1 250px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-          }}
-        >
-          <h3 style={{ margin: "0 0 20px 0", color: "#374151" }}>
-            Mes statistiques (Total)
-          </h3>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: "15px",
-            }}
-          >
-            <span style={{ color: "#6b7280" }}>Énergie consommée</span>
-            <strong style={{ fontSize: "1.1rem" }}>
-              {stats.sum.totalKwh ? stats.sum.totalKwh.toFixed(1) : "0.0"} kWh
-            </strong>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: "15px",
-              borderTop: "1px solid #f3f4f6",
-              paddingTop: "15px",
-            }}
-          >
-            <span style={{ color: "#6b7280" }}>Sessions effectuées</span>
-            <strong style={{ fontSize: "1.1rem" }}>{stats.count}</strong>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              borderTop: "1px solid #f3f4f6",
-              paddingTop: "15px",
-            }}
-          >
-            <span style={{ color: "#6b7280" }}>Coût estimé</span>
-            <strong style={{ fontSize: "1.1rem" }}>0.00 CHF</strong>
-          </div>
-        </div>
-
-        {/* WIDGET HISTOGRAMME (Maintenant à droite) */}
-        <div
-          style={{
-            ...cardStyle,
-            flex: "2 1 450px",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <h3
-            style={{
-              margin: "0 0 20px 0",
-              color: "#374151",
-              fontSize: "1.1rem",
-            }}
-          >
-            Consommation ({NUM_WEEKS} dernières semaines)
-          </h3>
-          <div style={{ flex: 1, minHeight: "220px", width: "100%" }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={weeklyData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="#f3f4f6"
-                />
-                <XAxis
-                  dataKey="name"
-                  stroke="#9ca3af"
-                  fontSize={11}
-                  tickMargin={10}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tickFormatter={(val) => `${val}`}
-                  stroke="#9ca3af"
-                  fontSize={11}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  cursor={{ fill: "#f9fafb" }}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "none",
-                    boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-                  }}
-                  formatter={(value: any) => [
-                    `${Number(value).toFixed(2)} kWh`,
-                    "Énergie",
-                  ]}
-                />
-                <Bar
-                  dataKey="kwh"
-                  fill="#3b82f6"
-                  radius={[4, 4, 0, 0]}
-                  barSize={40}
-                />
-              </BarChart>
-            </ResponsiveContainer>
           </div>
         </div>
       </div>
@@ -371,49 +475,87 @@ export default function UserDashboard() {
   );
 }
 
-// --- STYLES ---
+// --- STYLES RESTRUCTURES ---
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "25px",
   paddingBottom: "30px",
 };
-const cardStyle: React.CSSProperties = {
-  background: "#fff",
-  padding: "25px",
-  borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+
+const dashboardGridStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "25px",
+  width: "100%",
 };
-const activeSessionCardStyle: React.CSSProperties = {
-  background: "#f0fdf4",
-  border: "2px solid #bbf7d0",
+
+const leftColumnStyle: React.CSSProperties = {
+  flex: "1 1 300px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "25px",
+};
+
+const rightColumnStyle: React.CSSProperties = {
+  flex: "2 1 500px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "25px",
+};
+
+const cardStyle: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "25px",
   borderRadius: "12px",
-  boxShadow: "0 4px 15px rgba(22, 163, 74, 0.1)",
+  transition: "var(--theme-transition)",
+};
+
+const activeSessionCardStyle: React.CSSProperties = {
+  background: "rgba(16, 185, 129, 0.08)",
+  border: "2px solid var(--status-charging)",
+  padding: "25px",
+  borderRadius: "12px",
+  boxShadow: "0 4px 15px rgba(0, 210, 143, 0.1)",
+  transition: "var(--theme-transition)",
+};
+
+const illegalSessionCardStyle: React.CSSProperties = {
+  background: "rgba(239, 68, 68, 0.08)",
+  border: "2px solid var(--status-offline)",
+  padding: "25px",
+  borderRadius: "12px",
+  boxShadow: "0 4px 15px rgba(239, 68, 68, 0.1)",
+  transition: "var(--theme-transition)",
 };
 
 const smallLabelStyle: React.CSSProperties = {
   fontSize: "0.85rem",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   fontWeight: "600",
   marginBottom: "5px",
+  transition: "var(--theme-transition)",
 };
+
 const strongValueStyle: React.CSSProperties = {
   fontSize: "1.2rem",
   fontWeight: "bold",
-  color: "#111827",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 
 const detailsButtonStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-main)",
   cursor: "pointer",
+  transition: "var(--theme-transition)",
 };
 
 const headerStyle: React.CSSProperties = {
@@ -424,22 +566,14 @@ const headerStyle: React.CSSProperties = {
 };
 
 const refreshButtonStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-main)",
   boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-  transition: "all 0.2s ease",
-};
-
-const illegalSessionCardStyle: React.CSSProperties = {
-  background: "#fef2f2",
-  border: "2px solid #fecaca",
-  padding: "25px",
-  borderRadius: "12px",
-  boxShadow: "0 4px 15px rgba(220, 38, 38, 0.1)",
+  transition: "all 0.2s ease, var(--theme-transition)",
 };

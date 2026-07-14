@@ -7,8 +7,6 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "Admin";
 
-  // --- LA MÉMOIRE DE L'ONGLET ACTIF ---
-  // On récupère le dernier onglet visité dans le stockage du navigateur
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem("activeSidebarTab") || "";
   });
@@ -26,12 +24,10 @@ export default function Sidebar() {
     { name: "Mes Badges", path: "/my-badges", icon: "🏷️" },
   ];
 
-  // --- LOGIQUE INTELLIGENTE D'ACTIVATION ---
   useEffect(() => {
     const path = location.pathname;
     let detectedTab = null;
 
-    // 1. On associe les URLs connues à leurs onglets parents
     if (path === "/" || path === "/admin-dashboard") {
       detectedTab = "/admin-dashboard";
     } else if (path === "/user-dashboard") {
@@ -41,19 +37,15 @@ export default function Sidebar() {
     } else if (path.startsWith("/admin-badges")) {
       detectedTab = "/admin-badges";
     } else if (path.startsWith("/admin-users") || path.startsWith("/users")) {
-      // Couvre la liste /admin-users ET le détail /users/:id
       detectedTab = "/admin-users";
     } else if (path.startsWith("/my-sessions")) {
       detectedTab = "/my-sessions";
     } else if (path.startsWith("/my-badges")) {
       detectedTab = "/my-badges";
     } else if (path.startsWith("/profile")) {
-      // Si on va sur le profil (via la Topbar), on désélectionne tout
       detectedTab = "/profile";
     }
 
-    // 2. Si on a détecté un parent, on le sauvegarde.
-    // SINON (ex: on est sur /session/:id), on ne fait rien ! L'onglet précédent reste allumé.
     if (detectedTab) {
       setActiveTab(detectedTab);
       sessionStorage.setItem("activeSidebarTab", detectedTab);
@@ -61,26 +53,24 @@ export default function Sidebar() {
   }, [location.pathname]);
 
   const handleLogout = () => {
-    sessionStorage.removeItem("activeSidebarTab"); // On nettoie la mémoire
+    sessionStorage.removeItem("activeSidebarTab");
     logout();
   };
 
   return (
     <aside style={sidebarStyle}>
-      {/* Zone de navigation flexible */}
       <nav style={navContainerStyle}>
-        {/* --- SECTION ADMIN --- */}
+        {/* --- SECTION ADMIN --- (Rétablie en haut, comme à l'origine) */}
         {isAdmin && (
           <div style={navSectionStyle}>
             <p style={sectionTitleStyle}>Administration</p>
             {adminItems.map((item) => {
-              // On compare maintenant le chemin avec notre "mémoire"
               const isActive = activeTab === item.path;
               return (
                 <Link
                   key={item.name}
                   to={item.path}
-                  style={linkStyle(isActive, true)}
+                  style={linkStyle(isActive)}
                 >
                   <span style={iconStyle}>{item.icon}</span>
                   <span style={textStyle(isActive, true)}>{item.name}</span>
@@ -96,7 +86,6 @@ export default function Sidebar() {
         <div style={navSectionStyle}>
           <p style={sectionTitleStyle}>Mon Espace</p>
           {userItems.map((item) => {
-            // On compare maintenant le chemin avec notre "mémoire"
             const isActive = activeTab === item.path;
             return (
               <Link key={item.name} to={item.path} style={linkStyle(isActive)}>
@@ -108,7 +97,6 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* --- BOUTON DE DÉCONNEXION EN BAS --- */}
       <div style={bottomStyle}>
         <div style={separatorStyle} />
         <button onClick={handleLogout} style={logoutButtonStyle}>
@@ -122,17 +110,18 @@ export default function Sidebar() {
 
 // --- STYLES ---
 const sidebarStyle: React.CSSProperties = {
-  width: "260px", // Largeur fixe, toujours déployée
-  flexShrink: 0, // Empêche la barre de s'écraser
-  background: "#fff",
-  borderRight: "1px solid #e5e7eb",
+  width: "260px",
+  flexShrink: 0,
+  background: "var(--bg-card)",
+  borderRight: "1px solid var(--border-color)",
   display: "flex",
   flexDirection: "column",
-  height: "100%", // S'étire jusqu'en bas
+  height: "100%",
+  transition: "var(--theme-transition)",
 };
 
 const navContainerStyle: React.CSSProperties = {
-  flex: 1, // Pousse le bouton de déconnexion vers le bas
+  flex: 1,
   overflowY: "auto",
   padding: "20px 10px",
   display: "flex",
@@ -151,21 +140,19 @@ const sectionTitleStyle: React.CSSProperties = {
   fontSize: "0.75rem",
   textTransform: "uppercase",
   letterSpacing: "0.05em",
-  color: "#9ca3af",
+  color: "var(--text-muted)",
   fontWeight: "700",
+  transition: "var(--theme-transition)",
 };
 
-const linkStyle = (
-  isActive: boolean,
-  isAdminLink = false,
-): React.CSSProperties => ({
+const linkStyle = (isActive: boolean): React.CSSProperties => ({
   display: "flex",
   alignItems: "center",
   textDecoration: "none",
   padding: "10px",
   borderRadius: "8px",
-  background: isActive ? (isAdminLink ? "#ecfdf5" : "#f0fdf4") : "transparent",
-  transition: "background 0.2s",
+  background: isActive ? "var(--bg-app)" : "transparent",
+  transition: "background 0.2s, var(--theme-transition)",
 });
 
 const iconStyle: React.CSSProperties = {
@@ -180,14 +167,16 @@ const textStyle = (
   isAdminLink = false,
 ): React.CSSProperties => ({
   fontWeight: isActive ? "600" : "500",
-  color: isActive ? (isAdminLink ? "#15803d" : "#16a34a") : "#64748b",
+  color: isActive ? "var(--primary)" : "var(--text-muted)",
   fontSize: "0.95rem",
+  transition: "var(--theme-transition)",
 });
 
 const separatorStyle: React.CSSProperties = {
   height: "1px",
-  background: "#e5e7eb",
+  background: "var(--border-color)",
   margin: "0 10px",
+  transition: "var(--theme-transition)",
 };
 
 const bottomStyle: React.CSSProperties = {
@@ -204,11 +193,11 @@ const logoutButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   marginTop: "10px",
   borderRadius: "8px",
-  transition: "background 0.2s",
+  transition: "background 0.2s, var(--theme-transition)",
 };
 
 const logoutTextStyle: React.CSSProperties = {
   fontSize: "0.95rem",
   fontWeight: "600",
-  color: "#dc2626", // Rouge subtil
+  color: "var(--status-offline)",
 };

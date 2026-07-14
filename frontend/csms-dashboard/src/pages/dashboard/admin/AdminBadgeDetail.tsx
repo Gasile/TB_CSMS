@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchBadgeDetailAndSessions } from "../../../api/adminApi";
 
+const SESSIONS_PER_PAGE = 10; // <-- Configurable ici
+
 export default function AdminBadgeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -11,14 +13,16 @@ export default function AdminBadgeDetail() {
   const [badge, setBadge] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
 
-  // --- ÉTAT DU TRI ---
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
   }>({
     key: "startTime",
-    direction: "desc", // Par défaut, la plus récente en premier
+    direction: "desc",
   });
+
+  // --- ÉTAT DE LA PAGINATION ---
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (authId) loadData();
@@ -30,6 +34,7 @@ export default function AdminBadgeDetail() {
       const data = await fetchBadgeDetailAndSessions(authId);
       setBadge(data?.Authorizations_by_pk);
       setSessions(data?.Transactions || []);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Erreur lors du chargement du badge :", error);
     } finally {
@@ -37,26 +42,24 @@ export default function AdminBadgeDetail() {
     }
   };
 
-  // --- LOGIQUE DE TRI ---
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc"; // Inverse le tri si on reclique sur la même colonne
+      direction = "desc";
     }
     setSortConfig({ key, direction });
+    setCurrentPage(1); // Reset de la pagination
   };
 
   const sortedSessions = [...sessions].sort((a, b) => {
     let valA = a[sortConfig.key];
     let valB = b[sortConfig.key];
 
-    // Cas particulier : on veut trier correctement le statut "En cours"
     if (sortConfig.key === "status") {
       valA = a.isActive ? "0_En_cours" : a.chargingState || "Terminé";
       valB = b.isActive ? "0_En_cours" : b.chargingState || "Terminé";
     }
 
-    // Sécurité contre les valeurs nulles
     if (valA == null) valA = "";
     if (valB == null) valB = "";
 
@@ -65,7 +68,13 @@ export default function AdminBadgeDetail() {
     return 0;
   });
 
-  // Petit Helper pour afficher les flèches (↑, ↓, ↕)
+  // --- LOGIQUE DE PAGINATION ---
+  const totalPages = Math.ceil(sortedSessions.length / SESSIONS_PER_PAGE);
+  const paginatedSessions = sortedSessions.slice(
+    (currentPage - 1) * SESSIONS_PER_PAGE,
+    currentPage * SESSIONS_PER_PAGE,
+  );
+
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -77,10 +86,16 @@ export default function AdminBadgeDetail() {
   };
 
   if (isLoading && !badge)
-    return <div style={{ padding: "30px" }}>Chargement du badge...</div>;
+    return (
+      <div style={{ padding: "30px", color: "var(--text-main)" }}>
+        Chargement du badge...
+      </div>
+    );
   if (!badge)
     return (
-      <div style={{ padding: "30px", color: "red" }}>Badge introuvable.</div>
+      <div style={{ padding: "30px", color: "var(--status-offline)" }}>
+        Badge introuvable.
+      </div>
     );
 
   const totalKwh = sessions.reduce((sum, s) => sum + (s.totalKwh || 0), 0);
@@ -91,7 +106,6 @@ export default function AdminBadgeDetail() {
 
   return (
     <div style={containerStyle}>
-      {/* --- EN-TÊTE --- */}
       <div style={headerCardStyle}>
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
           <button
@@ -102,7 +116,14 @@ export default function AdminBadgeDetail() {
           </button>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <h1 style={{ margin: 0, fontSize: "1.8rem", color: "#1f2937" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "1.8rem",
+                  color: "var(--text-main)",
+                  transition: "var(--theme-transition)",
+                }}
+              >
                 {badge.badge_name || "Badge sans nom"}
               </h1>
               <span style={statusBadgeStyle(badge.status)}>{badge.status}</span>
@@ -110,9 +131,10 @@ export default function AdminBadgeDetail() {
             <p
               style={{
                 margin: "5px 0 0 0",
-                color: "#6b7280",
+                color: "var(--text-muted)",
                 fontFamily: "monospace",
                 fontSize: "1rem",
+                transition: "var(--theme-transition)",
               }}
             >
               {badge.idToken}
@@ -122,7 +144,8 @@ export default function AdminBadgeDetail() {
                 style={{
                   margin: "5px 0 0 0",
                   fontSize: "0.9rem",
-                  color: "#4b5563",
+                  color: "var(--text-main)",
+                  transition: "var(--theme-transition)",
                 }}
               >
                 Appartient à :{" "}
@@ -135,8 +158,9 @@ export default function AdminBadgeDetail() {
                 style={{
                   margin: "5px 0 0 0",
                   fontSize: "0.9rem",
-                  color: "#9ca3af",
+                  color: "var(--text-muted)",
                   fontStyle: "italic",
+                  transition: "var(--theme-transition)",
                 }}
               >
                 Aucun propriétaire assigné
@@ -145,7 +169,6 @@ export default function AdminBadgeDetail() {
           </div>
         </div>
 
-        {/* KPIs */}
         <div style={{ display: "flex", gap: "30px" }}>
           <div style={kpiStyle}>
             <span style={kpiLabelStyle}>Énergie totale</span>
@@ -161,9 +184,8 @@ export default function AdminBadgeDetail() {
         </div>
       </div>
 
-      {/* --- HISTORIQUE DES SESSIONS --- */}
-      <div style={cardStyle}>
-        <h2 style={{ ...sectionTitleStyle, marginBottom: "20px" }}>
+      <div style={{ ...cardStyle, padding: 0 }}>
+        <h2 style={{ ...sectionTitleStyle, margin: "20px" }}>
           Historique des charges avec ce badge
         </h2>
 
@@ -176,7 +198,7 @@ export default function AdminBadgeDetail() {
             }}
           >
             <thead>
-              <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
+              <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
                 <th
                   style={sortableThStyle}
                   onClick={() => handleSort("startTime")}
@@ -206,39 +228,51 @@ export default function AdminBadgeDetail() {
               </tr>
             </thead>
             <tbody>
-              {sessions.length === 0 ? (
+              {paginatedSessions.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     style={{
                       textAlign: "center",
                       padding: "30px",
-                      color: "#6b7280",
+                      color: "var(--text-muted)",
+                      transition: "var(--theme-transition)",
                     }}
                   >
                     Aucune session enregistrée pour ce badge.
                   </td>
                 </tr>
               ) : (
-                sortedSessions.map((s: any) => {
+                paginatedSessions.map((s: any) => {
                   const dateStr = s.startTime
                     ? new Date(s.startTime).toLocaleDateString()
                     : "N/A";
+                  let rowBg = "transparent";
+                  if (s.isActive) {
+                    rowBg =
+                      s.is_legal === false
+                        ? "rgba(239, 68, 68, 0.08)"
+                        : "rgba(16, 185, 129, 0.08)";
+                  }
+
                   return (
                     <tr
                       key={s.id}
                       style={{
-                        borderBottom: "1px solid #f3f4f6",
-                        background: s.isActive
-                          ? s.is_legal === false
-                            ? "#fee2e2" // Fond rouge clair si illégal
-                            : "#f0fdf4" // Fond vert clair si légal
-                          : "transparent",
+                        borderBottom: "1px solid var(--border-color)",
+                        background: rowBg,
+                        transition: "var(--theme-transition)",
                       }}
                     >
                       <td style={tdStyle}>
                         <strong>{dateStr}</strong>
-                        <div style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+                        <div
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "var(--text-muted)",
+                            transition: "var(--theme-transition)",
+                          }}
+                        >
                           #{s.transactionId || s.id}
                         </div>
                       </td>
@@ -249,7 +283,11 @@ export default function AdminBadgeDetail() {
                           </span>
                         ) : (
                           <span
-                            style={{ color: "#9ca3af", fontStyle: "italic" }}
+                            style={{
+                              color: "var(--text-muted)",
+                              fontStyle: "italic",
+                              transition: "var(--theme-transition)",
+                            }}
                           >
                             Inconnu / Supprimé
                           </span>
@@ -294,6 +332,29 @@ export default function AdminBadgeDetail() {
             </tbody>
           </table>
         </div>
+
+        {/* CONTRÔLES DE PAGINATION */}
+        {totalPages > 1 && (
+          <div style={paginationContainerStyle}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              style={paginationButtonStyle(currentPage === 1)}
+            >
+              Précédent
+            </button>
+            <span style={paginationTextStyle}>
+              Page {currentPage} sur {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              style={paginationButtonStyle(currentPage === totalPages)}
+            >
+              Suivant
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -306,37 +367,42 @@ const containerStyle: React.CSSProperties = {
   gap: "25px",
 };
 const headerCardStyle: React.CSSProperties = {
-  background: "#fff",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "25px",
   borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   flexWrap: "wrap",
   gap: "20px",
+  transition: "var(--theme-transition)",
 };
 const backButtonStyle: React.CSSProperties = {
-  background: "#f3f4f6",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-app)",
+  border: "1px solid var(--border-color)",
   padding: "8px 16px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
   fontWeight: "600",
-  color: "#4b5563",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
-
 const statusBadgeStyle = (status: string): React.CSSProperties => ({
   display: "inline-block",
   padding: "4px 10px",
   borderRadius: "20px",
   fontSize: "0.8rem",
   fontWeight: "600",
-  background: status === "Accepted" ? "#dcfce7" : "#fee2e2",
-  color: status === "Accepted" ? "#16a34a" : "#dc2626",
+  background:
+    status === "Accepted"
+      ? "rgba(16, 185, 129, 0.15)"
+      : "rgba(239, 68, 68, 0.15)",
+  color:
+    status === "Accepted" ? "var(--status-charging)" : "var(--status-offline)",
+  transition: "var(--theme-transition)",
 });
-
 const txBadgeStyle = (
   status: string,
   isActive: boolean,
@@ -348,11 +414,11 @@ const txBadgeStyle = (
     borderRadius: "20px",
     fontSize: "0.8rem",
     fontWeight: "600",
-    background: isCharging ? "#dcfce7" : "#f3f4f6",
-    color: isCharging ? "#16a34a" : "#4b5563",
+    background: isCharging ? "rgba(16, 185, 129, 0.15)" : "var(--bg-app)",
+    color: isCharging ? "var(--status-charging)" : "var(--text-muted)",
+    transition: "var(--theme-transition)",
   };
 };
-
 const kpiStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -360,57 +426,88 @@ const kpiStyle: React.CSSProperties = {
 };
 const kpiLabelStyle: React.CSSProperties = {
   fontSize: "0.8rem",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   fontWeight: "600",
   letterSpacing: "0.05em",
+  transition: "var(--theme-transition)",
 };
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "1.8rem",
   fontWeight: "bold",
-  color: "#111827",
+  color: "var(--text-main)",
   lineHeight: "1.2",
+  transition: "var(--theme-transition)",
 };
-
 const cardStyle: React.CSSProperties = {
-  background: "#fff",
-  padding: "25px",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   borderRadius: "12px",
-  boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+  transition: "var(--theme-transition)",
 };
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.2rem",
-  color: "#374151",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
-
 const thStyle: React.CSSProperties = {
-  padding: "12px 10px",
+  padding: "15px 20px",
   fontSize: "0.85rem",
   fontWeight: "600",
-  color: "#6b7280",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
+  transition: "var(--theme-transition)",
 };
 const tdStyle: React.CSSProperties = {
-  padding: "15px 10px",
+  padding: "15px 20px",
   fontSize: "0.95rem",
-  color: "#1f2937",
+  color: "var(--text-main)",
+  transition: "var(--theme-transition)",
 };
 const detailsButtonStyle: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #d1d5db",
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-color)",
   padding: "6px 12px",
   borderRadius: "6px",
   fontSize: "0.8rem",
   fontWeight: "600",
-  color: "#374151",
+  color: "var(--text-main)",
   cursor: "pointer",
-  transition: "all 0.2s ease",
+  transition: "all 0.2s ease, var(--theme-transition)",
 };
-
-// NOUVEAU STYLE POUR RENDRE L'EN-TÊTE CLIQUABLE
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
   userSelect: "none",
+};
+
+const paginationContainerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "15px 20px",
+  borderTop: "1px solid var(--border-color)",
+  background: "var(--bg-app)",
+  borderBottomLeftRadius: "12px",
+  borderBottomRightRadius: "12px",
+  transition: "var(--theme-transition)",
+};
+const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
+  padding: "6px 12px",
+  borderRadius: "6px",
+  border: "1px solid var(--border-color)",
+  background: disabled ? "transparent" : "var(--bg-card)",
+  color: disabled ? "var(--text-muted)" : "var(--text-main)",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontSize: "0.85rem",
+  fontWeight: "600",
+  transition: "var(--theme-transition)",
+  opacity: disabled ? 0.5 : 1,
+});
+const paginationTextStyle: React.CSSProperties = {
+  fontSize: "0.85rem",
+  color: "var(--text-muted)",
+  fontWeight: "500",
+  transition: "var(--theme-transition)",
 };

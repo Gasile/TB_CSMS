@@ -15,7 +15,7 @@ import Profile from "./pages/dashboard/Profile";
 
 import SessionDetail from "./pages/dashboard/SessionDetail";
 
-import AdminOverview from "./pages/dashboard/admin/AdminOverview";
+import AdminOverview from "./pages/dashboard/admin/AdminDashboard";
 import AdminStations from "./pages/dashboard/admin/AdminStations";
 import AdminBadges from "./pages/dashboard/admin/AdminBadges";
 import AdminUsers from "./pages/dashboard/admin/AdminUsers";
