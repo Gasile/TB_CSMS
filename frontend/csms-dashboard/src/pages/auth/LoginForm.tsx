@@ -35,7 +35,7 @@ export default function LoginForm({
     if (role === "Admin") {
       performLogin("basile.gasser@hes-so.ch", "TBCSMS");
     } else {
-      performLogin("jessica.udry@hes-so.ch", "JESSICA");
+      performLogin("christop.metraill@hes-so.ch", "1234");
     }
   };
 
