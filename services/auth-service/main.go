@@ -437,6 +437,7 @@ func generateHasuraJWT(userID string, role string) (string, error) {
 		"x-hasura-allowed-roles": []string{strings.ToLower(role)},
 		"x-hasura-default-role":  strings.ToLower(role),
 		"x-hasura-user-id":       userID,
+		"x-hasura-tenant-id":     "1",
 	}
 
 	claims := jwt.MapClaims{
