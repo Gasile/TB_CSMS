@@ -1,19 +1,31 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { updateMyProfile } from "../../api/userApi";
 import { updateEmailSecure, updatePasswordSecure } from "../../api/authApi";
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Profile management view letting users update their personal details,
+ * email address, or account password.
+ */
 export default function Profile() {
   const { user, logout, login } = useAuth();
 
-  // --- États pour l'édition standard (Nom/Prénom) ---
+  // --- Standard Profile Editing States (First Name / Last Name) ---
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // --- États pour les actions sécurisées (E-mail/Mot de passe) ---
+  // --- Secured Security Actions States (Email / Password) ---
   const [securityAction, setSecurityAction] = useState<
     "none" | "email" | "password"
   >("none");
@@ -27,10 +39,15 @@ export default function Profile() {
 
   if (!user) return null;
 
+  // Compute profile avatar initials using first characters
   const initials =
     `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
 
-  // --- Gestion du Profil Standard ---
+  // --- Standard Profile Request Handlers ---
+
+  /**
+   * Submits standard profile changes (First Name, Last Name) to the API.
+   */
   const handleSaveProfile = async () => {
     setError("");
     setIsSaving(true);
@@ -45,6 +62,9 @@ export default function Profile() {
     }
   };
 
+  /**
+   * Discards standard profile form modifications and restores original details.
+   */
   const handleCancelProfile = () => {
     setFirstName(user.firstName);
     setLastName(user.lastName);
@@ -52,7 +72,11 @@ export default function Profile() {
     setIsEditing(false);
   };
 
-  // --- Utilitaires de sécurité ---
+  // --- Security Utility Handlers ---
+
+  /**
+   * Resets all security-related states and switches panel back to none.
+   */
   const resetSecurityForm = () => {
     setSecurityAction("none");
     setCurrentPassword("");
@@ -63,6 +87,9 @@ export default function Profile() {
     setSecuritySuccess("");
   };
 
+  /**
+   * Processes the email update secure request.
+   */
   const handleChangeEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setSecurityError("");
@@ -71,9 +98,9 @@ export default function Profile() {
 
     try {
       await updateEmailSecure(user.id!, currentPassword, newEmail);
-      login({ ...user, email: newEmail }); // Mise à jour de la session
+      login({ ...user, email: newEmail });
       setSecuritySuccess("Votre e-mail a été mis à jour avec succès.");
-      setTimeout(resetSecurityForm, 2500); // Ferme le formulaire après 2.5s
+      setTimeout(resetSecurityForm, 2500);
     } catch (err: any) {
       setSecurityError(err.message);
     } finally {
@@ -81,6 +108,9 @@ export default function Profile() {
     }
   };
 
+  /**
+   * Processes the password update secure request after confirmation matching.
+   */
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setSecurityError("");
@@ -106,6 +136,7 @@ export default function Profile() {
   return (
     <div style={containerStyle}>
       <div style={{ maxWidth: "600px", width: "100%" }}>
+        {/* Profile View Header Block */}
         <div
           style={{
             display: "flex",
@@ -134,8 +165,9 @@ export default function Profile() {
           )}
         </div>
 
+        {/* Info & Modification Card Container */}
         <div style={cardStyle}>
-          {/* En-tête */}
+          {/* Avatar and Role Header */}
           <div style={headerStyle}>
             <div style={avatarLargeStyle}>{initials}</div>
             <div>
@@ -159,7 +191,7 @@ export default function Profile() {
 
           {error && <div style={errorStyle}>{error}</div>}
 
-          {/* Bloc Informations */}
+          {/* Standard Information Fields */}
           <div style={infoGridStyle}>
             <div style={infoBlockStyle}>
               <span style={labelStyle}>Prénom</span>
@@ -195,6 +227,7 @@ export default function Profile() {
             </div>
           </div>
 
+          {/* Form Save/Cancel controls */}
           {isEditing && (
             <div style={{ display: "flex", gap: "10px", marginTop: "5px" }}>
               <button
@@ -216,7 +249,7 @@ export default function Profile() {
 
           <div style={separatorStyle} />
 
-          {/* --- Zone des Actions et Formulaires Sécurisés --- */}
+          {/* --- Secured Actions and Dynamic Forms Segment --- */}
           {securityAction === "none" ? (
             <div style={actionsContainerStyle}>
               <button
@@ -352,12 +385,16 @@ export default function Profile() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "center",
   padding: "20px 0",
 };
+
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   borderRadius: "16px",
@@ -368,11 +405,13 @@ const cardStyle: React.CSSProperties = {
   gap: "20px",
   transition: "var(--theme-transition)",
 };
+
 const headerStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "20px",
 };
+
 const avatarLargeStyle: React.CSSProperties = {
   width: "80px",
   height: "80px",
@@ -388,6 +427,7 @@ const avatarLargeStyle: React.CSSProperties = {
   boxShadow: "0 4px 15px rgba(0, 210, 143, 0.2)",
   transition: "var(--theme-transition)",
 };
+
 const roleBadgeStyle = (role: string): React.CSSProperties => ({
   display: "inline-block",
   padding: "4px 10px",
@@ -399,17 +439,20 @@ const roleBadgeStyle = (role: string): React.CSSProperties => ({
   color: role === "Admin" ? "var(--status-charging)" : "var(--text-muted)",
   transition: "var(--theme-transition)",
 });
+
 const separatorStyle: React.CSSProperties = {
   height: "1px",
   background: "var(--border-color)",
   width: "100%",
   transition: "var(--theme-transition)",
 };
+
 const infoGridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr",
   gap: "15px",
 };
+
 const infoBlockStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -419,6 +462,7 @@ const infoBlockStyle: React.CSSProperties = {
   borderRadius: "8px",
   transition: "var(--theme-transition)",
 };
+
 const labelStyle: React.CSSProperties = {
   fontSize: "0.75rem",
   textTransform: "uppercase",
@@ -427,12 +471,14 @@ const labelStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const valueStyle: React.CSSProperties = {
   fontSize: "1rem",
   color: "var(--text-main)",
   fontWeight: "500",
   transition: "var(--theme-transition)",
 };
+
 const errorStyle: React.CSSProperties = {
   background: "rgba(239, 68, 68, 0.15)",
   color: "var(--status-offline)",
@@ -442,6 +488,7 @@ const errorStyle: React.CSSProperties = {
   textAlign: "center",
   fontWeight: "500",
 };
+
 const successStyle: React.CSSProperties = {
   background: "rgba(16, 185, 129, 0.15)",
   color: "var(--status-charging)",
@@ -457,6 +504,7 @@ const inputGroupStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: "6px",
 };
+
 const inputStyle: React.CSSProperties = {
   padding: "8px 12px",
   borderRadius: "6px",
@@ -467,6 +515,7 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   transition: "var(--theme-transition)",
 };
+
 const editToggleButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -478,6 +527,7 @@ const editToggleButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const saveButtonStyle = (disabled: boolean): React.CSSProperties => ({
   flex: 1,
   padding: "10px",
@@ -489,6 +539,7 @@ const saveButtonStyle = (disabled: boolean): React.CSSProperties => ({
   cursor: disabled ? "not-allowed" : "pointer",
   transition: "var(--theme-transition)",
 });
+
 const cancelButtonStyle: React.CSSProperties = {
   flex: 1,
   padding: "10px",
@@ -508,6 +559,7 @@ const actionsContainerStyle: React.CSSProperties = {
   gap: "12px",
   marginTop: "5px",
 };
+
 const actionLinkStyle: React.CSSProperties = {
   background: "transparent",
   border: "none",
@@ -520,6 +572,7 @@ const actionLinkStyle: React.CSSProperties = {
   textUnderlineOffset: "4px",
   transition: "var(--theme-transition)",
 };
+
 const logoutLinkStyle: React.CSSProperties = {
   background: "transparent",
   border: "none",
@@ -533,6 +586,7 @@ const logoutLinkStyle: React.CSSProperties = {
   marginTop: "10px",
   transition: "var(--theme-transition)",
 };
+
 const securityFormContainerStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   padding: "20px",

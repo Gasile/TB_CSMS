@@ -1,7 +1,18 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { resetPassword } from "../../api/authApi";
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Public view allowing users to set a new password using a secure token extracted from the URL.
+ */
 export default function ResetPassword() {
   const { token } = useParams<{ token: string }>();
 
@@ -11,15 +22,20 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
+  /**
+   * Processes the password reset submission, verifying passwords match and token validity.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
+    // Validate password confirmation match
     if (password !== confirmPassword) {
       setError("Les mots de passe ne correspondent pas.");
       return;
     }
 
+    // Ensure the required reset token exists in the URL path parameters
     if (!token) {
       setError("Jeton de réinitialisation manquant dans l'URL.");
       return;
@@ -40,6 +56,7 @@ export default function ResetPassword() {
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
+        {/* Header Block */}
         <div style={{ textAlign: "center", marginBottom: "30px" }}>
           <span style={{ fontSize: "3rem" }}>🔑</span>
           <h1
@@ -64,8 +81,10 @@ export default function ResetPassword() {
           </p>
         </div>
 
+        {/* Error Alert Display */}
         {error && <div style={errorStyle}>{error}</div>}
 
+        {/* Dynamic Panel (Success Screen vs Form Inputs) */}
         {success ? (
           <div style={successStyle}>
             Votre mot de passe a été réinitialisé avec succès !
@@ -120,7 +139,10 @@ export default function ResetPassword() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   minHeight: "100vh",
   display: "flex",
@@ -130,6 +152,7 @@ const containerStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   transition: "var(--theme-transition)",
 };
+
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   padding: "40px",
@@ -143,6 +166,7 @@ const cardStyle: React.CSSProperties = {
   gap: "20px",
   transition: "var(--theme-transition)",
 };
+
 const errorStyle: React.CSSProperties = {
   background: "rgba(239, 68, 68, 0.15)",
   color: "var(--status-offline)",
@@ -153,6 +177,7 @@ const errorStyle: React.CSSProperties = {
   fontWeight: "500",
   transition: "var(--theme-transition)",
 };
+
 const successStyle: React.CSSProperties = {
   background: "rgba(16, 185, 129, 0.15)",
   color: "var(--status-charging)",
@@ -163,11 +188,13 @@ const successStyle: React.CSSProperties = {
   lineHeight: "1.5",
   transition: "var(--theme-transition)",
 };
+
 const inputGroupStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "6px",
 };
+
 const labelStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: "600",
@@ -176,6 +203,7 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: "0.5px",
   transition: "var(--theme-transition)",
 };
+
 const inputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: "10px",
@@ -186,6 +214,7 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   transition: "var(--theme-transition)",
 };
+
 const linkStyle: React.CSSProperties = {
   color: "var(--primary)",
   textDecoration: "none",
@@ -193,6 +222,7 @@ const linkStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const buttonStyle = (disabled: boolean): React.CSSProperties => ({
   marginTop: "10px",
   padding: "16px",

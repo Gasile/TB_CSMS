@@ -1,5 +1,16 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 const HASURA_URL = import.meta.env.VITE_HASURA_URL;
 
+// ============================================================================
+// HASURA CLIENT & REQUEST HANDLER
+// ============================================================================
+
+/**
+ * Executes a GraphQL query or mutation against the Hasura engine with JWT authorization.
+ */
 export async function fetchHasura(query: string, variables: any = {}) {
   if (!HASURA_URL) {
     throw new Error(
@@ -7,18 +18,18 @@ export async function fetchHasura(query: string, variables: any = {}) {
     );
   }
 
-  // 1. Préparation des en-têtes
+  // Set default content headers
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
-  // 2. Récupération du JWT
+  // Retrieve and append the active JWT token to the request headers if available
   const token = localStorage.getItem("jwt_token");
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  // 3. Envoi de la requête
+  // Send the POST request containing the GraphQL document and payload
   const response = await fetch(HASURA_URL, {
     method: "POST",
     headers,
@@ -27,17 +38,18 @@ export async function fetchHasura(query: string, variables: any = {}) {
 
   const result = await response.json();
 
-  // 4. Gestion des erreurs
+  // Handle GraphQL level response errors and token expiration
   if (result.errors) {
     const errorMessage = result.errors[0].message;
 
-    // Redirection SEULEMENT si nous ne sommes pas déjà sur une page d'authentification publique
+    // Check if the user is currently navigating within a public authentication view
     const isPublicAuthPage =
       window.location.pathname.includes("/login") ||
       window.location.pathname.includes("/register") ||
       window.location.pathname.includes("/forgot-password") ||
       window.location.pathname.includes("/reset-password");
 
+    // Force sign-out and redirect to login if the session expired due to invalid/expired JWT
     if (
       !isPublicAuthPage &&
       (errorMessage.includes("invalid-jwt") || errorMessage.includes("JWT"))
@@ -49,7 +61,7 @@ export async function fetchHasura(query: string, variables: any = {}) {
       throw new Error("Votre session a expiré. Veuillez vous reconnecter.");
     }
 
-    // Sinon, on transmet l'erreur normalement au formulaire pour qu'elle s'affiche à l'écran !
+    // Pass any other functional query errors back to the UI component
     throw new Error(errorMessage || "Erreur GraphQL");
   }
 

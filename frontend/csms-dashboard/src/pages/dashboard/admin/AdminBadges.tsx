@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import {
   fetchAdminBadgesData,
@@ -11,12 +15,19 @@ import {
   fetchUnknownBadges,
   deleteUnknownBadge,
 } from "../../../api/adminApi";
-
 import { useNavigate } from "react-router-dom";
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Administrative panel for managing registered RFID badges and handling unregistered card scans.
+ */
 export default function AdminBadges() {
   const navigate = useNavigate();
 
+  // Loading & Global dataset states
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<any>({
     Authorizations: [],
@@ -24,7 +35,7 @@ export default function AdminBadges() {
     UserBadges: [],
   });
 
-  // États de recherche et de filtres
+  // Search and column filtering states
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [sortConfig, setSortConfig] = useState({
@@ -32,9 +43,9 @@ export default function AdminBadges() {
     direction: "asc",
   });
 
-  // États pour la Modale (Création & Édition)
+  // Creation & Editing popup modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingBadge, setEditingBadge] = useState<any>(null); // null = Mode Création
+  const [editingBadge, setEditingBadge] = useState<any>(null); // null represents Creation Mode
   const [formData, setFormData] = useState({
     idToken: "",
     badge_name: "",
@@ -42,7 +53,7 @@ export default function AdminBadges() {
     user_id: "",
   });
 
-  // États pour les onglets et badges inconnus
+  // Tab navigation & Unknown card scans states
   const [activeTab, setActiveTab] = useState<"known" | "unknown">("known");
   const [unknownBadges, setUnknownBadges] = useState<any[]>([]);
 
@@ -50,6 +61,9 @@ export default function AdminBadges() {
     loadData();
   }, []);
 
+  /**
+   * Fetches registered badge authorizations and anonymous scans simultaneously.
+   */
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -66,7 +80,7 @@ export default function AdminBadges() {
     }
   };
 
-  // --- 1. MAPPAGE DES DONNÉES ---
+  // --- 1. DATA MAPPING & NORMALIZATION ---
   const enrichedBadges = (data.Authorizations || []).map((auth: any) => {
     const userBadge = (data.UserBadges || []).find(
       (ub: any) => ub.authorization_id === auth.id,
@@ -82,7 +96,7 @@ export default function AdminBadges() {
     };
   });
 
-  // --- 2. FILTRAGE ET TRI ---
+  // --- 2. FILTERING & SORTING PIPELINE ---
   let filteredBadges = enrichedBadges;
 
   if (statusFilter !== "All") {
@@ -109,6 +123,9 @@ export default function AdminBadges() {
     return 0;
   });
 
+  /**
+   * Updates sort targets and arrangement directions across table header triggers.
+   */
   const handleSort = (key: string) => {
     setSortConfig({
       key,
@@ -119,7 +136,11 @@ export default function AdminBadges() {
     });
   };
 
-  // --- 3. ACTIONS ---
+  // --- 3. INTERACTION HANDLERS ---
+
+  /**
+   * Toggles an existing badge configuration status, preventing activation if unassigned.
+   */
   const handleToggleStatus = async (badge: any) => {
     if (badge.status === "Blocked" && !badge.userId) {
       alert(
@@ -132,6 +153,9 @@ export default function AdminBadges() {
     loadData();
   };
 
+  /**
+   * Dispatches a permanent deletion request after user confirmation.
+   */
   const handleDeleteBadge = async (authId: number) => {
     if (
       window.confirm(
@@ -185,6 +209,9 @@ export default function AdminBadges() {
     setIsModalOpen(true);
   };
 
+  /**
+   * Submits the modal form configuration, determining branching steps for reassignments or creations.
+   */
   const handleSubmitModal = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -239,6 +266,9 @@ export default function AdminBadges() {
     }
   };
 
+  /**
+   * Returns a directional matching arrow indicator reflecting active sorting setups.
+   */
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -258,6 +288,7 @@ export default function AdminBadges() {
 
   return (
     <div style={containerStyle}>
+      {/* View Header Section */}
       <div style={headerStyle}>
         <div>
           <h1
@@ -286,7 +317,7 @@ export default function AdminBadges() {
         </button>
       </div>
 
-      {/* --- ONGLETS --- */}
+      {/* --- WORKSPACE TABS LINKING CONTROLS --- */}
       <div style={tabsContainerStyle}>
         <button
           style={activeTab === "known" ? activeTabStyle : inactiveTabStyle}
@@ -302,7 +333,7 @@ export default function AdminBadges() {
         </button>
       </div>
 
-      {/* --- VUE : BADGES ENREGISTRÉS --- */}
+      {/* --- REGISTERED KNOWN BADGES PANEL VIEW --- */}
       {activeTab === "known" && (
         <>
           <div style={filterBarContainerStyle}>
@@ -445,7 +476,7 @@ export default function AdminBadges() {
         </>
       )}
 
-      {/* --- VUE : SCANS INCONNUS --- */}
+      {/* --- UNREGISTERED ANONYMOUS SCANS PANEL VIEW --- */}
       {activeTab === "unknown" && (
         <div style={tableCardStyle}>
           <table
@@ -532,7 +563,7 @@ export default function AdminBadges() {
         </div>
       )}
 
-      {/* --- MODALE DE CRÉATION / ÉDITION --- */}
+      {/* --- FORM SPECIFICATIONS CREATION/EDITION POPUP MODAL --- */}
       {isModalOpen && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -670,12 +701,16 @@ export default function AdminBadges() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "25px",
 };
+
 const headerStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
@@ -687,6 +722,7 @@ const filterBarContainerStyle: React.CSSProperties = {
   gap: "15px",
   alignItems: "center",
 };
+
 const searchInputStyle: React.CSSProperties = {
   flex: 1,
   padding: "10px 15px",
@@ -698,6 +734,7 @@ const searchInputStyle: React.CSSProperties = {
   outline: "none",
   transition: "var(--theme-transition)",
 };
+
 const selectFilterStyle: React.CSSProperties = {
   padding: "10px 15px",
   borderRadius: "8px",
@@ -720,6 +757,7 @@ const tableCardStyle: React.CSSProperties = {
   overflowX: "auto",
   transition: "var(--theme-transition)",
 };
+
 const thStyle: React.CSSProperties = {
   padding: "12px 10px",
   fontSize: "0.85rem",
@@ -730,6 +768,7 @@ const thStyle: React.CSSProperties = {
   userSelect: "none",
   transition: "var(--theme-transition)",
 };
+
 const tdStyle: React.CSSProperties = {
   padding: "15px 10px",
   fontSize: "0.95rem",
@@ -764,6 +803,7 @@ const createButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const editButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   color: "var(--text-main)",
@@ -775,6 +815,7 @@ const editButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const blockButtonStyle: React.CSSProperties = {
   background: "rgba(239, 68, 68, 0.15)",
   color: "var(--status-offline)",
@@ -786,6 +827,7 @@ const blockButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const activateButtonStyle: React.CSSProperties = {
   background: "rgba(16, 185, 129, 0.15)",
   color: "var(--status-charging)",
@@ -797,6 +839,7 @@ const activateButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const cancelButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   color: "var(--text-muted)",
@@ -821,6 +864,7 @@ const modalOverlayStyle: React.CSSProperties = {
   justifyContent: "center",
   zIndex: 1000,
 };
+
 const modalContentStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -831,6 +875,7 @@ const modalContentStyle: React.CSSProperties = {
   boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
   transition: "var(--theme-transition)",
 };
+
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "5px",
@@ -839,6 +884,7 @@ const labelStyle: React.CSSProperties = {
   color: "var(--text-muted)",
   transition: "var(--theme-transition)",
 };
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",

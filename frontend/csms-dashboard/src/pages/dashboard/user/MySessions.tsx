@@ -1,18 +1,35 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { fetchUserSessions } from "../../../api/userApi";
 
-const SESSIONS_PER_PAGE = 10; // <-- Configurable ici
+// ============================================================================
+// CONFIGURATION CONSTANTS
+// ============================================================================
 
+const SESSIONS_PER_PAGE = 10;
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * End-user view showing the absolute chronological history of charging transactions, complete with KPIs.
+ */
 export default function MySessions() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const userId = user?.id;
 
+  // UI & Data States
   const [isLoading, setIsLoading] = useState(true);
   const [sessions, setSessions] = useState<any[]>([]);
 
+  // Sorting State Tracker
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -21,19 +38,22 @@ export default function MySessions() {
     direction: "desc",
   });
 
-  // --- ÉTAT DE LA PAGINATION ---
+  // --- PAGINATION STATE ---
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (userId) loadSessions();
   }, [userId]);
 
+  /**
+   * Fetches full historical transaction records for the logged-in user context.
+   */
   const loadSessions = async () => {
     setIsLoading(true);
     try {
       const data = await fetchUserSessions(userId!);
       setSessions(data || []);
-      setCurrentPage(1); // Retour à la première page au chargement
+      setCurrentPage(1);
     } catch (error) {
       console.error("Erreur lors du chargement des sessions :", error);
     } finally {
@@ -41,19 +61,24 @@ export default function MySessions() {
     }
   };
 
+  /**
+   * Updates columns key reference mappings and flips arrangement vector direction.
+   */
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1); // Retour à la première page lors d'un tri
+    setCurrentPage(1);
   };
 
+  // --- SORTING PIPELINE PARSING ---
   const sortedSessions = [...sessions].sort((a, b) => {
     let valA = a[sortConfig.key];
     let valB = b[sortConfig.key];
 
+    // Normalize state descriptors to keep ongoing tasks grouped together safely
     if (sortConfig.key === "status") {
       valA = a.isActive ? "0_En_cours" : a.chargingState || "Terminé";
       valB = b.isActive ? "0_En_cours" : b.chargingState || "Terminé";
@@ -67,13 +92,16 @@ export default function MySessions() {
     return 0;
   });
 
-  // --- LOGIQUE DE PAGINATION ---
+  // --- PAGINATION GRID LIMITS CALCULATIONS ---
   const totalPages = Math.ceil(sortedSessions.length / SESSIONS_PER_PAGE);
   const paginatedSessions = sortedSessions.slice(
     (currentPage - 1) * SESSIONS_PER_PAGE,
     currentPage * SESSIONS_PER_PAGE,
   );
 
+  /**
+   * Returns a dynamic indicator arrow mirroring column layout parameters.
+   */
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -91,10 +119,12 @@ export default function MySessions() {
       </div>
     );
 
+  // Compute total accumulated energy metrics for the panel top-bar summary cards
   const totalKwh = sessions.reduce((sum, s) => sum + (s.totalKwh || 0), 0);
 
   return (
     <div style={containerStyle}>
+      {/* Header Info & KPI Section */}
       <div style={headerCardStyle}>
         <div>
           <h1
@@ -133,6 +163,7 @@ export default function MySessions() {
         </div>
       </div>
 
+      {/* Main Table Work Area */}
       <div style={cardStyle}>
         <div style={{ overflowX: "auto" }}>
           <table
@@ -256,7 +287,7 @@ export default function MySessions() {
           </table>
         </div>
 
-        {/* CONTRÔLES DE PAGINATION */}
+        {/* --- PAGINATION CONTROL PANELS --- */}
         {totalPages > 1 && (
           <div style={paginationContainerStyle}>
             <button
@@ -283,13 +314,17 @@ export default function MySessions() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "25px",
   paddingBottom: "30px",
 };
+
 const headerCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -302,6 +337,7 @@ const headerCardStyle: React.CSSProperties = {
   gap: "20px",
   transition: "var(--theme-transition)",
 };
+
 const txBadgeStyle = (
   status: string,
   isActive: boolean,
@@ -318,11 +354,13 @@ const txBadgeStyle = (
     transition: "var(--theme-transition)",
   };
 };
+
 const kpiStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "flex-end",
 };
+
 const kpiLabelStyle: React.CSSProperties = {
   fontSize: "0.8rem",
   color: "var(--text-muted)",
@@ -331,6 +369,7 @@ const kpiLabelStyle: React.CSSProperties = {
   letterSpacing: "0.05em",
   transition: "var(--theme-transition)",
 };
+
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "1.8rem",
   fontWeight: "bold",
@@ -338,12 +377,14 @@ const kpiValueStyle: React.CSSProperties = {
   lineHeight: "1.2",
   transition: "var(--theme-transition)",
 };
+
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
   borderRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const thStyle: React.CSSProperties = {
   padding: "15px",
   fontSize: "0.85rem",
@@ -352,17 +393,20 @@ const thStyle: React.CSSProperties = {
   textTransform: "uppercase",
   transition: "var(--theme-transition)",
 };
+
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
   userSelect: "none",
 };
+
 const tdStyle: React.CSSProperties = {
   padding: "15px",
   fontSize: "0.95rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const detailsButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -386,6 +430,7 @@ const paginationContainerStyle: React.CSSProperties = {
   borderBottomRightRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   padding: "6px 12px",
   borderRadius: "6px",
@@ -398,6 +443,7 @@ const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   transition: "var(--theme-transition)",
   opacity: disabled ? 0.5 : 1,
 });
+
 const paginationTextStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   color: "var(--text-muted)",

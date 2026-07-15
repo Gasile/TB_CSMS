@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -13,8 +17,19 @@ import {
 import { fetchSessionDetailData } from "../../api/sessionApi";
 import { useAuth } from "../../context/AuthContext";
 
-const EVENTS_PER_PAGE = 15; // <-- Configurable ici pour le journal technique
+// ============================================================================
+// CONFIGURATION Constants
+// ============================================================================
 
+const EVENTS_PER_PAGE = 15;
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Renders the comprehensive details of a specific charging session, including metrics, telemetry charts, and technical event logs.
+ */
 export default function SessionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -23,17 +38,21 @@ export default function SessionDetail() {
   const { user } = useAuth();
   const isAdmin = user?.role === "Admin";
 
+  // Data & UI loading states
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [chartData, setChartData] = useState<any[]>([]);
 
-  // --- ÉTAT DE LA PAGINATION POUR LES ÉVÉNEMENTS ---
+  // Pagination state for the technical events journal
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (dbId) loadData();
   }, [dbId]);
 
+  /**
+   * Loads the transaction details and historical meter values from the database backend.
+   */
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -50,11 +69,15 @@ export default function SessionDetail() {
     }
   };
 
+  /**
+   * Structures active power (kW) and battery State of Charge (SoC) points into a chronological timeline for the chart.
+   */
   const buildChartData = (tx: any, meterValues: any[]) => {
     const points: any[] = [];
     let lastPowerTime: number | null = null;
     let lastPowerValue = 0;
 
+    // Push initial baseline time-point
     if (tx.startTime) {
       points.push({
         time: new Date(tx.startTime).getTime(),
@@ -63,6 +86,7 @@ export default function SessionDetail() {
       });
     }
 
+    // Process and extract measurand indicators (Active Power Import & SoC)
     meterValues.forEach((mv) => {
       let powerKW = 0;
       let socValue = null;
@@ -96,6 +120,7 @@ export default function SessionDetail() {
       }
     });
 
+    // Handle terminal boundary conditions based on session state (Active vs Finished)
     if (tx.endTime && lastPowerTime) {
       const endMs = new Date(tx.endTime).getTime();
       if (endMs - lastPowerTime > 120000) {
@@ -116,6 +141,9 @@ export default function SessionDetail() {
     setChartData(points);
   };
 
+  /**
+   * Prompts the administrator to confirm sending an OCPP hard-stop signal to the remote station.
+   */
   const handleForceStop = () => {
     if (
       window.confirm(
@@ -142,6 +170,9 @@ export default function SessionDetail() {
   const startDate = new Date(session.startTime);
   const endDate = session.endTime ? new Date(session.endTime) : null;
 
+  /**
+   * Converts the start and end dates of a charging session into a user-friendly duration format.
+   */
   const formatDuration = (start: Date, end: Date | null): string => {
     if (!end) return "En cours";
     const diffMs = end.getTime() - start.getTime();
@@ -163,6 +194,9 @@ export default function SessionDetail() {
 
   const durationStr = formatDuration(startDate, endDate);
 
+  /**
+   * Computes the elapsed duration spent waiting at the station without charging.
+   */
   const calculateOvertime = (timestamp: string) => {
     if (!timestamp) return "un temps indéterminé";
     const start = new Date(timestamp).getTime();
@@ -177,7 +211,7 @@ export default function SessionDetail() {
     return `${mins} min`;
   };
 
-  // --- LOGIQUE DE PAGINATION POUR LES ÉVÉNEMENTS ---
+  // --- EVENTS PAGINATION LOGIC ---
   const events = session.TransactionEvents || [];
   const totalPages = Math.ceil(events.length / EVENTS_PER_PAGE);
   const paginatedEvents = events.slice(
@@ -187,6 +221,7 @@ export default function SessionDetail() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
+      {/* Overview Details Section */}
       <div style={headerCardStyle}>
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
           <button onClick={() => navigate(-1)} style={backButtonStyle}>
@@ -240,6 +275,7 @@ export default function SessionDetail() {
         )}
       </div>
 
+      {/* Warning Area for Parking Misuse */}
       {session.isActive && session.is_legal === false && (
         <div style={illegalAlertStyle}>
           <span style={{ fontSize: "1.5rem", marginRight: "15px" }}>⚠️</span>
@@ -265,6 +301,7 @@ export default function SessionDetail() {
         </div>
       )}
 
+      {/* KPI Cards Grid Section */}
       <div
         style={{
           display: "grid",
@@ -315,6 +352,7 @@ export default function SessionDetail() {
         </div>
       </div>
 
+      {/* Telemetry Chart Section */}
       <div style={chartCardStyle}>
         <h2
           style={{
@@ -413,6 +451,7 @@ export default function SessionDetail() {
         </div>
       </div>
 
+      {/* Admin exclusive Technical Event Journal Section */}
       {isAdmin && (
         <div style={{ ...chartCardStyle, padding: 0 }}>
           <div
@@ -555,7 +594,7 @@ export default function SessionDetail() {
             </table>
           </div>
 
-          {/* CONTRÔLES DE PAGINATION */}
+          {/* Pagination Controls Block */}
           {totalPages > 1 && (
             <div style={paginationContainerStyle}>
               <button
@@ -585,7 +624,10 @@ export default function SessionDetail() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const headerCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   padding: "25px",
@@ -598,6 +640,7 @@ const headerCardStyle: React.CSSProperties = {
   gap: "20px",
   transition: "var(--theme-transition)",
 };
+
 const backButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   border: "1px solid var(--border-color)",
@@ -609,6 +652,7 @@ const backButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const forceStopButtonStyle: React.CSSProperties = {
   background: "rgba(239, 68, 68, 0.15)",
   border: "1px solid var(--status-offline)",
@@ -620,6 +664,7 @@ const forceStopButtonStyle: React.CSSProperties = {
   color: "var(--status-offline)",
   transition: "var(--theme-transition)",
 };
+
 const statusBadgeStyle = (status: string): React.CSSProperties => {
   const isCharging =
     status === "Charging" || status === "EVConnected" || status === "En charge";
@@ -634,6 +679,7 @@ const statusBadgeStyle = (status: string): React.CSSProperties => {
     transition: "var(--theme-transition)",
   };
 };
+
 const kpiCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   padding: "20px",
@@ -644,6 +690,7 @@ const kpiCardStyle: React.CSSProperties = {
   justifyContent: "center",
   transition: "var(--theme-transition)",
 };
+
 const kpiLabelStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   color: "var(--text-muted)",
@@ -653,12 +700,14 @@ const kpiLabelStyle: React.CSSProperties = {
   marginBottom: "5px",
   transition: "var(--theme-transition)",
 };
+
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "1.8rem",
   fontWeight: "bold",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const chartCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   padding: "25px",
@@ -666,6 +715,7 @@ const chartCardStyle: React.CSSProperties = {
   border: "1px solid var(--border-color)",
   transition: "var(--theme-transition)",
 };
+
 const thStyle: React.CSSProperties = {
   padding: "15px 20px",
   fontSize: "0.85rem",
@@ -674,12 +724,14 @@ const thStyle: React.CSSProperties = {
   textTransform: "uppercase",
   transition: "var(--theme-transition)",
 };
+
 const tdStyle: React.CSSProperties = {
   padding: "15px 20px",
   fontSize: "0.95rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const badgeSmallStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   border: "1px solid var(--border-color)",
@@ -690,6 +742,7 @@ const badgeSmallStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const illegalAlertStyle: React.CSSProperties = {
   background: "rgba(239, 68, 68, 0.15)",
   border: "1px solid var(--status-offline)",
@@ -713,6 +766,7 @@ const paginationContainerStyle: React.CSSProperties = {
   borderBottomRightRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   padding: "6px 12px",
   borderRadius: "6px",
@@ -725,6 +779,7 @@ const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   transition: "var(--theme-transition)",
   opacity: disabled ? 0.5 : 1,
 });
+
 const paginationTextStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   color: "var(--text-muted)",

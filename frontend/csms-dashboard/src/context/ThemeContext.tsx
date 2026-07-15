@@ -1,5 +1,12 @@
-// ThemeContext.tsx
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { createContext, useContext, useEffect, useState } from "react";
+
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
 
 export type Theme = "light" | "dark";
 
@@ -9,14 +16,21 @@ interface ThemeContextType {
   setTheme: (theme: Theme) => void;
 }
 
+// ============================================================================
+// CONTEXT CREATION & PROVIDER
+// ============================================================================
+
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const LOCAL_STORAGE_KEY = "csms-theme-preference";
 
+/**
+ * Theme provider managing application appearance modes (light/dark) and system preference sync.
+ */
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // Initialisation de l'état avec lazy-loading pour éviter les lectures inutiles au re-render
+  // Lazy-load initial theme state to prevent redundant storage reads on re-render
   const [theme, setThemeState] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem(LOCAL_STORAGE_KEY) as Theme | null;
 
@@ -24,7 +38,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
       return savedTheme;
     }
 
-    // Fallback sur la préférence système
+    // Fallback to system color scheme preferences if no local preference exists
     if (
       window.matchMedia &&
       window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -35,11 +49,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     return "light";
   });
 
-  // Effet pour appliquer la classe sur la balise <html> et sauvegarder dans le localStorage
+  // Apply theme class to HTML root node and handle smooth transition animations
   useEffect(() => {
     const root = window.document.documentElement;
 
-    // Ajout d'une classe temporaire pour éviter les flashs visuels brutaux durant la transition
+    // Add temporary class to prevent sudden flashing during theme transition
     root.classList.add("theme-transitioning");
 
     if (theme === "dark") {
@@ -50,7 +64,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
 
     localStorage.setItem(LOCAL_STORAGE_KEY, theme);
 
-    // Retrait de la classe de transition après la fin de l'animation
+    // Remove the transition utility class once the transition animation finishes
     const timeout = setTimeout(() => {
       root.classList.remove("theme-transitioning");
     }, 300);
@@ -58,7 +72,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => clearTimeout(timeout);
   }, [theme]);
 
-  // Écoute des changements de préférence système en temps réel (si l'utilisateur n'a pas forcé de choix)
+  // Sync with system preference changes in real-time if no manual preference is saved
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -73,10 +87,16 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
+  /**
+   * Toggles the current theme between light and dark modes.
+   */
   const toggleTheme = () => {
     setThemeState((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
   };
 
+  /**
+   * Directly sets the active theme to a specified value.
+   */
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
   };
@@ -88,6 +108,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
+// ============================================================================
+// HOOK
+// ============================================================================
+
+/**
+ * Custom hook to safely consume the application's theme context and utility toggle functions.
+ */
 export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
   if (context === undefined) {

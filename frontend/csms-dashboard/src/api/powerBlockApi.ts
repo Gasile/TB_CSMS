@@ -1,7 +1,15 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import { fetchHasura } from "./hasuraClient";
 
+// ============================================================================
+// POWER BLOCK MANAGEMENT & OPERATIONS
+// ============================================================================
+
 /**
- * Récupère tous les blocs de puissance avec leurs bornes associées
+ * Fetches all physical power blocks alongside all charging stations to map their assignments.
  */
 export async function fetchPowerBlocksWithStations() {
   const query = `
@@ -29,7 +37,7 @@ export async function fetchPowerBlocksWithStations() {
 }
 
 /**
- * Crée un nouveau bloc de puissance
+ * Creates a new physical power block for smart charging limitation.
  */
 export async function createPowerBlock(
   name: string,
@@ -48,6 +56,9 @@ export async function createPowerBlock(
   return await fetchHasura(mutation, { name, maxV, maxA, nPhase, maxKw });
 }
 
+/**
+ * Updates the configurations and limits of an existing power block.
+ */
 export async function updatePowerBlock(
   id: number,
   name: string,
@@ -67,12 +78,12 @@ export async function updatePowerBlock(
 }
 
 /**
- * Supprime un bloc de puissance
+ * Deletes a power block after safe detachment of its currently associated charging stations.
  */
 export async function deletePowerBlock(id: number) {
   const mutation = `
     mutation DeletePowerBlock($id: Int!) {
-      # Optionnel selon tes contraintes Hasura : on remet d'abord à null les bornes rattachées
+      # Safely unassign all connected charging stations before removing the power block entity
       update_ChargingStations(where: { power_block_id: { _eq: $id } }, _set: { power_block_id: null }) {
         affected_rows
       }
@@ -85,7 +96,7 @@ export async function deletePowerBlock(id: number) {
 }
 
 /**
- * Vérifie en temps réel si une borne possède une transaction active
+ * Performs a real-time check to see if a specific station has an ongoing charging transaction.
  */
 export async function checkStationActiveStatus(stationId: number) {
   const query = `
@@ -103,7 +114,7 @@ export async function checkStationActiveStatus(stationId: number) {
 }
 
 /**
- * Met à jour le bloc de puissance de la borne
+ * Updates the power block assignment of a charging station.
  */
 export async function updateStationPowerBlock(
   stationId: number,

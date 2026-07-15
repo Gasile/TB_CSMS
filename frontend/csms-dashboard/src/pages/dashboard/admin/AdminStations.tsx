@@ -1,34 +1,37 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   fetchAllStationsWithStatus,
   updateStationWeight,
 } from "../../../api/adminApi";
 
-import { useNavigate } from "react-router-dom";
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
+/**
+ * Administrative asset view displaying the full hardware fleet status in real-time grid tiles,
+ * allowing instant weight/priority updates and deep linking to transaction histories.
+ */
 export default function AdminStations() {
   const navigate = useNavigate();
 
+  // Core component reactive states
   const [stations, setStations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const handleWeightChange = async (stationId: number, newWeight: number) => {
-    try {
-      setStations((prev) =>
-        prev.map((s) => (s.id === stationId ? { ...s, weight: newWeight } : s)),
-      );
-      await updateStationWeight(stationId, newWeight);
-    } catch (err: any) {
-      alert("Erreur lors de la modification de la priorité.");
-      loadStations();
-    }
-  };
 
   useEffect(() => {
     loadStations();
   }, []);
 
+  /**
+   * Queries the database for complete charging node attributes and ongoing transactions.
+   */
   const loadStations = async () => {
     setIsLoading(true);
     try {
@@ -38,6 +41,21 @@ export default function AdminStations() {
       setError(err.message || "Erreur lors du chargement des bornes.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /**
+   * Optimistically updates localized state weights and synchronizes priority constraints over the API.
+   */
+  const handleWeightChange = async (stationId: number, newWeight: number) => {
+    try {
+      setStations((prev) =>
+        prev.map((s) => (s.id === stationId ? { ...s, weight: newWeight } : s)),
+      );
+      await updateStationWeight(stationId, newWeight);
+    } catch (err: any) {
+      alert("Erreur lors de la modification de la priorité.");
+      loadStations();
     }
   };
 
@@ -56,6 +74,7 @@ export default function AdminStations() {
 
   return (
     <div style={containerStyle}>
+      {/* Structural Controls Header */}
       <div style={headerStyle}>
         <div>
           <h1
@@ -92,12 +111,14 @@ export default function AdminStations() {
         </div>
       </div>
 
+      {/* --- INFRASTRUCTURE CARDS GRID COMPILATION --- */}
       <div style={gridStyle}>
         {stations.map((station) => {
           const isOnline = station.isOnline;
           const hasActiveTransaction =
             station.Transactions && station.Transactions.length > 0;
 
+          // Compute dynamic threshold status tags parameters
           let statusText = "Offline";
           let statusColor = "var(--status-offline)";
           let statusBg = "rgba(239, 68, 68, 0.15)";
@@ -116,6 +137,7 @@ export default function AdminStations() {
 
           return (
             <div key={station.id} style={cardStyle}>
+              {/* Asset Header Info Section */}
               <div style={cardHeaderStyle}>
                 <div style={iconContainerStyle}>🔌</div>
                 <span
@@ -141,6 +163,7 @@ export default function AdminStations() {
                 </span>
               </div>
 
+              {/* Technical Property Layout List */}
               <div style={cardBodyStyle}>
                 <h3 style={stationNameStyle}>
                   {station.chargePointModel
@@ -161,6 +184,7 @@ export default function AdminStations() {
                   </span>
                 </div>
 
+                {/* Priority Weight Adjustment Selection Block */}
                 <div style={infoRowStyle}>
                   <span style={infoLabelStyle}>Priorité de charge:</span>
                   <div style={{ display: "flex", gap: "6px" }}>
@@ -191,6 +215,7 @@ export default function AdminStations() {
                   </div>
                 </div>
 
+                {/* Link Trigger Redirect Area */}
                 <div style={cardFooterStyle}>
                   <button
                     style={actionButtonStyle}
@@ -208,17 +233,22 @@ export default function AdminStations() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "25px",
 };
+
 const headerStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
 };
+
 const refreshButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -230,11 +260,13 @@ const refreshButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const gridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
   gap: "25px",
 };
+
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -244,12 +276,14 @@ const cardStyle: React.CSSProperties = {
   flexDirection: "column",
   transition: "var(--theme-transition)",
 };
+
 const cardHeaderStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
   marginBottom: "20px",
 };
+
 const iconContainerStyle: React.CSSProperties = {
   fontSize: "2rem",
   background: "var(--bg-app)",
@@ -261,6 +295,7 @@ const iconContainerStyle: React.CSSProperties = {
   borderRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const badgeStyle: React.CSSProperties = {
   padding: "6px 12px",
   borderRadius: "20px",
@@ -269,6 +304,7 @@ const badgeStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
 };
+
 const cardBodyStyle: React.CSSProperties = {
   flex: 1,
   display: "flex",
@@ -276,6 +312,7 @@ const cardBodyStyle: React.CSSProperties = {
   gap: "10px",
   marginBottom: "20px",
 };
+
 const stationNameStyle: React.CSSProperties = {
   margin: "0 0 10px 0",
   fontSize: "1.25rem",
@@ -283,6 +320,7 @@ const stationNameStyle: React.CSSProperties = {
   fontWeight: "700",
   transition: "var(--theme-transition)",
 };
+
 const infoRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
@@ -292,20 +330,24 @@ const infoRowStyle: React.CSSProperties = {
   paddingBottom: "5px",
   transition: "var(--theme-transition)",
 };
+
 const infoLabelStyle: React.CSSProperties = {
   color: "var(--text-muted)",
   transition: "var(--theme-transition)",
 };
+
 const infoValueStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const cardFooterStyle: React.CSSProperties = {
   paddingTop: "15px",
   borderTop: "1px solid var(--border-color)",
   transition: "var(--theme-transition)",
 };
+
 const actionButtonStyle: React.CSSProperties = {
   width: "100%",
   background: "var(--bg-app)",
@@ -317,6 +359,7 @@ const actionButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   transition: "var(--theme-transition)",
 };
+
 const manageBlocksButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -328,6 +371,7 @@ const manageBlocksButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const weightButtonStyle: React.CSSProperties = {
   width: "26px",
   height: "26px",

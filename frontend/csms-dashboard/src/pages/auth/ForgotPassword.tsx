@@ -1,13 +1,27 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { requestPasswordReset } from "../../api/authApi";
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Public view letting users request a password reset link sent to their email.
+ */
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
+  /**
+   * Processes the password reset submission request using the authentication API.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -26,6 +40,7 @@ export default function ForgotPassword() {
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
+        {/* Header Block */}
         <div style={{ textAlign: "center", marginBottom: "30px" }}>
           <span style={{ fontSize: "3rem" }}>🔒</span>
           <h1
@@ -50,8 +65,10 @@ export default function ForgotPassword() {
           </p>
         </div>
 
+        {/* Error Alert Display */}
         {error && <div style={errorStyle}>{error}</div>}
 
+        {/* Dynamic Status Render (Success Message vs Request Form) */}
         {success ? (
           <div style={successStyle}>
             Si ce compte existe, un e-mail de réinitialisation vient d'être
@@ -110,7 +127,10 @@ export default function ForgotPassword() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   minHeight: "100vh",
   display: "flex",
@@ -120,6 +140,7 @@ const containerStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   transition: "var(--theme-transition)",
 };
+
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   padding: "40px",
@@ -133,6 +154,7 @@ const cardStyle: React.CSSProperties = {
   gap: "20px",
   transition: "var(--theme-transition)",
 };
+
 const errorStyle: React.CSSProperties = {
   background: "rgba(239, 68, 68, 0.15)",
   color: "var(--status-offline)",
@@ -143,6 +165,7 @@ const errorStyle: React.CSSProperties = {
   fontWeight: "500",
   transition: "var(--theme-transition)",
 };
+
 const successStyle: React.CSSProperties = {
   background: "rgba(16, 185, 129, 0.15)",
   color: "var(--status-charging)",
@@ -153,11 +176,13 @@ const successStyle: React.CSSProperties = {
   lineHeight: "1.5",
   transition: "var(--theme-transition)",
 };
+
 const inputGroupStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "6px",
 };
+
 const labelStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: "600",
@@ -166,6 +191,7 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: "0.5px",
   transition: "var(--theme-transition)",
 };
+
 const inputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: "10px",
@@ -176,6 +202,7 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   transition: "var(--theme-transition)",
 };
+
 const linkStyle: React.CSSProperties = {
   color: "var(--primary)",
   textDecoration: "none",
@@ -183,6 +210,7 @@ const linkStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const buttonStyle = (disabled: boolean): React.CSSProperties => ({
   marginTop: "10px",
   padding: "16px",

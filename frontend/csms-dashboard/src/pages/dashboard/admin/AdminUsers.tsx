@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -8,10 +12,19 @@ import {
   deleteUser,
 } from "../../../api/adminApi";
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Administrative user directory panel for searching, sorting, filtering,
+ * creating, and modifying user accounts and access roles.
+ */
 export default function AdminUsers() {
   const navigate = useNavigate();
   const [editingUser, setEditingUser] = useState<any>(null);
 
+  // Core component dataset states
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,7 +34,7 @@ export default function AdminUsers() {
     direction: "asc",
   });
 
-  // Modale
+  // Modal and form states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
@@ -35,6 +48,9 @@ export default function AdminUsers() {
     loadUsers();
   }, []);
 
+  /**
+   * Fetches the full roster of registered application users from the admin API.
+   */
   const loadUsers = async () => {
     setIsLoading(true);
     try {
@@ -47,7 +63,7 @@ export default function AdminUsers() {
     }
   };
 
-  // --- FILTRAGE ET TRI ---
+  // --- FILTERING AND SORTING PIPELINE ---
   let filteredUsers = [...users];
 
   if (roleFilter !== "All") {
@@ -80,6 +96,9 @@ export default function AdminUsers() {
     }
   });
 
+  /**
+   * Toggles the table configuration sort target keys and flips ordering directions.
+   */
   const handleSort = (key: string) => {
     setSortConfig({
       key,
@@ -90,6 +109,9 @@ export default function AdminUsers() {
     });
   };
 
+  /**
+   * Modifies an account privilege role group after administrator confirmation.
+   */
   const handleToggleRole = async (userId: number, currentRole: string) => {
     const newRole = currentRole === "Admin" ? "User" : "Admin";
     if (
@@ -126,6 +148,9 @@ export default function AdminUsers() {
     setIsModalOpen(true);
   };
 
+  /**
+   * Submits form payloads, branching out into user record creation or details update requests.
+   */
   const handleSubmitModal = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -156,6 +181,9 @@ export default function AdminUsers() {
     }
   };
 
+  /**
+   * Requests account erasure and structural unassignments using the administrative API.
+   */
   const handleDeleteUser = async (userId: number) => {
     if (
       window.confirm(
@@ -174,6 +202,9 @@ export default function AdminUsers() {
     }
   };
 
+  /**
+   * Returns column arrow status indicators matching the active layout constraints.
+   */
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -193,6 +224,7 @@ export default function AdminUsers() {
 
   return (
     <div style={containerStyle}>
+      {/* Control View Header Area */}
       <div style={headerStyle}>
         <div>
           <h1
@@ -221,6 +253,7 @@ export default function AdminUsers() {
         </button>
       </div>
 
+      {/* Filtering and Query Bars */}
       <div style={filterBarContainerStyle}>
         <input
           type="text"
@@ -240,6 +273,7 @@ export default function AdminUsers() {
         </select>
       </div>
 
+      {/* Main Directory Table Workspace */}
       <div style={tableCardStyle}>
         <table
           style={{
@@ -311,6 +345,7 @@ export default function AdminUsers() {
         </table>
       </div>
 
+      {/* Creation and Account Management Overlay Modal */}
       {isModalOpen && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -427,22 +462,28 @@ export default function AdminUsers() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "25px",
 };
+
 const headerStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
 };
+
 const filterBarContainerStyle: React.CSSProperties = {
   display: "flex",
   gap: "15px",
   alignItems: "center",
 };
+
 const searchInputStyle: React.CSSProperties = {
   flex: 1,
   padding: "10px 15px",
@@ -454,6 +495,7 @@ const searchInputStyle: React.CSSProperties = {
   outline: "none",
   transition: "var(--theme-transition)",
 };
+
 const selectFilterStyle: React.CSSProperties = {
   padding: "10px 15px",
   borderRadius: "8px",
@@ -466,6 +508,7 @@ const selectFilterStyle: React.CSSProperties = {
   outline: "none",
   transition: "var(--theme-transition)",
 };
+
 const tableCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -475,6 +518,7 @@ const tableCardStyle: React.CSSProperties = {
   overflowX: "auto",
   transition: "var(--theme-transition)",
 };
+
 const thStyle: React.CSSProperties = {
   padding: "12px 10px",
   fontSize: "0.85rem",
@@ -485,6 +529,7 @@ const thStyle: React.CSSProperties = {
   userSelect: "none",
   transition: "var(--theme-transition)",
 };
+
 const tdStyle: React.CSSProperties = {
   padding: "15px 10px",
   fontSize: "0.95rem",
@@ -517,6 +562,7 @@ const createButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const editButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   color: "var(--text-main)",
@@ -528,6 +574,7 @@ const editButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const cancelButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   color: "var(--text-muted)",
@@ -552,6 +599,7 @@ const modalOverlayStyle: React.CSSProperties = {
   justifyContent: "center",
   zIndex: 1000,
 };
+
 const modalContentStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -562,6 +610,7 @@ const modalContentStyle: React.CSSProperties = {
   boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
   transition: "var(--theme-transition)",
 };
+
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "5px",
@@ -570,6 +619,7 @@ const labelStyle: React.CSSProperties = {
   color: "var(--text-muted)",
   transition: "var(--theme-transition)",
 };
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",

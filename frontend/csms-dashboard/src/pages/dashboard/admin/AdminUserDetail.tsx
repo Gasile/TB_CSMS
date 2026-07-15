@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchUserById, unassignAndBlockBadge } from "../../../api/adminApi";
@@ -7,21 +11,36 @@ import {
   linkNewBadge,
 } from "../../../api/userApi";
 
-const SESSIONS_PER_PAGE = 10; // <-- Configurable ici
+// ============================================================================
+// CONFIGURATION CONSTANTS
+// ============================================================================
 
+const SESSIONS_PER_PAGE = 10;
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Administrative panel displaying a comprehensive user profile workspace,
+ * linked RFID tokens management tools, and sorted historical charging logs.
+ */
 export default function AdminUserDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const userId = Number(id);
 
+  // Core component states
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [badges, setBadges] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
 
+  // Form & modal state fields
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [badgeForm, setBadgeForm] = useState({ idToken: "", badgeName: "" });
 
+  // Column sorting configurations
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -30,7 +49,7 @@ export default function AdminUserDetail() {
     direction: "desc",
   });
 
-  // --- ÉTAT DE LA PAGINATION ---
+  // --- PAGINATION STATE ---
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -39,6 +58,9 @@ export default function AdminUserDetail() {
     }
   }, [userId]);
 
+  /**
+   * Fetches the user identity card, linked badges, and charging transaction profiles concurrently.
+   */
   const loadAllData = async () => {
     setIsLoading(true);
     try {
@@ -58,6 +80,9 @@ export default function AdminUserDetail() {
     }
   };
 
+  /**
+   * Triggers an unassignment cycle for a badge link and automatically flags the auth token as blocked.
+   */
   const handleUnlinkBadge = async (ubId: number, authId: number) => {
     if (
       window.confirm(
@@ -69,6 +94,9 @@ export default function AdminUserDetail() {
     }
   };
 
+  /**
+   * Submits a link configuration request to register a new token under this user's context.
+   */
   const handleLinkBadge = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -81,19 +109,24 @@ export default function AdminUserDetail() {
     }
   };
 
+  /**
+   * Adjusts active table layout sort keys and flips arrangement vector orientation flags.
+   */
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1); // Reset de la pagination
+    setCurrentPage(1);
   };
 
+  // --- SORTING PIPELINE PARSING ---
   const sortedSessions = [...sessions].sort((a, b) => {
     let valA = a[sortConfig.key];
     let valB = b[sortConfig.key];
 
+    // Status description normalization mapping rule
     if (sortConfig.key === "status") {
       valA = a.isActive ? "0_En_cours" : a.chargingState || "Terminé";
       valB = b.isActive ? "0_En_cours" : b.chargingState || "Terminé";
@@ -106,13 +139,16 @@ export default function AdminUserDetail() {
     return 0;
   });
 
-  // --- LOGIQUE DE PAGINATION ---
+  // --- PAGINATION LIMITS CALCULATIONS ---
   const totalPages = Math.ceil(sortedSessions.length / SESSIONS_PER_PAGE);
   const paginatedSessions = sortedSessions.slice(
     (currentPage - 1) * SESSIONS_PER_PAGE,
     currentPage * SESSIONS_PER_PAGE,
   );
 
+  /**
+   * Evaluates the active column sorting setup to render contextual state arrows.
+   */
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -136,10 +172,12 @@ export default function AdminUserDetail() {
       </div>
     );
 
+  // Accumulate historical delivered electricity metrics for summary cards
   const totalKwh = sessions.reduce((sum, s) => sum + (s.totalKwh || 0), 0);
 
   return (
     <div style={containerStyle}>
+      {/* Identity Profile & Aggregates Summary Header */}
       <div style={headerCardStyle}>
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
           <button
@@ -187,7 +225,9 @@ export default function AdminUserDetail() {
         </div>
       </div>
 
+      {/* Main Split Interface Area */}
       <div style={gridStyle}>
+        {/* LEFT COMPONENT DESK (2/3) : PAGINATED TRANSACTIONS HISTORICAL DATA TABLE */}
         <div style={{ ...cardStyle, gridColumn: "span 2", padding: 0 }}>
           <h2 style={{ ...sectionTitleStyle, margin: "20px" }}>
             Historique des sessions
@@ -318,7 +358,7 @@ export default function AdminUserDetail() {
             </table>
           </div>
 
-          {/* CONTRÔLES DE PAGINATION */}
+          {/* Pagination Controls Section */}
           {totalPages > 1 && (
             <div style={paginationContainerStyle}>
               <button
@@ -344,6 +384,7 @@ export default function AdminUserDetail() {
           )}
         </div>
 
+        {/* RIGHT COMPONENT DESK (1/3) : ASSIGNED RFID CREDENTIALS MANAGEMENT PANEL */}
         <div style={cardStyle}>
           <div
             style={{
@@ -410,7 +451,7 @@ export default function AdminUserDetail() {
         </div>
       </div>
 
-      {/* ... MODALE IDENTIQUE ... */}
+      {/* --- CREDIT ASSOCIATION SUBMIT FORM POPUP MODAL --- */}
       {isModalOpen && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -482,12 +523,16 @@ export default function AdminUserDetail() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "25px",
 };
+
 const headerCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -500,6 +545,7 @@ const headerCardStyle: React.CSSProperties = {
   gap: "20px",
   transition: "var(--theme-transition)",
 };
+
 const backButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   border: "1px solid var(--border-color)",
@@ -511,6 +557,7 @@ const backButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const roleBadgeStyle = (role: string): React.CSSProperties => {
   const isAdmin = role === "Admin";
   return {
@@ -524,11 +571,13 @@ const roleBadgeStyle = (role: string): React.CSSProperties => {
     transition: "var(--theme-transition)",
   };
 };
+
 const kpiStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "flex-end",
 };
+
 const kpiLabelStyle: React.CSSProperties = {
   fontSize: "0.8rem",
   color: "var(--text-muted)",
@@ -537,6 +586,7 @@ const kpiLabelStyle: React.CSSProperties = {
   letterSpacing: "0.05em",
   transition: "var(--theme-transition)",
 };
+
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "1.8rem",
   fontWeight: "bold",
@@ -544,11 +594,13 @@ const kpiValueStyle: React.CSSProperties = {
   lineHeight: "1.2",
   transition: "var(--theme-transition)",
 };
+
 const gridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
   gap: "25px",
 };
+
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -556,12 +608,14 @@ const cardStyle: React.CSSProperties = {
   borderRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.2rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const badgeListItemStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
@@ -572,6 +626,7 @@ const badgeListItemStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   transition: "var(--theme-transition)",
 };
+
 const addButtonStyle: React.CSSProperties = {
   background: "var(--primary)",
   color: "#fff",
@@ -583,6 +638,7 @@ const addButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const deleteButtonStyle: React.CSSProperties = {
   background: "rgba(239, 68, 68, 0.15)",
   color: "var(--status-offline)",
@@ -594,6 +650,7 @@ const deleteButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const thStyle: React.CSSProperties = {
   padding: "15px 20px",
   fontSize: "0.85rem",
@@ -602,12 +659,14 @@ const thStyle: React.CSSProperties = {
   textTransform: "uppercase",
   transition: "var(--theme-transition)",
 };
+
 const tdStyle: React.CSSProperties = {
   padding: "15px 20px",
   fontSize: "0.95rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const statusBadgeStyle = (status: string): React.CSSProperties => {
   const isCharging = status === "Charging" || status === "Active";
   return {
@@ -621,6 +680,7 @@ const statusBadgeStyle = (status: string): React.CSSProperties => {
     transition: "var(--theme-transition)",
   };
 };
+
 const modalOverlayStyle: React.CSSProperties = {
   position: "fixed",
   top: 0,
@@ -633,6 +693,7 @@ const modalOverlayStyle: React.CSSProperties = {
   justifyContent: "center",
   zIndex: 1000,
 };
+
 const modalContentStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -643,6 +704,7 @@ const modalContentStyle: React.CSSProperties = {
   boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
   transition: "var(--theme-transition)",
 };
+
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "5px",
@@ -650,6 +712,7 @@ const labelStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--text-muted)",
 };
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
@@ -661,6 +724,7 @@ const inputStyle: React.CSSProperties = {
   fontSize: "0.95rem",
   outline: "none",
 };
+
 const cancelButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   color: "var(--text-muted)",
@@ -672,6 +736,7 @@ const cancelButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const detailsButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -683,6 +748,7 @@ const detailsButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   transition: "all 0.2s ease, var(--theme-transition)",
 };
+
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
@@ -700,6 +766,7 @@ const paginationContainerStyle: React.CSSProperties = {
   borderBottomRightRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   padding: "6px 12px",
   borderRadius: "6px",
@@ -712,6 +779,7 @@ const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   transition: "var(--theme-transition)",
   opacity: disabled ? 0.5 : 1,
 });
+
 const paginationTextStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   color: "var(--text-muted)",

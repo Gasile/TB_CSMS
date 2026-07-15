@@ -1,13 +1,21 @@
-// src/types.ts
+// ============================================================================
+// DATA MODELS & INTERFACES
+// ============================================================================
+
+/**
+ * Represents the active session payload for an authenticated user.
+ */
 export interface UserSession {
-  id?: number; // Ajouté pour la gestion de liste
+  id?: number; // Included to facilitate session and user list management
   firstName: string;
   lastName: string;
   email?: string;
   role: string;
 }
 
-// Interface pour l'affichage de la liste
+/**
+ * Represents the raw database user structure fetched from the database backend.
+ */
 export interface UserFromDB {
   id: number;
   first_name: string;

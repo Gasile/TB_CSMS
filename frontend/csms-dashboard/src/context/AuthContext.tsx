@@ -1,6 +1,13 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-// On définit à quoi ressemble un utilisateur dans notre application
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
+
 interface User {
   id: number;
   firstName: string;
@@ -11,56 +18,66 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  // MODIFICATION : La fonction login accepte désormais le token en second paramètre
   login: (userData: User, token: string) => void;
   logout: () => void;
 }
 
+// ============================================================================
+// CONTEXT CREATION & PROVIDER
+// ============================================================================
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Global authentication provider managing active session states, tokens, and navigation guards.
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // 1. Vérification au chargement
+  // Initialize and validate current session parameters stored on the client browser
   useEffect(() => {
     const storedUser = sessionStorage.getItem("csms_user");
     const storedToken = localStorage.getItem("jwt_token");
 
-    // SÉCURITÉ : On s'assure que les données existent ET qu'elles ne sont pas corrompues ("undefined")
+    // Safety check: ensure token and user session data exist and are not corrupted
     if (storedUser && storedUser !== "undefined" && storedToken) {
       try {
         setUser(JSON.parse(storedUser));
       } catch (e) {
-        // Si le JSON est illisible, on vide la mémoire corrompue
+        // Clear corrupted structures if parsing fails
         sessionStorage.removeItem("csms_user");
         localStorage.removeItem("jwt_token");
       }
     } else {
-      // Si l'un des deux manque, on nettoie tout par précaution
+      // Flush storage if any required session parameter is missing
       sessionStorage.removeItem("csms_user");
       localStorage.removeItem("jwt_token");
     }
     setIsInitialized(true);
   }, []);
 
-  // La fonction login accepte désormais le token de manière optionnelle (token?)
+  /**
+   * Commits the authenticated user's profile and JWT token securely to local/session storage.
+   */
   const login = (userData: User, token?: string) => {
     setUser(userData);
     sessionStorage.setItem("csms_user", JSON.stringify(userData));
 
-    // 🔥 CORRECTION : On ne sauvegarde le token QUE s'il est explicitement fourni !
+    // Save token only when explicitly provided by the authentication flow
     if (token) {
       localStorage.setItem("jwt_token", token);
     }
   };
 
-  // 3. Déconnexion
+  /**
+   * Destroys the active authentication state, clears client storage, and redirects to the login route.
+   */
   const logout = () => {
     setUser(null);
     sessionStorage.removeItem("csms_user");
-    localStorage.removeItem("jwt_token"); // NOUVEAU : Destruction du token
-    window.location.href = "/login"; // Redirection de sécurité
+    localStorage.removeItem("jwt_token");
+    window.location.href = "/login";
   };
 
   if (!isInitialized) return null;
@@ -72,6 +89,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ============================================================================
+// HOOK
+// ============================================================================
+
+/**
+ * Custom hook to safely consume user session details and utility authentication handlers.
+ */
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context)

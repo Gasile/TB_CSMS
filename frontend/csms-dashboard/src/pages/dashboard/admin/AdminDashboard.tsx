@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import {
   AreaChart,
@@ -14,12 +18,22 @@ import {
   fetchAdminTelemetry,
 } from "../../../api/adminApi";
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Administrative command center view rendering real-time network infrastructure metrics,
+ * a layered 24-hour fleet power demand curve, and ongoing active charging tables.
+ */
 export default function AdminOverview() {
   const navigate = useNavigate();
 
+  // Loading & Error States
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Fleet & Telemetry States
   const [stations, setStations] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [energyToday, setEnergyToday] = useState(0);
@@ -30,6 +44,9 @@ export default function AdminOverview() {
     loadDashboardData();
   }, []);
 
+  /**
+   * Fetches data updates, groups individual transaction profiles, and compiles the timeline telemetry.
+   */
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
@@ -40,7 +57,7 @@ export default function AdminOverview() {
         now.getDate(),
       ).toISOString();
 
-      // Retour strict aux 24 dernières heures
+      // Configure a strict 24-hour sliding chronological window
       const endTimestamp = now.getTime();
       const startTimestamp = endTimestamp - 24 * 60 * 60 * 1000;
       const startDateIso = new Date(startTimestamp).toISOString();
@@ -53,17 +70,18 @@ export default function AdminOverview() {
       setStations(overviewData?.ChargingStations || []);
       setActiveSessions(overviewData?.ActiveTransactions || []);
 
+      // Calculate accumulated energy delivered throughout the calendar day
       const totalKwh = (overviewData?.TodayTransactions || []).reduce(
         (sum: number, tx: any) => sum + (tx.totalKwh || 0),
         0,
       );
       setEnergyToday(totalKwh);
 
-      // --- MOTEUR ÉVÉNEMENTIEL (PAR PROFIL ISOLÉ) ---
+      // --- EVENEMENTIAL TELEMETRY PROCESSING ENGINE (PER ISOLATED PROFILE) ---
       const allTx = telemetryData?.Transactions || [];
       const allMv = telemetryData?.MeterValues || [];
 
-      // 1. Grouper les MeterValues (puissance uniquement) par transaction
+      // 1. Group raw active power meter values by their database transaction references
       const mvsByTx: Record<number, { time: number; power: number }[]> = {};
       allMv.forEach((mv: any) => {
         let powerKW = null;
@@ -92,9 +110,8 @@ export default function AdminOverview() {
         }
       });
 
-      // 2. Construire le profil de puissance pour CHAQUE transaction indépendamment
+      // 2. Map isolated active power curves independently for each transaction timeline
       const txProfiles: Record<number, { time: number; power: number }[]> = {};
-
       const allTimestamps = new Set<number>([startTimestamp, endTimestamp]);
 
       allTx.forEach((tx: any) => {
@@ -109,12 +126,14 @@ export default function AdminOverview() {
 
         let lastTime = startTime;
 
+        // Push continuous padding if transaction started before the current 24h graph frame
         if (startTime <= startTimestamp && mvs.length > 0) {
           profile.push({ time: startTimestamp, power: mvs[0].power });
           lastTime = startTimestamp;
         }
 
         mvs.forEach((mv) => {
+          // If a meter value interval exceeds 2 minutes, register a fallback drop to 0 kW
           if (mv.time - lastTime > 120000) {
             profile.push({ time: lastTime + 120000, power: 0 });
             allTimestamps.add(lastTime + 120000);
@@ -133,6 +152,7 @@ export default function AdminOverview() {
           profile.push({ time: endTime, power: 0 });
           allTimestamps.add(endTime);
         } else {
+          // Keep active sequences projecting up to the current boundary frame marker
           if (endTimestamp - lastTime > 120000) {
             profile.push({ time: lastTime + 120000, power: 0 });
             allTimestamps.add(lastTime + 120000);
@@ -147,7 +167,7 @@ export default function AdminOverview() {
         txProfiles[tx.id] = profile;
       });
 
-      // 3. Créer la ligne temporelle globale en superposant les profils
+      // 3. Superimpose transaction timelines into a unified total power load matrix
       const sortedTimestamps = Array.from(allTimestamps)
         .filter((t) => t >= startTimestamp && t <= endTimestamp)
         .sort((a, b) => a - b);
@@ -182,7 +202,7 @@ export default function AdminOverview() {
     }
   };
 
-  // --- CALCUL DES KPI ---
+  // --- KPI CALCULATIONS ---
   const totalStations = stations.length;
   const offlineStations = stations.filter((s) => !s.isOnline).length;
   const activeStationNames = activeSessions.map((s) => s.ocppConnectionName);
@@ -193,6 +213,9 @@ export default function AdminOverview() {
 
   const nowMs = new Date().getTime();
 
+  /**
+   * Retrieves the most recent real-time active power reading for a session, filtering outdated packets.
+   */
   const getSessionInstantPower = (session: any): number => {
     if (session.MeterValues && session.MeterValues.length > 0) {
       for (const mv of session.MeterValues) {
@@ -207,6 +230,7 @@ export default function AdminOverview() {
             );
             if (powerItem && powerItem.value !== undefined) {
               const mvTime = new Date(mv.timestamp).getTime();
+              // Drop readings older than 2 minutes to handle vehicle unplug actions safely
               if (nowMs - mvTime <= 120000) {
                 return powerItem.value / 1000;
               }
@@ -219,12 +243,16 @@ export default function AdminOverview() {
     return 0;
   };
 
+  // Sum total real-time system power consumption metrics
   let instantPowerKW = 0;
   activeSessions.forEach((session) => {
     instantPowerKW += getSessionInstantPower(session);
   });
   const currentPower = instantPowerKW;
 
+  /**
+   * Formats a unix timestamp into a readable date and hour indicator layout.
+   */
   const formatTime = (unixTime: number) => {
     const d = new Date(unixTime);
     return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
@@ -245,6 +273,7 @@ export default function AdminOverview() {
 
   return (
     <div style={containerStyle}>
+      {/* Title & Synchronization Header controls */}
       <div
         style={{
           display: "flex",
@@ -268,6 +297,7 @@ export default function AdminOverview() {
         </button>
       </div>
 
+      {/* KPI Display Metrics Summary Grid */}
       <div style={kpiGridStyle}>
         <div style={kpiCardStyle}>
           <span style={kpiTitleStyle}>Flotte de Chargeurs</span>
@@ -373,6 +403,7 @@ export default function AdminOverview() {
         </div>
       </div>
 
+      {/* Fleet 24-Hour Telemetry Total Demand Area Chart */}
       <div style={chartCardStyle}>
         <div
           style={{
@@ -486,6 +517,7 @@ export default function AdminOverview() {
         </div>
       </div>
 
+      {/* Live Active Sessions Monitoring Table */}
       <div style={tableCardStyle}>
         <h2
           style={{
@@ -545,8 +577,9 @@ export default function AdminOverview() {
                   >
                     <td style={tdStyle}>
                       <strong>
-                        {session.ChargingStation?.chargePointModel
-                          ? `${session.ChargingStation.chargePointModel} `
+                        {session.ChargingStations_by_pk?.chargePointModel ||
+                        session.ChargingStation?.chargePointModel
+                          ? `${session.ChargingStations_by_pk?.chargePointModel || session.ChargingStation.chargePointModel} `
                           : ""}
                         {session.ocppConnectionName}
                       </strong>
@@ -626,7 +659,10 @@ export default function AdminOverview() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",

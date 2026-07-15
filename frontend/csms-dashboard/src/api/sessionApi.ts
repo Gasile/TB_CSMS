@@ -1,5 +1,16 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import { fetchHasura } from "./hasuraClient";
 
+// ============================================================================
+// USER TELEMETRY & DASHBOARD DATA SERVICES
+// ============================================================================
+
+/**
+ * Retrieves a general summary of a user's consumption metrics and recent session details.
+ */
 export async function fetchUserOverview(userId: number, cutoffDate: string) {
   const query = `
     query GetUserOverview($userId: Int!, $cutoffDate: date!) {
@@ -28,6 +39,9 @@ export async function fetchUserOverview(userId: number, cutoffDate: string) {
   return await fetchHasura(query, { userId, cutoffDate });
 }
 
+/**
+ * Fetches real-time energy meter values for plotting active or historical charging curves.
+ */
 export async function fetchLiveTelemetry(dbId: number) {
   const query = `
     query GetLiveTelemetry($dbId: Int!) {
@@ -40,6 +54,9 @@ export async function fetchLiveTelemetry(dbId: number) {
   return await fetchHasura(query, { dbId });
 }
 
+/**
+ * Retrieves complete session parameters, technical event timelines, and meter values.
+ */
 export async function fetchSessionDetailData(dbId: number) {
   const query = `
     query GetSessionDetail($dbId: Int!) {
@@ -66,7 +83,7 @@ export async function fetchSessionDetailData(dbId: number) {
           idToken
           badge_name
         }
-        # NOUVEAU : On récupère l'historique technique pour le journal Admin
+        # Technical event records mapped to compile the admin audit logs
         TransactionEvents(order_by: {timestamp: asc}) {
           eventType
           timestamp
@@ -83,13 +100,16 @@ export async function fetchSessionDetailData(dbId: number) {
   return await fetchHasura(query, { dbId });
 }
 
+/**
+ * Gathers aggregate statistics, active sessions, fallback targets, and heatmap metrics for the user dashboard.
+ */
 export async function fetchUserDashboardData(
   userId: number,
   cutoffDate: string,
 ) {
   const query = `
     query GetUserDashboard($userId: Int!, $cutoffDate: timestamptz!) {
-      # 1. Statistiques globales de l'utilisateur
+      # 1. Lifetime user statistics (session count and overall accumulated energy)
       Transactions_aggregate(where: {user_id: {_eq: $userId}}) {
         aggregate {
           count
@@ -98,7 +118,7 @@ export async function fetchUserDashboardData(
           }
         }
       }
-      # 2. TOUTES les sessions de charge en cours (actives)
+      # 2. All currently active charging transactions owned by the user
       ActiveTransactions: Transactions(where: {user_id: {_eq: $userId}, isActive: {_eq: true}}, order_by: {startTime: desc}) {
         id
         transactionId
@@ -112,7 +132,7 @@ export async function fetchUserDashboardData(
         is_legal
         overtime_start_timestamp
       }
-      # 3. La session la plus récente globale (sert de fallback si rien n'est en cours)
+      # 3. The most recent transaction to serve as a UI fallback state if no active charges exist
       LastTransaction: Transactions(where: {user_id: {_eq: $userId}}, order_by: {startTime: desc}, limit: 1) {
         id
         transactionId
@@ -126,12 +146,12 @@ export async function fetchUserDashboardData(
         is_legal
         overtime_start_timestamp
       }
-      # 4. Les sessions récentes pour générer la Heatmap
+      # 4. Filtered historical logs used to populate the consumption heatmap
       RecentTransactions: Transactions(where: {user_id: {_eq: $userId}, startTime: {_gte: $cutoffDate}}) {
         startTime
         totalKwh
       }
-      # 5. L'état en direct de la flotte
+      # 5. Live infrastructure status indicators to display charging station occupancy
       ChargingStations {
         isOnline
         Transactions(where: {isActive: {_eq: true}}) {

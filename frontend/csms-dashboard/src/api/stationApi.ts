@@ -1,5 +1,16 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import { fetchHasura } from "./hasuraClient";
 
+// ============================================================================
+// CHARGING STATION SERVICES
+// ============================================================================
+
+/**
+ * Fetches all registered charging stations in the network, ordered by their primary key.
+ */
 export async function fetchAllStations() {
   const query = `
     query GetChargingStations {
@@ -16,6 +27,9 @@ export async function fetchAllStations() {
   return data.ChargingStations;
 }
 
+/**
+ * Retrieves all transaction history and active sessions for a specific station.
+ */
 export async function fetchStationTransactions(connectionName: string) {
   const query = `
     query GetStationTransactions($connectionName: String!) {
@@ -42,6 +56,9 @@ export async function fetchStationTransactions(connectionName: string) {
   return data.Transactions;
 }
 
+/**
+ * Fetches the registration and connection details of a single charging station by its ID.
+ */
 export async function fetchStationById(id: number) {
   const query = `
     query GetStationById($id: Int!) {

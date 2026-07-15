@@ -1,7 +1,18 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { loginUser } from "../../api/authApi";
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Public authentication view rendering the login form and quick access shortcuts for development.
+ */
 export default function LoginForm({
   onLoginSuccess,
 }: {
@@ -12,6 +23,9 @@ export default function LoginForm({
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  /**
+   * Orchestrates the user login cycle against the Go Auth API.
+   */
   const performLogin = async (loginEmail: string, loginPassword: string) => {
     setError("");
     setIsLoading(true);
@@ -26,11 +40,17 @@ export default function LoginForm({
     }
   };
 
+  /**
+   * Intercepts standard form submission to prevent page refreshes.
+   */
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     performLogin(email, password);
   };
 
+  /**
+   * Helper bypass to allow instant profile authentication during development.
+   */
   const handleQuickLogin = (role: "Admin" | "User") => {
     if (role === "Admin") {
       performLogin("basile.gasser@hes-so.ch", "TBCSMS");
@@ -51,6 +71,7 @@ export default function LoginForm({
         }}
       >
         <form onSubmit={handleFormSubmit} style={cardStyle}>
+          {/* Header Identity Block */}
           <div style={{ textAlign: "center", marginBottom: "30px" }}>
             <span style={{ fontSize: "3rem" }}>🔌</span>
             <h1
@@ -75,8 +96,10 @@ export default function LoginForm({
             </p>
           </div>
 
+          {/* Error Alert Display */}
           {error && <div style={errorStyle}>{error}</div>}
 
+          {/* Input Fields */}
           <div style={inputGroupStyle}>
             <label style={labelStyle}>Email</label>
             <input
@@ -112,6 +135,7 @@ export default function LoginForm({
             />
           </div>
 
+          {/* Action Trigger */}
           <button
             type="submit"
             disabled={isLoading}
@@ -119,6 +143,7 @@ export default function LoginForm({
           >
             {isLoading ? "Connexion..." : "Se connecter"}
           </button>
+
           <div style={{ textAlign: "center", marginTop: "15px" }}>
             <span
               style={{
@@ -144,6 +169,7 @@ export default function LoginForm({
           </div>
         </form>
 
+        {/* Development Shortcuts Block */}
         <div style={devShortcutsStyle}>
           <p
             style={{
@@ -181,7 +207,10 @@ export default function LoginForm({
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   minHeight: "100vh",
   display: "flex",
@@ -191,6 +220,7 @@ const containerStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   transition: "var(--theme-transition)",
 };
+
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   padding: "40px",
@@ -202,6 +232,7 @@ const cardStyle: React.CSSProperties = {
   gap: "20px",
   transition: "var(--theme-transition)",
 };
+
 const errorStyle: React.CSSProperties = {
   background: "rgba(239, 68, 68, 0.15)",
   color: "var(--status-offline)",
@@ -212,11 +243,13 @@ const errorStyle: React.CSSProperties = {
   fontWeight: "500",
   transition: "var(--theme-transition)",
 };
+
 const inputGroupStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "6px",
 };
+
 const labelStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: "600",
@@ -225,6 +258,7 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: "0.5px",
   transition: "var(--theme-transition)",
 };
+
 const inputStyle: React.CSSProperties = {
   padding: "14px 16px",
   borderRadius: "10px",
@@ -235,6 +269,7 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   transition: "var(--theme-transition)",
 };
+
 const forgotLinkStyle: React.CSSProperties = {
   fontSize: "0.8rem",
   color: "var(--primary)",
@@ -242,6 +277,7 @@ const forgotLinkStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const buttonStyle = (disabled: boolean): React.CSSProperties => ({
   marginTop: "10px",
   padding: "16px",
@@ -259,6 +295,7 @@ const devShortcutsStyle: React.CSSProperties = {
   textAlign: "center",
   marginTop: "10px",
 };
+
 const devButtonStyle: React.CSSProperties = {
   padding: "8px 12px",
   borderRadius: "8px",

@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { unassignAndBlockBadge } from "../../../api/adminApi";
@@ -7,6 +11,13 @@ import {
   updateMyBadgeName,
 } from "../../../api/userApi";
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * End-user workspace view for searching, filtering, adding, or modifying personal RFID cards.
+ */
 export default function MyBadges() {
   const { user } = useAuth();
   const userId = user?.id;
@@ -14,7 +25,7 @@ export default function MyBadges() {
   const [isLoading, setIsLoading] = useState(true);
   const [badges, setBadges] = useState<any[]>([]);
 
-  // --- ÉTATS DE RECHERCHE ET FILTRES ---
+  // --- SEARCH AND FILTERING STATES ---
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [sortConfig, setSortConfig] = useState({
@@ -22,9 +33,9 @@ export default function MyBadges() {
     direction: "asc",
   });
 
-  // --- ÉTATS POUR LA MODALE ---
+  // --- MODAL & FORM STATES ---
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingBadge, setEditingBadge] = useState<any>(null); // null = Mode Création
+  const [editingBadge, setEditingBadge] = useState<any>(null); // null represents Creation Mode
   const [formData, setFormData] = useState({
     idToken: "",
     badge_name: "",
@@ -34,12 +45,15 @@ export default function MyBadges() {
     if (userId) loadBadges();
   }, [userId]);
 
+  /**
+   * Fetches the badge linkages owned by the user and normalizes the payload layout.
+   */
   const loadBadges = async () => {
     setIsLoading(true);
     try {
       const data = await fetchUserBadges(userId!);
 
-      // On "aplatit" les données pour faciliter le tri et l'affichage
+      // Flatten nested structures to simplify real-time sorting and conditional displays
       const flatBadges = (data || []).map((ub: any) => ({
         linkId: ub.id,
         authId: ub.Authorization.id,
@@ -56,7 +70,7 @@ export default function MyBadges() {
     }
   };
 
-  // --- FILTRAGE ET TRI ---
+  // --- FILTERING AND SORTING PIPELINE ---
   let filteredBadges = [...badges];
 
   if (statusFilter !== "All") {
@@ -85,6 +99,9 @@ export default function MyBadges() {
     }
   });
 
+  /**
+   * Toggles direction or updates the active object reference key used for sorting columns.
+   */
   const handleSort = (key: string) => {
     setSortConfig({
       key,
@@ -95,6 +112,9 @@ export default function MyBadges() {
     });
   };
 
+  /**
+   * Returns a dynamic indicator flag based on the column sorting configuration.
+   */
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -105,7 +125,8 @@ export default function MyBadges() {
     );
   };
 
-  // --- ACTIONS ---
+  // --- INTERACTION HANDLERS ---
+
   const openCreateModal = () => {
     setEditingBadge(null);
     setFormData({ idToken: "", badge_name: "" });
@@ -118,6 +139,9 @@ export default function MyBadges() {
     setIsModalOpen(true);
   };
 
+  /**
+   * Handles modal submissions, branching into badge renaming or token link registration.
+   */
   const handleSubmitModal = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -138,6 +162,9 @@ export default function MyBadges() {
     }
   };
 
+  /**
+   * Removes a badge association and calls the administrative API to block the token.
+   */
   const handleRemoveBadge = async (linkId: number, authId: number) => {
     if (
       window.confirm(
@@ -166,6 +193,7 @@ export default function MyBadges() {
 
   return (
     <div style={containerStyle}>
+      {/* Header Info Section */}
       <div style={headerStyle}>
         <div>
           <h1
@@ -186,7 +214,7 @@ export default function MyBadges() {
               transition: "var(--theme-transition)",
             }}
           >
-            Gérez vos cartes RFID et moyens d'accès à la recharge.
+            Gerez vos cartes RFID et moyens d'accès à la recharge.
           </p>
         </div>
         <button onClick={openCreateModal} style={createButtonStyle}>
@@ -194,7 +222,7 @@ export default function MyBadges() {
         </button>
       </div>
 
-      {/* --- BARRE DE FILTRES --- */}
+      {/* --- FILTER & SEARCH CONTROLS SEGMENT --- */}
       <div style={filterBarContainerStyle}>
         <input
           type="text"
@@ -214,7 +242,7 @@ export default function MyBadges() {
         </select>
       </div>
 
-      {/* --- TABLEAU --- */}
+      {/* --- TABLE LAYOUT WORKSPACE --- */}
       <div style={tableCardStyle}>
         <table
           style={{
@@ -297,7 +325,7 @@ export default function MyBadges() {
         </table>
       </div>
 
-      {/* --- MODALE DE CRÉATION / ÉDITION --- */}
+      {/* --- CREATION / EDITION POPUP MODAL --- */}
       {isModalOpen && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -391,12 +419,16 @@ export default function MyBadges() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "25px",
 };
+
 const headerStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
@@ -408,6 +440,7 @@ const filterBarContainerStyle: React.CSSProperties = {
   gap: "15px",
   alignItems: "center",
 };
+
 const searchInputStyle: React.CSSProperties = {
   flex: 1,
   padding: "10px 15px",
@@ -419,6 +452,7 @@ const searchInputStyle: React.CSSProperties = {
   outline: "none",
   transition: "var(--theme-transition)",
 };
+
 const selectFilterStyle: React.CSSProperties = {
   padding: "10px 15px",
   borderRadius: "8px",
@@ -441,6 +475,7 @@ const tableCardStyle: React.CSSProperties = {
   overflowX: "auto",
   transition: "var(--theme-transition)",
 };
+
 const thStyle: React.CSSProperties = {
   padding: "12px 10px",
   fontSize: "0.85rem",
@@ -451,7 +486,9 @@ const thStyle: React.CSSProperties = {
   userSelect: "none",
   transition: "var(--theme-transition)",
 };
+
 const sortableThStyle: React.CSSProperties = { ...thStyle, cursor: "pointer" };
+
 const tdStyle: React.CSSProperties = {
   padding: "15px 10px",
   fontSize: "0.95rem",
@@ -486,6 +523,7 @@ const createButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "background 0.2s, var(--theme-transition)",
 };
+
 const editButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   color: "var(--text-main)",
@@ -497,6 +535,7 @@ const editButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const cancelButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   color: "var(--text-muted)",
@@ -508,6 +547,7 @@ const cancelButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   transition: "var(--theme-transition)",
 };
+
 const deleteButtonStyle: React.CSSProperties = {
   background: "rgba(239, 68, 68, 0.15)",
   color: "var(--status-offline)",
@@ -532,6 +572,7 @@ const modalOverlayStyle: React.CSSProperties = {
   justifyContent: "center",
   zIndex: 1000,
 };
+
 const modalContentStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -542,6 +583,7 @@ const modalContentStyle: React.CSSProperties = {
   boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
   transition: "var(--theme-transition)",
 };
+
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "5px",
@@ -550,6 +592,7 @@ const labelStyle: React.CSSProperties = {
   color: "var(--text-muted)",
   transition: "var(--theme-transition)",
 };
+
 const inputStyle: React.CSSProperties = {
   width: "100%",
   boxSizing: "border-box",

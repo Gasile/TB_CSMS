@@ -1,18 +1,36 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchBadgeDetailAndSessions } from "../../../api/adminApi";
 
-const SESSIONS_PER_PAGE = 10; // <-- Configurable ici
+// ============================================================================
+// CONFIGURATION CONSTANTS
+// ============================================================================
 
+const SESSIONS_PER_PAGE = 10;
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Administrative profile view rendering detailed parameters, ownership state,
+ * and paginated charging transaction logs of a targeted RFID badge.
+ */
 export default function AdminBadgeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const authId = Number(id);
 
+  // UI & Data States
   const [isLoading, setIsLoading] = useState(true);
   const [badge, setBadge] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
 
+  // Sorting Configuration
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -21,13 +39,16 @@ export default function AdminBadgeDetail() {
     direction: "desc",
   });
 
-  // --- ÉTAT DE LA PAGINATION ---
+  // --- PAGINATION STATE ---
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (authId) loadData();
   }, [authId]);
 
+  /**
+   * Fetches full authorization specs and history logs from the admin management API.
+   */
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -42,15 +63,19 @@ export default function AdminBadgeDetail() {
     }
   };
 
+  /**
+   * Adjusts active layout keys and toggles alignment directions used for column sorting.
+   */
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1); // Reset de la pagination
+    setCurrentPage(1);
   };
 
+  // --- SORTING PIPELINE ---
   const sortedSessions = [...sessions].sort((a, b) => {
     let valA = a[sortConfig.key];
     let valB = b[sortConfig.key];
@@ -68,13 +93,16 @@ export default function AdminBadgeDetail() {
     return 0;
   });
 
-  // --- LOGIQUE DE PAGINATION ---
+  // --- PAGINATION LIMITS CALCULATIONS ---
   const totalPages = Math.ceil(sortedSessions.length / SESSIONS_PER_PAGE);
   const paginatedSessions = sortedSessions.slice(
     (currentPage - 1) * SESSIONS_PER_PAGE,
     currentPage * SESSIONS_PER_PAGE,
   );
 
+  /**
+   * Evaluates the active key reference to append an appropriate alignment arrow icon.
+   */
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -98,6 +126,7 @@ export default function AdminBadgeDetail() {
       </div>
     );
 
+  // Accumulate energy records metrics and extract profile relation maps
   const totalKwh = sessions.reduce((sum, s) => sum + (s.totalKwh || 0), 0);
   const owner =
     badge.UserBadges && badge.UserBadges.length > 0
@@ -106,6 +135,7 @@ export default function AdminBadgeDetail() {
 
   return (
     <div style={containerStyle}>
+      {/* Header Profile Identity Block */}
       <div style={headerCardStyle}>
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
           <button
@@ -184,6 +214,7 @@ export default function AdminBadgeDetail() {
         </div>
       </div>
 
+      {/* Main Historical Table Workspace */}
       <div style={{ ...cardStyle, padding: 0 }}>
         <h2 style={{ ...sectionTitleStyle, margin: "20px" }}>
           Historique des charges avec ce badge
@@ -333,7 +364,7 @@ export default function AdminBadgeDetail() {
           </table>
         </div>
 
-        {/* CONTRÔLES DE PAGINATION */}
+        {/* --- PAGINATION CONTROL HOUSINGS --- */}
         {totalPages > 1 && (
           <div style={paginationContainerStyle}>
             <button
@@ -360,12 +391,16 @@ export default function AdminBadgeDetail() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "25px",
 };
+
 const headerCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -378,6 +413,7 @@ const headerCardStyle: React.CSSProperties = {
   gap: "20px",
   transition: "var(--theme-transition)",
 };
+
 const backButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   border: "1px solid var(--border-color)",
@@ -389,6 +425,7 @@ const backButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const statusBadgeStyle = (status: string): React.CSSProperties => ({
   display: "inline-block",
   padding: "4px 10px",
@@ -403,6 +440,7 @@ const statusBadgeStyle = (status: string): React.CSSProperties => ({
     status === "Accepted" ? "var(--status-charging)" : "var(--status-offline)",
   transition: "var(--theme-transition)",
 });
+
 const txBadgeStyle = (
   status: string,
   isActive: boolean,
@@ -419,11 +457,13 @@ const txBadgeStyle = (
     transition: "var(--theme-transition)",
   };
 };
+
 const kpiStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "flex-end",
 };
+
 const kpiLabelStyle: React.CSSProperties = {
   fontSize: "0.8rem",
   color: "var(--text-muted)",
@@ -432,6 +472,7 @@ const kpiLabelStyle: React.CSSProperties = {
   letterSpacing: "0.05em",
   transition: "var(--theme-transition)",
 };
+
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "1.8rem",
   fontWeight: "bold",
@@ -439,18 +480,21 @@ const kpiValueStyle: React.CSSProperties = {
   lineHeight: "1.2",
   transition: "var(--theme-transition)",
 };
+
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
   borderRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.2rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const thStyle: React.CSSProperties = {
   padding: "15px 20px",
   fontSize: "0.85rem",
@@ -459,12 +503,14 @@ const thStyle: React.CSSProperties = {
   textTransform: "uppercase",
   transition: "var(--theme-transition)",
 };
+
 const tdStyle: React.CSSProperties = {
   padding: "15px 20px",
   fontSize: "0.95rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const detailsButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -476,6 +522,7 @@ const detailsButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   transition: "all 0.2s ease, var(--theme-transition)",
 };
+
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
@@ -493,6 +540,7 @@ const paginationContainerStyle: React.CSSProperties = {
   borderBottomRightRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   padding: "6px 12px",
   borderRadius: "6px",
@@ -505,6 +553,7 @@ const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   transition: "var(--theme-transition)",
   opacity: disabled ? 0.5 : 1,
 });
+
 const paginationTextStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   color: "var(--text-muted)",

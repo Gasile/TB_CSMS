@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -5,17 +9,31 @@ import {
   fetchStationTransactions,
 } from "../../../api/stationApi";
 
-const SESSIONS_PER_PAGE = 10; // <-- Configurable ici
+// ============================================================================
+// CONFIGURATION CONSTANTS
+// ============================================================================
 
+const SESSIONS_PER_PAGE = 10;
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Administrative panel displaying individual charging station technical identities,
+ * accumulated power delivery indicators, and a sorted historical transaction log.
+ */
 export default function StationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const stationId = Number(id);
 
+  // UI & Data Fetching States
   const [isLoading, setIsLoading] = useState(true);
   const [station, setStation] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([]);
 
+  // Sorting State Tracker
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: "asc" | "desc";
@@ -24,7 +42,7 @@ export default function StationDetail() {
     direction: "desc",
   });
 
-  // --- ÉTAT DE LA PAGINATION ---
+  // --- PAGINATION STATE ---
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -33,6 +51,9 @@ export default function StationDetail() {
     }
   }, [stationId]);
 
+  /**
+   * Orchestrates synchronous profile retrieval and queries linked transactions using the ocpp name.
+   */
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -53,30 +74,39 @@ export default function StationDetail() {
     }
   };
 
+  /**
+   * Updates row mappings keys and flips arrangement vector indicators.
+   */
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
     setSortConfig({ key, direction });
-    setCurrentPage(1); // Reset de la pagination au tri
+    setCurrentPage(1);
   };
 
+  // --- SORTING PIPELINE PARSING ---
   const sortedSessions = [...sessions].sort((a, b) => {
     let valA = a[sortConfig.key];
     let valB = b[sortConfig.key];
 
+    // Status context sorting override
     if (sortConfig.key === "status") {
       valA = a.isActive ? "0_En_cours" : a.chargingState || "Terminé";
       valB = b.isActive ? "0_En_cours" : b.chargingState || "Terminé";
-    } else if (sortConfig.key === "User") {
+    }
+    // User profile alphabetic comparison override
+    else if (sortConfig.key === "User") {
       valA = a.User
         ? `${a.User.last_name} ${a.User.first_name}`.toLowerCase()
         : "zzzz";
       valB = b.User
         ? `${b.User.last_name} ${b.User.first_name}`.toLowerCase()
         : "zzzz";
-    } else if (sortConfig.key === "startTime") {
+    }
+    // Unix timestamp timeline comparison override
+    else if (sortConfig.key === "startTime") {
       valA = a.startTime ? new Date(a.startTime).getTime() : 0;
       valB = b.startTime ? new Date(b.startTime).getTime() : 0;
     }
@@ -89,13 +119,16 @@ export default function StationDetail() {
     return 0;
   });
 
-  // --- LOGIQUE DE PAGINATION ---
+  // --- PAGINATION GRID LIMIT CALCULATIONS ---
   const totalPages = Math.ceil(sortedSessions.length / SESSIONS_PER_PAGE);
   const paginatedSessions = sortedSessions.slice(
     (currentPage - 1) * SESSIONS_PER_PAGE,
     currentPage * SESSIONS_PER_PAGE,
   );
 
+  /**
+   * Appends matching arrow descriptors above the structured header elements.
+   */
   const getSortIndicator = (key: string) => {
     if (sortConfig.key !== key)
       return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
@@ -119,11 +152,13 @@ export default function StationDetail() {
       </div>
     );
 
+  // Compute lifetime aggregate summary parameters for header tiles
   const totalKwh = sessions.reduce((sum, s) => sum + (s.totalKwh || 0), 0);
-  const activeSessions = sessions.filter((s) => s.isActive).length;
+  const activeSessionsCount = sessions.filter((s) => s.isActive).length;
 
   return (
     <div style={containerStyle}>
+      {/* Header Info & Asset Spec Identity Card */}
       <div style={headerCardStyle}>
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
           <button
@@ -176,6 +211,7 @@ export default function StationDetail() {
         </div>
       </div>
 
+      {/* Main Table Work Area */}
       <div style={cardStyle}>
         <div
           style={{
@@ -186,7 +222,7 @@ export default function StationDetail() {
           }}
         >
           <h2 style={sectionTitleStyle}>Historique des sessions de charge</h2>
-          {activeSessions > 0 && (
+          {activeSessionsCount > 0 && (
             <span
               style={{
                 fontSize: "0.85rem",
@@ -198,7 +234,7 @@ export default function StationDetail() {
                 transition: "var(--theme-transition)",
               }}
             >
-              {activeSessions} session(s) en cours
+              {activeSessionsCount} session(s) en cours
             </span>
           )}
         </div>
@@ -337,7 +373,7 @@ export default function StationDetail() {
           </table>
         </div>
 
-        {/* CONTRÔLES DE PAGINATION */}
+        {/* --- PAGINATION CONTROL HOUSINGS --- */}
         {totalPages > 1 && (
           <div style={paginationContainerStyle}>
             <button
@@ -364,12 +400,16 @@ export default function StationDetail() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "25px",
 };
+
 const headerCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -382,6 +422,7 @@ const headerCardStyle: React.CSSProperties = {
   gap: "20px",
   transition: "var(--theme-transition)",
 };
+
 const backButtonStyle: React.CSSProperties = {
   background: "var(--bg-app)",
   border: "1px solid var(--border-color)",
@@ -393,6 +434,7 @@ const backButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const onlineBadgeStyle = (isOnline: boolean): React.CSSProperties => ({
   display: "inline-block",
   padding: "4px 10px",
@@ -403,6 +445,7 @@ const onlineBadgeStyle = (isOnline: boolean): React.CSSProperties => ({
   color: isOnline ? "var(--status-charging)" : "var(--status-offline)",
   transition: "var(--theme-transition)",
 });
+
 const statusBadgeStyle = (
   status: string,
   isActive: boolean,
@@ -419,11 +462,13 @@ const statusBadgeStyle = (
     transition: "var(--theme-transition)",
   };
 };
+
 const kpiStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "flex-end",
 };
+
 const kpiLabelStyle: React.CSSProperties = {
   fontSize: "0.8rem",
   color: "var(--text-muted)",
@@ -432,6 +477,7 @@ const kpiLabelStyle: React.CSSProperties = {
   letterSpacing: "0.05em",
   transition: "var(--theme-transition)",
 };
+
 const kpiValueStyle: React.CSSProperties = {
   fontSize: "1.8rem",
   fontWeight: "bold",
@@ -439,18 +485,21 @@ const kpiValueStyle: React.CSSProperties = {
   lineHeight: "1.2",
   transition: "var(--theme-transition)",
 };
+
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
   borderRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const sectionTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.2rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const thStyle: React.CSSProperties = {
   padding: "12px 20px",
   fontSize: "0.85rem",
@@ -459,17 +508,20 @@ const thStyle: React.CSSProperties = {
   textTransform: "uppercase",
   transition: "var(--theme-transition)",
 };
+
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
   userSelect: "none",
 };
+
 const tdStyle: React.CSSProperties = {
   padding: "15px 20px",
   fontSize: "0.95rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
 };
+
 const detailsButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
@@ -493,6 +545,7 @@ const paginationContainerStyle: React.CSSProperties = {
   borderBottomRightRadius: "12px",
   transition: "var(--theme-transition)",
 };
+
 const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   padding: "6px 12px",
   borderRadius: "6px",
@@ -505,6 +558,7 @@ const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
   transition: "var(--theme-transition)",
   opacity: disabled ? 0.5 : 1,
 });
+
 const paginationTextStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   color: "var(--text-muted)",

@@ -1,16 +1,29 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
+// ============================================================================
+// MAIN SIDEBAR COMPONENT
+// ============================================================================
+
+/**
+ * Navigation sidebar that displays different navigation items depending on the user role.
+ */
 export default function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "Admin";
 
+  // State initialized with persisted active tab from session storage
   const [activeTab, setActiveTab] = useState(() => {
     return sessionStorage.getItem("activeSidebarTab") || "";
   });
 
+  // Admin exclusive navigation entries
   const adminItems = [
     { name: "Supervision", path: "/admin-dashboard", icon: "📊" },
     { name: "Bornes de recharge", path: "/admin-stations", icon: "🔌" },
@@ -18,12 +31,14 @@ export default function Sidebar() {
     { name: "Utilisateurs", path: "/admin-users", icon: "👥" },
   ];
 
+  // Common user navigation entries
   const userItems = [
     { name: "Vue d'ensemble", path: "/user-dashboard", icon: "📊" },
     { name: "Mes Sessions", path: "/my-sessions", icon: "🔋" },
     { name: "Mes Badges", path: "/my-badges", icon: "🏷️" },
   ];
 
+  // Sync active tab state with changes in current window location path
   useEffect(() => {
     const path = location.pathname;
     let detectedTab = null;
@@ -52,6 +67,9 @@ export default function Sidebar() {
     }
   }, [location.pathname]);
 
+  /**
+   * Performs standard logout actions and clears active state parameters.
+   */
   const handleLogout = () => {
     sessionStorage.removeItem("activeSidebarTab");
     logout();
@@ -60,7 +78,7 @@ export default function Sidebar() {
   return (
     <aside style={sidebarStyle}>
       <nav style={navContainerStyle}>
-        {/* --- SECTION ADMIN --- (Rétablie en haut, comme à l'origine) */}
+        {/* --- ADMINISTRATION PANEL SECTION --- */}
         {isAdmin && (
           <div style={navSectionStyle}>
             <p style={sectionTitleStyle}>Administration</p>
@@ -82,7 +100,7 @@ export default function Sidebar() {
 
         {isAdmin && <div style={separatorStyle} />}
 
-        {/* --- SECTION UTILISATEUR --- */}
+        {/* --- CUSTOMER PORTAL WORKSPACE SECTION --- */}
         <div style={navSectionStyle}>
           <p style={sectionTitleStyle}>Mon Espace</p>
           {userItems.map((item) => {
@@ -97,6 +115,7 @@ export default function Sidebar() {
         </div>
       </nav>
 
+      {/* --- FOOTER DECONNEXION BLOCK --- */}
       <div style={bottomStyle}>
         <div style={separatorStyle} />
         <button onClick={handleLogout} style={logoutButtonStyle}>
@@ -108,7 +127,10 @@ export default function Sidebar() {
   );
 }
 
-// --- STYLES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const sidebarStyle: React.CSSProperties = {
   width: "260px",
   flexShrink: 0,

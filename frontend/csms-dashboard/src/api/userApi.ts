@@ -1,5 +1,16 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import { fetchHasura } from "./hasuraClient";
 
+// ============================================================================
+// PROFILE & BADGE MANAGEMENT SERVICES
+// ============================================================================
+
+/**
+ * Updates the basic profile fields of the currently authenticated user.
+ */
 export async function updateMyProfile(
   id: number,
   first: string,
@@ -17,6 +28,9 @@ export async function updateMyProfile(
   return await fetchHasura(mutation, { id, first, last, email });
 }
 
+/**
+ * Fetches all active RFID badges associated with a specific user.
+ */
 export async function fetchUserBadges(userId: number) {
   const query = `
     query GetUserBadges($userId: Int!) {
@@ -35,6 +49,9 @@ export async function fetchUserBadges(userId: number) {
   return data.UserBadges;
 }
 
+/**
+ * Associates an RFID token with a user, registering it if new or reactivating it if orphaned.
+ */
 export async function linkNewBadge(
   userId: number,
   idToken: string,
@@ -43,6 +60,7 @@ export async function linkNewBadge(
   const currentTimestamp = new Date().toISOString();
   let authId: number;
 
+  // Verify if the token already exists in the system database
   const checkQuery = `
     query CheckExistingBadge($idToken: citext!) {
       Authorizations(where: {idToken: {_eq: $idToken}}) { 
@@ -57,12 +75,14 @@ export async function linkNewBadge(
     const existingBadge = checkData.Authorizations[0];
     authId = existingBadge.id;
 
+    // Prevent linkage if the existing badge is actively associated with another account
     if (existingBadge.UserBadges && existingBadge.UserBadges.length > 0) {
       throw new Error(
         "Action impossible : Ce badge est déjà assigné à un autre utilisateur !",
       );
     }
 
+    // Reactivate and rename the orphaned authorization record
     const reactivateMutation = `
       mutation ReactivateBadge($authId: Int!, $badgeName: String!) {
         update_Authorizations_by_pk(pk_columns: {id: $authId}, _set: {status: "Accepted", badge_name: $badgeName}) { id }
@@ -70,6 +90,7 @@ export async function linkNewBadge(
     `;
     await fetchHasura(reactivateMutation, { authId, badgeName });
   } else {
+    // Register a brand new authorization record for the scanned physical badge
     const createAuthMutation = `
       mutation CreateAuthorization($idToken: citext!, $badgeName: String!, $date: timestamptz!) {
         insert_Authorizations_one(object: {
@@ -90,6 +111,7 @@ export async function linkNewBadge(
     authId = authData.insert_Authorizations_one.id;
   }
 
+  // Bind the validated authorization reference to the user's account profile
   const linkMutation = `
     mutation LinkBadgeToUser($userId: Int!, $authId: Int!) {
       insert_UserBadges_one(object: {
@@ -101,6 +123,9 @@ export async function linkNewBadge(
   await fetchHasura(linkMutation, { userId, authId });
 }
 
+/**
+ * Updates the friendly display label of a specific user badge.
+ */
 export async function updateMyBadgeName(authId: number, newName: string) {
   const mutation = `
     mutation UpdateBadgeName($authId: Int!, $newName: String!) {
@@ -110,6 +135,9 @@ export async function updateMyBadgeName(authId: number, newName: string) {
   return await fetchHasura(mutation, { authId, newName });
 }
 
+/**
+ * Retrieves the complete list of historical and active charging sessions for a user.
+ */
 export async function fetchUserSessions(userId: number) {
   const query = `
     query GetMyTransactions($userId: Int!) {

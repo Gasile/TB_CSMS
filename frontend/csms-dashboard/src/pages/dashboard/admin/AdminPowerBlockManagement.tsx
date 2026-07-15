@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import {
   DndContext,
@@ -19,8 +23,15 @@ import {
 } from "../../../api/powerBlockApi";
 import { useNavigate } from "react-router-dom";
 
-// --- SOUS-COMPOSANT : BORNE DÉPLAÇABLE ---
+// ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
+
+/**
+ * Represents a draggable charging station card that can be assigned to power blocks.
+ */
 function DraggableStation({ station }: { station: any }) {
+  // Check if there is an active transaction on the station to prevent moving it
   const isStationActive =
     station.Transactions && station.Transactions.length > 0;
 
@@ -134,7 +145,9 @@ function DraggableStation({ station }: { station: any }) {
   );
 }
 
-// --- SOUS-COMPOSANT : ZONE DE DÉPÔT ---
+/**
+ * Represents a container zone where draggable stations can be dropped.
+ */
 function DroppableZone({
   id,
   children,
@@ -162,6 +175,13 @@ function DroppableZone({
   );
 }
 
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Calculates the maximum power in kilowatts based on voltage, amperage, and phases.
+ */
 const calculateKw = (v: number, a: number, phases: number): string => {
   if (!v || !a) return "0.0";
   const multiplier = phases === 3 ? Math.sqrt(3) : 1;
@@ -169,15 +189,26 @@ const calculateKw = (v: number, a: number, phases: number): string => {
   return (powerWatts / 1000).toFixed(1);
 };
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * Main management component for smart charging power blocks and station assignments.
+ */
 export default function PowerBlockManagement() {
   const navigate = useNavigate();
+
+  // UI & Loading States
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Data States
   const [powerBlocks, setPowerBlocks] = useState<any[]>([]);
   const [unassignedStations, setUnassignedStations] = useState<any[]>([]);
   const [activeStation, setActiveStation] = useState<any>(null);
 
+  // Modal & Form States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [blockForm, setBlockForm] = useState({
     name: "",
@@ -185,9 +216,9 @@ export default function PowerBlockManagement() {
     maxA: "32",
     nPhase: "3",
   });
-
   const [editingBlock, setEditingBlock] = useState<any>(null);
 
+  // Drag and drop sensor configuration with activation constraints
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
@@ -198,6 +229,9 @@ export default function PowerBlockManagement() {
     loadData();
   }, []);
 
+  /**
+   * Fetches and prepares power blocks and station data from the API.
+   */
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -205,11 +239,13 @@ export default function PowerBlockManagement() {
       const blocks = data?.PowerBlocks || [];
       const allStations = data?.ChargingStations || [];
 
+      // Map stations to their corresponding power blocks
       const blocksWithStations = blocks.map((block: any) => ({
         ...block,
         stations: allStations.filter((s: any) => s.power_block_id === block.id),
       }));
 
+      // Identify remaining unassigned stations
       const unassigned = allStations.filter(
         (s: any) => s.power_block_id === null,
       );
@@ -225,6 +261,9 @@ export default function PowerBlockManagement() {
     }
   };
 
+  /**
+   * Handles the creation of a new power block.
+   */
   const handleCreateBlock = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -232,6 +271,7 @@ export default function PowerBlockManagement() {
       const a = Number(blockForm.maxA);
       const phase = Number(blockForm.nPhase);
 
+      // Compute standard active power limit based on phases
       const multiplier = phase === 3 ? Math.sqrt(3) : 1;
       const computedKw = Number(((v * a * multiplier) / 1000).toFixed(2));
 
@@ -244,6 +284,9 @@ export default function PowerBlockManagement() {
     }
   };
 
+  /**
+   * Handles updating an existing power block's configuration.
+   */
   const handleUpdateBlock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBlock) return;
@@ -252,6 +295,7 @@ export default function PowerBlockManagement() {
       const a = Number(editingBlock.max_a);
       const phase = Number(editingBlock.n_phase);
 
+      // Recompute power limits
       const multiplier = phase === 3 ? Math.sqrt(3) : 1;
       const computedKw = Number(((v * a * multiplier) / 1000).toFixed(2));
 
@@ -272,6 +316,9 @@ export default function PowerBlockManagement() {
     }
   };
 
+  /**
+   * Handles the deletion of a power block after user confirmation.
+   */
   const handleDeleteBlock = async (blockId: number, blockName: string) => {
     if (
       window.confirm(
@@ -289,6 +336,9 @@ export default function PowerBlockManagement() {
     }
   };
 
+  /**
+   * Handles the initiation of a drag event for a station.
+   */
   const handleDragStart = (event: any) => {
     const { active } = event;
     const activeData = active.data.current;
@@ -297,10 +347,14 @@ export default function PowerBlockManagement() {
     }
   };
 
+  /**
+   * Processes the dropping of a station into a new power block or unassigned zone.
+   */
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveStation(null);
 
+    // Cancel if not dropped over a valid zone
     if (!over) return;
 
     const activeData = active.data.current;
@@ -308,13 +362,16 @@ export default function PowerBlockManagement() {
     const draggedStation = activeData.station;
     const targetZoneId = over.id as string;
 
+    // Parse target block ID (null means unassigned zone)
     let newBlockId: number | null = null;
     if (targetZoneId.startsWith("block-")) {
       newBlockId = Number(targetZoneId.replace("block-", ""));
     }
 
+    // Cancel if dropped onto its existing container
     if (draggedStation.power_block_id === newBlockId) return;
 
+    // Safety check: Prevent changing assignment if a charging transaction started concurrently
     try {
       const isCurrentlyActive = await checkStationActiveStatus(
         draggedStation.id,
@@ -331,6 +388,7 @@ export default function PowerBlockManagement() {
       return;
     }
 
+    // Optimistic UI updates for assigned blocks
     setPowerBlocks((prev) =>
       prev.map((b) => {
         let stations = b.stations.filter(
@@ -346,6 +404,7 @@ export default function PowerBlockManagement() {
       }),
     );
 
+    // Optimistic UI updates for unassigned list
     setUnassignedStations((prev) => {
       if (newBlockId === null) {
         return [
@@ -357,6 +416,7 @@ export default function PowerBlockManagement() {
       }
     });
 
+    // Sync state update with backend
     try {
       await updateStationPowerBlock(draggedStation.id, newBlockId);
     } catch (err) {
@@ -365,6 +425,7 @@ export default function PowerBlockManagement() {
     }
   };
 
+  // Render initial loading state
   if (
     isLoading &&
     powerBlocks.length === 0 &&
@@ -376,6 +437,8 @@ export default function PowerBlockManagement() {
       </div>
     );
   }
+
+  // Render error state
   if (error)
     return (
       <div style={{ padding: "20px", color: "var(--status-offline)" }}>
@@ -390,6 +453,7 @@ export default function PowerBlockManagement() {
       onDragEnd={handleDragEnd}
     >
       <div style={containerStyle}>
+        {/* Header Section */}
         <div style={headerStyle}>
           <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
             <button onClick={() => navigate(-1)} style={backButtonStyle}>
@@ -432,6 +496,7 @@ export default function PowerBlockManagement() {
           </div>
         </div>
 
+        {/* Power Blocks Grid Section */}
         <div style={blocksGridStyle}>
           {powerBlocks.map((block) => (
             <div key={block.id} style={blockCardStyle}>
@@ -488,6 +553,7 @@ export default function PowerBlockManagement() {
           ))}
         </div>
 
+        {/* Unassigned Stations Pool Section */}
         <div style={unassignedSectionStyle}>
           <h2 style={unassignedTitleStyle}>
             📥 Bornes non assignées ({unassignedStations.length})
@@ -506,6 +572,7 @@ export default function PowerBlockManagement() {
         </div>
       </div>
 
+      {/* Drag Portal Overlay Preview */}
       <DragOverlay dropAnimation={null}>
         {activeStation ? (
           <div
@@ -570,6 +637,7 @@ export default function PowerBlockManagement() {
         ) : null}
       </DragOverlay>
 
+      {/* Creation Modal */}
       {isModalOpen && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -671,6 +739,7 @@ export default function PowerBlockManagement() {
         </div>
       )}
 
+      {/* Editing Modal */}
       {editingBlock && (
         <div style={modalOverlayStyle}>
           <div style={modalContentStyle}>
@@ -782,7 +851,10 @@ export default function PowerBlockManagement() {
   );
 }
 
-// --- STYLES CSS ADAPTÉS ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -957,4 +1029,24 @@ const backButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
+};
+const modalOverlayStyle: React.CSSProperties = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0, 0, 0, 0.5)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 1000,
+};
+const modalContentStyle: React.CSSProperties = {
+  background: "var(--bg-card)",
+  padding: "30px",
+  borderRadius: "16px",
+  width: "450px",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+  border: "1px solid var(--border-color)",
 };

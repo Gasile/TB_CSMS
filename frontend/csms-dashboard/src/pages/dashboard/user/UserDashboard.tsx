@@ -1,3 +1,7 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
@@ -12,13 +16,26 @@ import {
   CartesianGrid,
 } from "recharts";
 
+// ============================================================================
+// CONFIGURATION CONSTANTS
+// ============================================================================
+
 const NUM_WEEKS = 16;
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+/**
+ * End-user overview dashboard rendering localized infrastructure occupancy,
+ * personal metrics totals, active session trackers, and rolling multi-week consumption trends.
+ */
 export default function UserDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const currentUserId = user?.id;
 
+  // UI & Data Loading States
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
@@ -29,6 +46,9 @@ export default function UserDashboard() {
     }
   }, [currentUserId]);
 
+  /**
+   * Fetches summary aggregates and parsing arrays relative to the dynamic historical threshold date.
+   */
   const loadDashboard = async () => {
     setIsLoading(true);
     try {
@@ -51,6 +71,9 @@ export default function UserDashboard() {
     }
   };
 
+  /**
+   * Computes individual transaction metrics into a fixed chronological multi-week rolling array.
+   */
   const buildWeeklyChart = (transactions: any[]) => {
     const weeks = Array.from({ length: NUM_WEEKS }, (_, i) => ({
       name: i === NUM_WEEKS - 1 ? "Cette sem." : `S-${NUM_WEEKS - 1 - i}`,
@@ -96,6 +119,7 @@ export default function UserDashboard() {
       </div>
     );
 
+  // Destructure operational arrays and indicators from parsed response data
   const lastTx = dashboardData.LastTransaction[0];
   const activeTxs = dashboardData.ActiveTransactions || [];
   const stats = dashboardData.Transactions_aggregate.aggregate;
@@ -106,7 +130,7 @@ export default function UserDashboard() {
 
   return (
     <div style={containerStyle}>
-      {/* --- EN-TÊTE --- */}
+      {/* En-tête Control Header */}
       <div style={headerStyle}>
         <div>
           <h1
@@ -134,11 +158,11 @@ export default function UserDashboard() {
         </button>
       </div>
 
-      {/* --- AGENCEMENT EN DEUX GRANDES COLONNES RESPONSIVES --- */}
+      {/* --- RESPONSIVE TWO-COLUMN GRID SEGMENTATION --- */}
       <div style={dashboardGridStyle}>
-        {/* ================= COLONNE DE GAUCHE (1/3) : KPIs fixes ================= */}
+        {/* ================= LEFT COLUMN WORKSPACE (1/3) : AGGREGATES & HARD KPIS ================= */}
         <div style={leftColumnStyle}>
-          {/* WIDGET 1 : STATUT INFRASTRUCTURE */}
+          {/* Infrastructure Station Occupancy Indicator */}
           <div style={cardStyle}>
             <h3
               style={{
@@ -179,7 +203,7 @@ export default function UserDashboard() {
             </div>
           </div>
 
-          {/* WIDGET 2 : STATISTIQUES ACCUMULÉES */}
+          {/* Account Lifetime Consumption Summary Card */}
           <div style={cardStyle}>
             <h3
               style={{
@@ -240,9 +264,9 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* ================= COLONNE DE DROITE (2/3) : Activité & Graphique ================= */}
+        {/* ================= RIGHT COLUMN WORKSPACE (2/3) : LIVE ACTIVITY & HISTOGRAM TRENDS ================= */}
         <div style={rightColumnStyle}>
-          {/* SECTION : SESSIONS ACTIVES (OU DERNIÈRE SÉANCE) */}
+          {/* Active Transactions List Tracking Panels */}
           <div
             style={{ display: "flex", flexDirection: "column", gap: "15px" }}
           >
@@ -325,6 +349,7 @@ export default function UserDashboard() {
                   </div>
                 ))
               : lastTx && (
+                  /* Fallback Panel rendering the last completed charging sequence */
                   <div style={cardStyle}>
                     <div
                       style={{
@@ -404,7 +429,7 @@ export default function UserDashboard() {
             )}
           </div>
 
-          {/* WIDGET : HISTOGRAMME MENSUEL */}
+          {/* Monthly Consumption Bar Chart Block */}
           <div
             style={{ ...cardStyle, display: "flex", flexDirection: "column" }}
           >
@@ -475,7 +500,10 @@ export default function UserDashboard() {
   );
 }
 
-// --- STYLES RESTRUCTURES ---
+// ============================================================================
+// STYLES & LAYOUTS (INLINE CSS VARIABLES ADAPTATION)
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",

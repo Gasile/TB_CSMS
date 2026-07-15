@@ -1,8 +1,16 @@
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
 import type { UserSession } from "../types";
 import { fetchHasura } from "./hasuraClient";
 
+// ============================================================================
+// AUTHENTICATION SERVICES (GO MICROSERVICE INTEGRATION)
+// ============================================================================
+
 /**
- * Vérifie les identifiants de connexion via le service Go Auth et retourne la session + JWT
+ * Validates user credentials against the Go Auth service and returns the session details along with a JWT.
  */
 export async function loginUser(
   email: string,
@@ -22,7 +30,7 @@ export async function loginUser(
 
   const data = await response.json();
 
-  // Mappage de la réponse plate de Go vers l'objet attendu par React
+  // Map flat Go microservice response structure to the format expected by React
   const userData = {
     id: Number(data.id),
     firstName: data.firstName,
@@ -38,7 +46,7 @@ export async function loginUser(
 }
 
 /**
- * Demande un lien de réinitialisation via le service Go
+ * Requests a password reset link from the Go authentication microservice.
  */
 export async function requestPasswordReset(email: string): Promise<string> {
   const response = await fetch("http://localhost:8086/api/forgot-password", {
@@ -58,7 +66,7 @@ export async function requestPasswordReset(email: string): Promise<string> {
 }
 
 /**
- * Valide et enregistre le nouveau mot de passe via le service Go
+ * Validates the reset token and saves the new password through the Go microservice.
  */
 export async function resetPassword(
   token: string,
@@ -80,7 +88,7 @@ export async function resetPassword(
 }
 
 /**
- * Crée un nouvel utilisateur en passant par le microservice Go Auth (Format strict camelCase)
+ * Creates a new user record via the Go Auth microservice using strict camelCase formatting.
  */
 export async function registerUser(
   firstName: string,
@@ -113,7 +121,7 @@ export async function registerUser(
 }
 
 /**
- * Met à jour l'e-mail via le service Go (Format strict camelCase + userId en string)
+ * Safely updates a user's email address using their current password and JWT authentication.
  */
 export async function updateEmailSecure(
   userId: number,
@@ -131,7 +139,7 @@ export async function updateEmailSecure(
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        userId: String(userId), // Forcer la conversion en texte requise par le type string en Go
+        userId: String(userId), // Explicitly cast to string as required by the Go microservice
         currentPassword: currentPasswordUnhashed,
         newEmail: newEmail,
       }),
@@ -149,7 +157,7 @@ export async function updateEmailSecure(
 }
 
 /**
- * Met à jour le mot de passe via le service Go (Format strict camelCase + userId en string)
+ * Safely updates a user's password using their current password and JWT authentication.
  */
 export async function updatePasswordSecure(
   userId: number,
@@ -167,7 +175,7 @@ export async function updatePasswordSecure(
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        userId: String(userId), // Forcer la conversion en texte requise par le type string en Go
+        userId: String(userId), // Explicitly cast to string as required by the Go microservice
         currentPassword: currentPasswordUnhashed,
         newPassword: newPasswordUnhashed,
       }),
