@@ -1,5 +1,6 @@
 package main
 
+// --- IMPORTS ---
 import (
 	"bytes"
 	"encoding/json"
@@ -14,7 +15,7 @@ import (
 	"time"
 )
 
-// --- CONFIGURATION ---
+// --- GLOBAL VARIABLES ---
 const (
 	Port = ":8080"
 )
@@ -25,6 +26,9 @@ var (
 	HasuraAdminSecret = os.Getenv("HASURA_GRAPHQL_ADMIN_SECRET")
 )
 
+/**
+ * Initializes the grace period duration from environment variables, defaulting to 30 minutes if unspecified or invalid.
+ */
 func init() {
 	graceStr := os.Getenv("GRACE_PERIOD_MINUTES")
 	if graceStr != "" {
@@ -40,7 +44,8 @@ func init() {
 	}
 }
 
-// --- STRUCTURES DE DONNÉES ---
+// --- STRUCTURES ---
+
 type HasuraEventPayload struct {
 	Event struct {
 		Op   string `json:"op"`
@@ -53,7 +58,8 @@ type HasuraEventPayload struct {
 	} `json:"table"`
 }
 
-// --- GESTIONNAIRE D'ÉTAT ---
+// --- STATE MANAGEMENT ---
+
 type IdleTracker struct {
 	sync.Mutex
 	timers map[string]*time.Timer
@@ -63,6 +69,9 @@ var tracker = IdleTracker{
 	timers: make(map[string]*time.Timer),
 }
 
+/**
+ * Starts a new grace period timer for a transaction or resets an existing one if the vehicle resumes charging.
+ */
 func (t *IdleTracker) startOrResetTimer(transactionID string) {
 	t.Lock()
 	defer t.Unlock()
@@ -72,14 +81,10 @@ func (t *IdleTracker) startOrResetTimer(transactionID string) {
 		log.Printf("⏱️  Chrono réinitialisé pour la transaction DB ID: %s", transactionID)
 	} else {
 		log.Printf("⏱️  Nouveau chrono démarré (ou reprise) pour la transaction DB ID: %s", transactionID)
-
-		// Si le chrono n'existait pas, cela signifie que la charge commence ou reprend après une infraction.
-		// On s'assure de nettoyer la base de données de toute infraction précédente.
 		go markTransactionAsLegal(transactionID)
 	}
 
 	t.timers[transactionID] = time.AfterFunc(GracePeriod, func() {
-		// NOUVEAU : On vérifie la limite avant de punir
 		limit := fetchAllocatedLimit(transactionID)
 
 		if limit == 0.0 {
@@ -96,6 +101,9 @@ func (t *IdleTracker) startOrResetTimer(transactionID string) {
 	})
 }
 
+/**
+ * Stops and removes the active timer for a given transaction when the session ends.
+ */
 func (t *IdleTracker) stopTimer(transactionID string) {
 	t.Lock()
 	defer t.Unlock()
@@ -109,13 +117,15 @@ func (t *IdleTracker) stopTimer(transactionID string) {
 	}
 }
 
-// --- COMMUNICATION AVEC HASURA ---
+// --- HASURA COMMUNICATION ---
 
-// fetchAllocatedLimit récupère la limite de puissance actuelle enregistrée en DB
+/**
+ * Retrieves the current allocated power limit for a transaction from the database.
+ */
 func fetchAllocatedLimit(transactionID string) float64 {
 	idInt, err := strconv.Atoi(transactionID)
 	if err != nil || HasuraURL == "" || HasuraAdminSecret == "" {
-		return -1.0 // Valeur par défaut si erreur (différente de 0.0 pour éviter les faux positifs)
+		return -1.0
 	}
 
 	query := `
@@ -163,7 +173,6 @@ func fetchAllocatedLimit(transactionID string) float64 {
 		return -1.0
 	}
 
-	// Si la limite existe bien, on la retourne
 	if result.Data.TransactionsByPk != nil && result.Data.TransactionsByPk.AllocatedLimit != nil {
 		return *result.Data.TransactionsByPk.AllocatedLimit
 	}
@@ -171,7 +180,9 @@ func fetchAllocatedLimit(transactionID string) float64 {
 	return -1.0
 }
 
-// markTransactionAsIllegal passe is_legal à false
+/**
+ * Flags a transaction as illegal in the database and records the timestamp of the infraction.
+ */
 func markTransactionAsIllegal(transactionID string) {
 	idInt, _ := strconv.Atoi(transactionID)
 	overtimeStart := time.Now().UTC().Format(time.RFC3339)
@@ -199,7 +210,9 @@ func markTransactionAsIllegal(transactionID string) {
 	sendGraphQLRequest(payload, "Mise en infraction")
 }
 
-// markTransactionAsLegal remet is_legal à true et efface le timestamp
+/**
+ * Restores a transaction to legal status in the database and clears the infraction timestamp.
+ */
 func markTransactionAsLegal(transactionID string) {
 	idInt, _ := strconv.Atoi(transactionID)
 
@@ -225,7 +238,11 @@ func markTransactionAsLegal(transactionID string) {
 	sendGraphQLRequest(payload, "Restauration légalité")
 }
 
-// sendGraphQLRequest est une fonction utilitaire pour factoriser les appels HTTP
+// --- UTILITY FUNCTIONS ---
+
+/**
+ * Executes a given GraphQL payload against the Hasura API and logs the response.
+ */
 func sendGraphQLRequest(payload map[string]interface{}, actionName string) {
 	if HasuraURL == "" || HasuraAdminSecret == "" {
 		log.Println("⚠️  Variables Hasura non définies.")
@@ -259,8 +276,11 @@ func sendGraphQLRequest(payload map[string]interface{}, actionName string) {
 	}
 }
 
-// --- SERVEUR HTTP ---
+// --- HANDLERS ---
 
+/**
+ * Processes Hasura webhooks to monitor transaction states and live meter values for idle detection.
+ */
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
@@ -347,6 +367,9 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+/**
+ * Starts the HTTP server and registers the webhook endpoint for idle detection.
+ */
 func main() {
 	fmt.Println("🚀 Démarrage du service d'Idle Detection (CSMS) sur le port", Port)
 	fmt.Printf("⏱️  Délai de grâce configuré à : %v\n", GracePeriod)

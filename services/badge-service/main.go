@@ -1,5 +1,6 @@
 package main
 
+// --- IMPORTS ---
 import (
 	"bytes"
 	"encoding/json"
@@ -10,12 +11,15 @@ import (
 	"os"
 )
 
-const Port = ":8085" // Changement du port à 8085 pour fuir la plage de CitrineOS
+// --- GLOBAL VARIABLES ---
+const Port = ":8085"
 
 var (
 	HasuraURL         = os.Getenv("HASURA_GRAPHQL_URL")
 	HasuraAdminSecret = os.Getenv("HASURA_GRAPHQL_ADMIN_SECRET")
 )
+
+// --- STRUCTURES ---
 
 type HasuraEventPayload struct {
 	Event struct {
@@ -31,6 +35,9 @@ type HasuraEventPayload struct {
 	} `json:"event"`
 }
 
+/**
+ * Initializes the Badge Detection service and starts the HTTP server to listen for webhooks.
+ */
 func main() {
 	fmt.Println("🚀 Démarrage du service Badge Detection sur le port", Port)
 
@@ -46,6 +53,11 @@ func main() {
 	}
 }
 
+// --- HANDLERS ---
+
+/**
+ * Processes incoming webhook events from Hasura to detect and log unauthorized RFID badges.
+ */
 func handleAuthorizeMessages(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -60,19 +72,16 @@ func handleAuthorizeMessages(w http.ResponseWriter, r *http.Request) {
 
 	data := payload.Event.Data.New
 
-	// --- 1. FILTRAGE CÔTÉ GO ---
+	// Filter to process only Authorize events originating from the CSMS
 	if data.Action != "Authorize" || data.Origin != "csms" {
-		w.WriteHeader(http.StatusOK) 
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	// --- 2. EXTRACTION DU STATUT ---
 	status := extractStatus(data.Message)
-	
-	// CORRECTION : On n'enregistre QUE les badges strictement inconnus par CitrineOS
-	// OCPP 2.1 utilise souvent "Unknown", OCPP 1.6 peut utiliser "Invalid"
+
+	// Proceed only if the authorization status is explicitly unknown or invalid
 	if status != "Unknown" && status != "Invalid" {
-		// Log optionnel pour vérifier que les badges bloqués sont bien ignorés
 		if status != "Accepted" && status != "" {
 			log.Printf("ℹ️ Badge connu mais refusé (Statut: %s). Ignoré pour la table UnknownBadges.", status)
 		}
@@ -82,7 +91,6 @@ func handleAuthorizeMessages(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("⚠️ Badge strictement inconnu (Statut: %s) sur la borne %s. Recherche de l'UID...", status, data.OcppConnectionName)
 
-	// --- 3. RECHERCHE DU BADGE DANS LE MESSAGE D'ORIGINE ---
 	badgeUID, err := fetchOriginalBadgeUID(data.CorrelationID)
 	if err != nil || badgeUID == "" {
 		log.Printf("❌ Impossible de retrouver l'UID pour le correlationId %s: %v", data.CorrelationID, err)
@@ -92,7 +100,6 @@ func handleAuthorizeMessages(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("🔍 UID trouvé : %s. Enregistrement en base de données...", badgeUID)
 
-	// --- 4. ENREGISTREMENT EN DB (UPSERT) ---
 	err = upsertUnknownBadge(badgeUID, data.OcppConnectionName)
 	if err != nil {
 		log.Printf("❌ Erreur lors de l'enregistrement du badge: %v", err)
@@ -104,7 +111,11 @@ func handleAuthorizeMessages(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// extractStatus fouille dans le tableau JSON pour trouver le statut (Unknown, Accepted, Invalid...)
+// --- UTILITY FUNCTIONS ---
+
+/**
+ * Parses the raw OCPP payload to extract the authorization status based on protocol version (1.6 or 2.1).
+ */
 func extractStatus(msgRaw interface{}) string {
 	var arr []interface{}
 	switch v := msgRaw.(type) {
@@ -115,16 +126,13 @@ func extractStatus(msgRaw interface{}) string {
 	}
 
 	if len(arr) >= 3 {
-		// Vérifier que c'est bien une réponse (CallResult = 3)
 		if typeID, ok := arr[0].(float64); ok && typeID == 3 {
 			if payload, ok := arr[2].(map[string]interface{}); ok {
-				// Format OCPP 2.1
 				if idTokenInfo, ok := payload["idTokenInfo"].(map[string]interface{}); ok {
 					if status, ok := idTokenInfo["status"].(string); ok {
 						return status
 					}
 				}
-				// Format OCPP 1.6
 				if idTagInfo, ok := payload["idTagInfo"].(map[string]interface{}); ok {
 					if status, ok := idTagInfo["status"].(string); ok {
 						return status
@@ -136,7 +144,9 @@ func extractStatus(msgRaw interface{}) string {
 	return ""
 }
 
-// fetchOriginalBadgeUID interroge Hasura pour retrouver la question posée par la borne (origin = 'cs')
+/**
+ * Retrieves the original badge UID from Hasura using the provided correlation ID.
+ */
 func fetchOriginalBadgeUID(correlationID string) (string, error) {
 	query := `
 		query GetOriginalRequest($corrId: String!) {
@@ -160,10 +170,9 @@ func fetchOriginalBadgeUID(correlationID string) (string, error) {
 	}
 
 	if len(resp.Data.OCPPMessages) == 0 {
-		return "", nil // Pas de message trouvé
+		return "", nil
 	}
 
-	// Parsing du message d'origine
 	var arr []interface{}
 	msgRaw := resp.Data.OCPPMessages[0].Message
 	switch v := msgRaw.(type) {
@@ -174,16 +183,13 @@ func fetchOriginalBadgeUID(correlationID string) (string, error) {
 	}
 
 	if len(arr) >= 4 {
-		// Vérifier que c'est bien une requête (Call = 2)
 		if typeID, ok := arr[0].(float64); ok && typeID == 2 {
 			if payload, ok := arr[3].(map[string]interface{}); ok {
-				// Format OCPP 2.1
 				if idToken, ok := payload["idToken"].(map[string]interface{}); ok {
 					if id, ok := idToken["idToken"].(string); ok {
 						return id, nil
 					}
 				}
-				// Format OCPP 1.6
 				if idTag, ok := payload["idTag"].(string); ok {
 					return idTag, nil
 				}
@@ -194,9 +200,10 @@ func fetchOriginalBadgeUID(correlationID string) (string, error) {
 	return "", nil
 }
 
-// upsertUnknownBadge ajoute ou met à jour le badge dans la DB
+/**
+ * Inserts a new unknown badge record or increments the attempt counter if it already exists.
+ */
 func upsertUnknownBadge(idToken string, stationID string) error {
-	// 1. On regarde s'il existe déjà
 	queryCheck := `
 		query CheckBadge($idToken: String!) {
 			UnknownBadges_by_pk(id_token: $idToken) {
@@ -218,7 +225,6 @@ func upsertUnknownBadge(idToken string, stationID string) error {
 		return err
 	}
 
-	// 2. Si oui, on Update. Si non, on Insert.
 	if respCheck.Data.UnknownBadgesByPk != nil {
 		newCount := respCheck.Data.UnknownBadgesByPk.AttemptCount + 1
 		mutation := `
@@ -250,6 +256,9 @@ func upsertUnknownBadge(idToken string, stationID string) error {
 	}
 }
 
+/**
+ * Executes a GraphQL query or mutation against the configured Hasura endpoint.
+ */
 func doGraphQLQuery(query string, variables map[string]interface{}, response interface{}) error {
 	payload := map[string]interface{}{
 		"query":     query,

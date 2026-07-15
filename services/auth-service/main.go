@@ -1,5 +1,6 @@
 package main
 
+// --- IMPORTS ---
 import (
 	"bytes"
 	"crypto/rand"
@@ -18,6 +19,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// --- GLOBAL VARIABLES ---
 const Port = ":8086"
 
 var (
@@ -26,7 +28,8 @@ var (
 	JwtSecret         = []byte(os.Getenv("JWT_SECRET"))
 )
 
-// --- STRUCTURES REQUÊTES FRONTEND ---
+// --- STRUCTURES ---
+
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -60,7 +63,6 @@ type UpdatePasswordRequest struct {
 	NewPassword     string `json:"newPassword"`
 }
 
-// --- STRUCTURES RÉPONSES ---
 type LoginResponse struct {
 	Token     string `json:"token"`
 	Role      string `json:"role"`
@@ -78,6 +80,9 @@ type UserData struct {
 	LastName  string `json:"last_name"`
 }
 
+/**
+ * Initializes the Auth Service, validates required environment variables, and registers HTTP routes.
+ */
 func main() {
 	fmt.Println("🚀 Démarrage de l'Auth Service sur le port", Port)
 
@@ -85,24 +90,24 @@ func main() {
 		log.Fatal("❌ ERREUR: JWT_SECRET n'est pas défini dans l'environnement")
 	}
 
-	// Enregistrement des routes avec le Middleware CORS
+	// Register public routes with CORS
 	http.HandleFunc("/api/login", corsMiddleware(handleLogin))
 	http.HandleFunc("/api/register", corsMiddleware(handleRegister))
 	http.HandleFunc("/api/forgot-password", corsMiddleware(handleForgotPassword))
 	http.HandleFunc("/api/reset-password", corsMiddleware(handleResetPassword))
 	
-	// Nouvelles routes protégées par notre middleware JWT
+	// Register protected routes with CORS and JWT authentication
 	http.HandleFunc("/api/profile/update-email", corsMiddleware(authMiddleware(handleUpdateEmail)))
 	http.HandleFunc("/api/profile/update-password", corsMiddleware(authMiddleware(handleUpdatePassword)))
 
 	log.Fatalf("Échec: %v", http.ListenAndServe(Port, nil))
 }
 
-// ==========================================
-// MIDDLEWARE & UTILITAIRES
-// ==========================================
+// --- MIDDLEWARES ---
 
-// corsMiddleware ajoute les entêtes CORS à toutes les requêtes et gère le pré-vol (OPTIONS)
+/**
+ * Injects CORS headers into HTTP responses and properly handles preflight OPTIONS requests.
+ */
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -118,10 +123,12 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// authMiddleware vérifie la validité du token JWT reçu dans l'en-tête Authorization
+/**
+ * Validates the JWT provided in the Authorization header to protect secured endpoints.
+ */
 func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Le CORS gère déjà OPTIONS, mais on s'assure de ne pas bloquer le pré-vol
+		// Ensure preflight requests are not blocked by authentication logic
 		if r.Method == http.MethodOptions {
 			next.ServeHTTP(w, r)
 			return
@@ -147,13 +154,20 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// --- UTILITY FUNCTIONS ---
+
+/**
+ * Hashes a plaintext password using SHA-256 and returns its hexadecimal representation.
+ */
 func hashPasswordSHA256(password string) string {
 	hasher := sha256.New()
 	hasher.Write([]byte(password))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-// generateUUID génère un identifiant unique standard (UUID v4) sans dépendance externe
+/**
+ * Generates a universally unique identifier (UUID v4) using native crypto/rand without external dependencies.
+ */
 func generateUUID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
@@ -162,7 +176,9 @@ func generateUUID() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 }
 
-// executeHasuraQuery centralise la logique de communication avec Hasura
+/**
+ * Executes a GraphQL query against the Hasura instance and parses the JSON response into the provided struct.
+ */
 func executeHasuraQuery(query string, variables map[string]interface{}, out interface{}) error {
 	payload := map[string]interface{}{"query": query, "variables": variables}
 	jsonValue, _ := json.Marshal(payload)
@@ -181,10 +197,11 @@ func executeHasuraQuery(query string, variables map[string]interface{}, out inte
 	return json.Unmarshal(bodyBytes, out)
 }
 
-// ==========================================
-// HANDLERS (LOGIQUE MÉTIER)
-// ==========================================
+// --- HANDLERS ---
 
+/**
+ * Processes user login by validating credentials against the database and returning a signed JWT.
+ */
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -236,6 +253,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+/**
+ * Handles user registration by saving the provided details and a hashed password into the database.
+ */
 func handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -275,6 +295,9 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+/**
+ * Generates a password reset token and securely stores it before simulating an email dispatch.
+ */
 func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -288,7 +311,7 @@ func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := generateUUID()
-	expiresAt := time.Now().UTC().Add(1 * time.Hour).Format(time.RFC3339) // Expire dans 1h
+	expiresAt := time.Now().UTC().Add(1 * time.Hour).Format(time.RFC3339)
 
 	query := `
 		mutation SetResetToken($email: String!, $token: String!, $expiresAt: timestamptz!) {
@@ -303,7 +326,7 @@ func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	executeHasuraQuery(query, map[string]interface{}{"email": req.Email, "token": token, "expiresAt": expiresAt}, &result)
 
-	// Même si l'email n'existe pas, on renvoie 200 OK pour ne pas fuiter l'existence des emails
+	// Always returning a 200 OK prevents potential user enumeration based on email existence checks
 	resetLink := fmt.Sprintf("http://localhost:5173/reset-password/%s", token)
 	log.Printf("🔑 [SIMULATION EMAIL] Lien de reset pour %s: %s", req.Email, resetLink)
 
@@ -311,6 +334,9 @@ func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"resetLink": resetLink})
 }
 
+/**
+ * Validates a submitted reset token and updates the user's password if the token is active and valid.
+ */
 func handleResetPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -347,6 +373,9 @@ func handleResetPassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+/**
+ * Updates a user's email address if they provide their correct current password.
+ */
 func handleUpdateEmail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -367,7 +396,7 @@ func handleUpdateEmail(w http.ResponseWriter, r *http.Request) {
 
 	currentHash := hashPasswordSHA256(req.CurrentPassword)
 
-	// Requête optimisée : on met à jour uniquement si l'ID et le mot de passe actuel correspondent
+	// Only mutate the record if both the ID and current password hash match the existing record
 	query := `
 		mutation UpdateUserEmail($userId: Int!, $currentHash: String!, $newEmail: String!) {
 			update_Users(where: { id: {_eq: $userId}, password_hash: {_eq: $currentHash} }, _set: { email: $newEmail }) {
@@ -389,6 +418,9 @@ func handleUpdateEmail(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+/**
+ * Updates a user's password provided their current authentication credentials are valid.
+ */
 func handleUpdatePassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -410,7 +442,7 @@ func handleUpdatePassword(w http.ResponseWriter, r *http.Request) {
 	currentHash := hashPasswordSHA256(req.CurrentPassword)
 	newHash := hashPasswordSHA256(req.NewPassword)
 
-	// Requête optimisée : on met à jour uniquement si l'ID et le mot de passe actuel correspondent
+	// Only mutate the password if the provided current credentials strictly match the database
 	query := `
 		mutation UpdateUserPassword($userId: Int!, $currentHash: String!, $newHash: String!) {
 			update_Users(where: { id: {_eq: $userId}, password_hash: {_eq: $currentHash} }, _set: { password_hash: $newHash }) {
@@ -432,6 +464,9 @@ func handleUpdatePassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+/**
+ * Generates a JWT containing custom claims required by Hasura for authorization context.
+ */
 func generateHasuraJWT(userID string, role string) (string, error) {
 	hasuraClaims := map[string]interface{}{
 		"x-hasura-allowed-roles": []string{strings.ToLower(role)},

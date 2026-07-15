@@ -1,5 +1,6 @@
 package citrineclient
 
+// --- IMPORTS ---
 import (
 	"bytes"
 	"encoding/json"
@@ -11,32 +12,16 @@ import (
 	"time"
 )
 
+// --- STRUCTURES ---
+
 type Client struct {
 	CitrineURL   string
 	HasuraURL    string
 	HasuraSecret string
 }
 
-func NewClient(citrineURL, hasuraURL, hasuraSecret string) *Client {
-	return &Client{
-		CitrineURL:   citrineURL,
-		HasuraURL:    hasuraURL,
-		HasuraSecret: hasuraSecret,
-	}
-}
-
 type JSONFloat float64
 
-func (f JSONFloat) MarshalJSON() ([]byte, error) {
-	if float64(f) == float64(int64(f)) {
-		return []byte(fmt.Sprintf("%.1f", f)), nil
-	}
-	return json.Marshal(float64(f))
-}
-
-// ==========================================
-// STRUCTURES OCPP 2.1
-// ==========================================
 type SetChargingProfile21 struct {
 	EvseID          int               `json:"evseId"`
 	ChargingProfile ChargingProfile21 `json:"chargingProfile"`
@@ -64,9 +49,6 @@ type ClearChargingProfile21 struct {
 	EvseID                 int    `json:"evseId,omitempty"`
 }
 
-// ==========================================
-// STRUCTURES OCPP 1.6
-// ==========================================
 type SetChargingProfile16 struct {
 	ConnectorID        int                  `json:"connectorId"`
 	CSChargingProfiles CSChargingProfiles16 `json:"csChargingProfiles"`
@@ -77,7 +59,7 @@ type CSChargingProfiles16 struct {
 	StackLevel             int                `json:"stackLevel"`
 	ChargingProfilePurpose string             `json:"chargingProfilePurpose"`
 	ChargingProfileKind    string             `json:"chargingProfileKind"`
-	TransactionID          *int               `json:"transactionId,omitempty"` // Doit être un int en 1.6
+	TransactionID          *int               `json:"transactionId,omitempty"` 
 	ChargingSchedule       ChargingSchedule16 `json:"chargingSchedule"`
 }
 
@@ -93,20 +75,38 @@ type ClearChargingProfile16 struct {
 	ChargingProfilePurpose string `json:"chargingProfilePurpose"`
 }
 
-// ==========================================
-// STRUCTURES COMMUNES
-// ==========================================
 type ChargingSchedulePeriod struct {
 	StartPeriod  int       `json:"startPeriod"`
 	Limit        JSONFloat `json:"limit"`
 	NumberPhases int       `json:"numberPhases"`
 }
 
-// ==========================================
-// METHODES INTELLIGENTES D'ENVOI
-// ==========================================
+// --- UTILITY FUNCTIONS ---
 
-// SendSetChargingProfile construit le bon JSON et choisit la bonne URL selon le protocole
+/**
+ * Initializes and returns a new CitrineOS API client with the required connection details.
+ */
+func NewClient(citrineURL, hasuraURL, hasuraSecret string) *Client {
+	return &Client{
+		CitrineURL:   citrineURL,
+		HasuraURL:    hasuraURL,
+		HasuraSecret: hasuraSecret,
+	}
+}
+
+/**
+ * Custom JSON marshaler to ensure floats output cleanly with one decimal place if they resolve to whole numbers.
+ */
+func (f JSONFloat) MarshalJSON() ([]byte, error) {
+	if float64(f) == float64(int64(f)) {
+		return []byte(fmt.Sprintf("%.1f", f)), nil
+	}
+	return json.Marshal(float64(f))
+}
+
+/**
+ * Constructs the appropriate SetChargingProfile payload and dispatches it to CitrineOS based on the specified OCPP protocol version.
+ */
 func (c *Client) SendSetChargingProfile(identifier string, protocol string, evseID int, profileID int, limit float64, purpose string, txID string) error {
 	now := time.Now().UTC()
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
@@ -115,12 +115,13 @@ func (c *Client) SendSetChargingProfile(identifier string, protocol string, evse
 	stackLvl := 1
 	if purpose == "TxProfile" {
 		startSchedule = now.Format(time.RFC3339)
-		stackLvl = profileID // Plus le niveau est haut, plus il est prioritaire
+		stackLvl = profileID
 	}
 
 	var url string
 	var payload interface{}
 
+	// Differentiate routing and payload structure between OCPP 1.6 and 2.1
 	if protocol == "ocpp1.6" {
 		url = fmt.Sprintf("%s/ocpp/1.6/smartcharging/setChargingProfile?identifier=%s&tenantId=1", c.CitrineURL, identifier)
 		
@@ -149,7 +150,6 @@ func (c *Client) SendSetChargingProfile(identifier string, protocol string, evse
 			},
 		}
 	} else {
-		// Par défaut : OCPP 2.1
 		url = fmt.Sprintf("%s/ocpp/2.1/smartcharging/setChargingProfile?identifier=%s&tenantId=1", c.CitrineURL, identifier)
 		
 		payload = SetChargingProfile21{
@@ -177,7 +177,9 @@ func (c *Client) SendSetChargingProfile(identifier string, protocol string, evse
 	return c.CallCitrineOS(url, payload, fmt.Sprintf("Set %s (%.1fA)", purpose, limit))
 }
 
-// SendClearChargingProfile efface le profil avec le bon format
+/**
+ * Builds and sends a request to clear an active charging profile, adjusting for protocol differences.
+ */
 func (c *Client) SendClearChargingProfile(identifier string, protocol string, evseID int, profileID int, purpose string) error {
 	var url string
 	var payload interface{}
@@ -201,6 +203,9 @@ func (c *Client) SendClearChargingProfile(identifier string, protocol string, ev
 	return c.CallCitrineOS(url, payload, fmt.Sprintf("Clear %s", purpose))
 }
 
+/**
+ * Executes the constructed HTTP POST request to the CitrineOS API and handles error parsing.
+ */
 func (c *Client) CallCitrineOS(url string, body interface{}, action string) error {
 	if c.CitrineURL == "" {
 		return nil

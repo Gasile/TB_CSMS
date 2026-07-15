@@ -1,5 +1,6 @@
 package provisioning
 
+// --- IMPORTS ---
 import (
 	"bytes"
 	"encoding/json"
@@ -10,6 +11,8 @@ import (
 
 	"csms/smart-charging/internal/citrineclient"
 )
+
+// --- STRUCTURES ---
 
 type HasuraEventPayload struct {
 	Event struct {
@@ -23,10 +26,15 @@ type HasuraEventPayload struct {
 type StationAssignment struct {
 	ID                 int    `json:"id"`
 	OcppConnectionName string `json:"ocppConnectionName"`
-	Protocol           string `json:"protocol"` // NOUVEAU : Récupéré via l'Event Trigger Hasura
+	Protocol           string `json:"protocol"` 
 	PowerBlockID       *int   `json:"power_block_id"`
 }
 
+// --- HANDLERS ---
+
+/**
+ * Handles incoming webhooks for station assignments, applying a default 0A limit when assigned, or clearing profiles when unassigned.
+ */
 func HandleStationAssignment(client *citrineclient.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -64,19 +72,19 @@ func HandleStationAssignment(client *citrineclient.Client) http.HandlerFunc {
 		}
 
 		var lastErr error
+		
+		// Apply safety limits or clear configurations for every connector on the assigned station
 		for _, evseID := range evseIDs {
-			profileID := 100 + evseID // ID unique
+			profileID := 100 + evseID
 			if data.PowerBlockID != nil {
 				log.Printf("🔗 Assignation : Borne %s [%s] (EVSE %d) -> Block %d", data.OcppConnectionName, data.Protocol, evseID, *data.PowerBlockID)
 				
-				// NOUVEAU : Appel intelligent (limit = 0.0A, TxDefaultProfile)
 				if err := client.SendSetChargingProfile(data.OcppConnectionName, data.Protocol, evseID, profileID, 0.0, "TxDefaultProfile", ""); err != nil {
 					lastErr = err
 				}
 			} else {
 				log.Printf("🔓 Désassignation : Borne %s [%s] (EVSE %d) libérée", data.OcppConnectionName, data.Protocol, evseID)
 				
-				// NOUVEAU : Appel intelligent Clear
 				if err := client.SendClearChargingProfile(data.OcppConnectionName, data.Protocol, evseID, profileID, "TxDefaultProfile"); err != nil {
 					lastErr = err
 				}
@@ -93,6 +101,11 @@ func HandleStationAssignment(client *citrineclient.Client) http.HandlerFunc {
 	}
 }
 
+// --- UTILITY FUNCTIONS ---
+
+/**
+ * Fetches the list of EVSE type IDs belonging to a specific station from the Hasura GraphQL API.
+ */
 func fetchEvseIDs(client *citrineclient.Client, stationID int) ([]int, error) {
 	if client.HasuraURL == "" || client.HasuraSecret == "" {
 		return []int{1, 2}, nil
