@@ -80,9 +80,6 @@ func handleAuthorizeMessages(w http.ResponseWriter, r *http.Request) {
 
 	status := extractStatus(data.Message)
 
-	// CORRECTION : On accepte "Unknown" ET "Invalid".
-	// Certains badges inconnus sont tagués "Invalid" par OCPP.
-	// La vraie source de vérité sera notre vérification en base de données.
 	if status != "Unknown" && status != "Invalid" {
 		if status != "Accepted" && status != "" {
 			log.Printf("ℹ️ Badge refusé avec un statut autre que Unknown/Invalid (Statut: %s). Ignoré.", status)
@@ -102,8 +99,7 @@ func handleAuthorizeMessages(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("🔍 UID trouvé : %s. Vérification de son absence dans la base de données principale...", badgeUID)
 
-	// --- VÉRIFICATION ULTIME ---
-	// C'est ici que l'on s'assure que le badge n'est vraiment pas dans la table Authorizations.
+	// It's important to check if the badge is already known in the database before logging it as unknown.
 	isKnown, err := isBadgeAlreadyInDB(badgeUID)
 	if err != nil {
 		log.Printf("❌ Erreur lors de la vérification en DB du badge %s: %v", badgeUID, err)
@@ -111,7 +107,7 @@ func handleAuthorizeMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Si le badge est dans la table (même s'il est bloqué/expiré), on arrête tout.
+	// If the badge is known, we log it as a false positive and do not record it as unknown.
 	if isKnown {
 		log.Printf("ℹ️ Faux positif : Le badge %s existe bien dans la table d'autorisation (mais a été refusé). Ignoré.", badgeUID)
 		w.WriteHeader(http.StatusOK)
@@ -224,7 +220,6 @@ func fetchOriginalBadgeUID(correlationID string) (string, error) {
  * Checks if the badge already exists in the known authorizations table (CitrineOS).
  */
 func isBadgeAlreadyInDB(idToken string) (bool, error) {
-	// Utilisation du type citext et de l'opérateur _eq (ou _ilike) pour la colonne idToken
 	query := `
 		query CheckExistingBadge($idToken: citext!) {
 			Authorizations(where: {idToken: {_eq: $idToken}}, limit: 1) {
@@ -247,13 +242,12 @@ func isBadgeAlreadyInDB(idToken string) (bool, error) {
 		return false, err
 	}
 
-	// NOUVEAU : On logue les erreurs GraphQL s'il y en a pour le debug
 	if len(resp.Errors) > 0 {
 		log.Printf("⚠️ Erreur GraphQL lors de la vérification du badge: %v", resp.Errors)
 		return false, fmt.Errorf("erreur GraphQL")
 	}
 
-	// S'il y a au moins un résultat, c'est que le badge est déjà connu du CSMS
+	// If there is at least one record, the badge exists in the database
 	return len(resp.Data.Authorizations) > 0, nil
 }
 
