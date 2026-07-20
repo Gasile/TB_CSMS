@@ -9,23 +9,45 @@ import { fetchHasura } from "./hasuraClient";
 // ============================================================================
 
 /**
- * Updates the basic profile fields of the currently authenticated user.
+ * Updates the basic profile fields and notification preferences of the currently authenticated user.
  */
 export async function updateMyProfile(
   id: number,
   first: string,
   last: string,
   email: string,
+  userNotifications: boolean,
+  adminNotifications: boolean,
 ) {
   const mutation = `
-    mutation UpdateMyProfile($id: Int!, $first: String!, $last: String!, $email: String!) {
+    mutation UpdateMyProfile(
+      $id: Int!, 
+      $first: String!, 
+      $last: String!, 
+      $email: String!, 
+      $userNotifications: Boolean!, 
+      $adminNotifications: Boolean!
+    ) {
       update_Users_by_pk(
         pk_columns: {id: $id}, 
-        _set: {first_name: $first, last_name: $last, email: $email}
+        _set: {
+          first_name: $first, 
+          last_name: $last, 
+          email: $email,
+          user_notifications: $userNotifications,
+          admin_notifications: $adminNotifications
+        }
       ) { id }
     }
   `;
-  return await fetchHasura(mutation, { id, first, last, email });
+  return await fetchHasura(mutation, {
+    id,
+    first,
+    last,
+    email,
+    userNotifications,
+    adminNotifications,
+  });
 }
 
 /**

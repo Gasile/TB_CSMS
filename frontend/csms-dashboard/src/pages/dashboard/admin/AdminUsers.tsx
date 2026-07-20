@@ -34,7 +34,7 @@ export default function AdminUsers() {
     direction: "asc",
   });
 
-  // Modal and form states
+  // Modal and form states avec les nouvelles clés[cite: 4]
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
@@ -42,6 +42,8 @@ export default function AdminUsers() {
     email: "",
     password: "",
     role: "User",
+    user_notifications: true,
+    admin_notifications: true,
   });
 
   useEffect(() => {
@@ -132,6 +134,8 @@ export default function AdminUsers() {
       email: "",
       password: "",
       role: "User",
+      user_notifications: true,
+      admin_notifications: true,
     });
     setIsModalOpen(true);
   };
@@ -144,6 +148,8 @@ export default function AdminUsers() {
       email: user.email,
       password: "",
       role: user.role,
+      user_notifications: user.user_notifications ?? true,
+      admin_notifications: user.admin_notifications ?? true,
     });
     setIsModalOpen(true);
   };
@@ -156,12 +162,15 @@ export default function AdminUsers() {
     setIsLoading(true);
     try {
       if (editingUser) {
+        // Ajout des deux nouveaux paramètres[cite: 4]
         await updateUserDetails(
           editingUser.id,
           formData.first_name,
           formData.last_name,
           formData.email,
           formData.role,
+          formData.user_notifications,
+          formData.admin_notifications,
         );
       } else {
         await createNewUser(
@@ -170,6 +179,8 @@ export default function AdminUsers() {
           formData.email,
           formData.password,
           formData.role,
+          formData.user_notifications,
+          formData.admin_notifications,
         );
       }
       setIsModalOpen(false);
@@ -419,13 +430,91 @@ export default function AdminUsers() {
                   style={inputStyle}
                   value={formData.role}
                   onChange={(e) =>
-                    setFormData({ ...formData, role: e.target.value })
+                    // Si on passe de Admin à User, on désactive les alertes admin pour éviter une incohérence[cite: 4]
+                    setFormData({
+                      ...formData,
+                      role: e.target.value,
+                      admin_notifications:
+                        e.target.value === "Admin"
+                          ? formData.admin_notifications
+                          : false,
+                    })
                   }
                 >
                   <option value="User">Utilisateur standard</option>
                   <option value="Admin">Administrateur</option>
                 </select>
               </div>
+
+              {/* Paramètres de notifications[cite: 4] */}
+              <div
+                style={{
+                  borderTop: "1px solid var(--border-color)",
+                  paddingTop: "15px",
+                  marginTop: "5px",
+                }}
+              >
+                <label style={labelStyle}>Préférences de notification</label>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                    marginTop: "10px",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      cursor: "pointer",
+                      color: "var(--text-main)",
+                      fontSize: "0.95rem",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.user_notifications}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          user_notifications: e.target.checked,
+                        })
+                      }
+                      style={checkboxStyle}
+                    />
+                    Recevoir les notifications standards
+                  </label>
+
+                  {formData.role === "Admin" && (
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        cursor: "pointer",
+                        color: "var(--text-main)",
+                        fontSize: "0.95rem",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.admin_notifications}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            admin_notifications: e.target.checked,
+                          })
+                        }
+                        style={checkboxStyle}
+                      />
+                      Recevoir les alertes administrateur
+                    </label>
+                  )}
+                </div>
+              </div>
+
               <div
                 style={{
                   display: "flex",
@@ -631,6 +720,13 @@ const inputStyle: React.CSSProperties = {
   fontSize: "0.95rem",
   outline: "none",
   transition: "var(--theme-transition)",
+};
+
+const checkboxStyle: React.CSSProperties = {
+  width: "18px",
+  height: "18px",
+  accentColor: "var(--primary)",
+  cursor: "pointer",
 };
 
 const detailsButtonStyle: React.CSSProperties = {

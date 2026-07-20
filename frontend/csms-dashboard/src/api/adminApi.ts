@@ -23,7 +23,7 @@ async function hashPasswordSHA256(source: string): Promise<string> {
 // ============================================================================
 
 /**
- * Fetches all registered users ordered alphabetically by their last name.
+ * Fetches all registered users ordered alphabetically by their last name, including notification preferences.
  */
 export async function fetchAllUsers() {
   const query = `
@@ -34,6 +34,8 @@ export async function fetchAllUsers() {
         last_name
         email
         role
+        user_notifications
+        admin_notifications
         UserBadges {
           Authorization {
             idToken
@@ -68,7 +70,7 @@ export async function fetchUserById(id: number) {
 }
 
 /**
- * Creates a new user record with a SHA-256 hashed password.
+ * Creates a new user record with a SHA-256 hashed password and notification preferences.
  */
 export async function createNewUser(
   first: string,
@@ -76,6 +78,8 @@ export async function createNewUser(
   email: string,
   pass: string,
   role: string,
+  userNotifications: boolean,
+  adminNotifications: boolean,
 ) {
   const hash = await hashPasswordSHA256(pass);
   const mutation = `
@@ -90,13 +94,15 @@ export async function createNewUser(
       email: email,
       password_hash: hash,
       role: role,
+      user_notifications: userNotifications,
+      admin_notifications: adminNotifications,
     },
   };
   return await fetchHasura(mutation, variables);
 }
 
 /**
- * Updates the personal details and role of an existing user.
+ * Updates the personal details, role, and notification preferences of an existing user.
  */
 export async function updateUserDetails(
   id: number,
@@ -104,16 +110,41 @@ export async function updateUserDetails(
   last: string,
   email: string,
   role: string,
+  userNotifications: boolean,
+  adminNotifications: boolean,
 ) {
   const mutation = `
-    mutation UpdateUserDetails($id: Int!, $first: String!, $last: String!, $email: String!, $role: String!) {
+    mutation UpdateUserDetails(
+      $id: Int!, 
+      $first: String!, 
+      $last: String!, 
+      $email: String!, 
+      $role: String!,
+      $userNotifications: Boolean!,
+      $adminNotifications: Boolean!
+    ) {
       update_Users_by_pk(
         pk_columns: {id: $id}, 
-        _set: {first_name: $first, last_name: $last, email: $email, role: $role}
+        _set: {
+          first_name: $first, 
+          last_name: $last, 
+          email: $email, 
+          role: $role,
+          user_notifications: $userNotifications,
+          admin_notifications: $adminNotifications
+        }
       ) { id }
     }
   `;
-  return await fetchHasura(mutation, { id, first, last, email, role });
+  return await fetchHasura(mutation, {
+    id,
+    first,
+    last,
+    email,
+    role,
+    userNotifications,
+    adminNotifications,
+  });
 }
 
 /**

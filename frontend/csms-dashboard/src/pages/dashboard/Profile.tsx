@@ -18,10 +18,18 @@ import { updateEmailSecure, updatePasswordSecure } from "../../api/authApi";
 export default function Profile() {
   const { user, logout, login } = useAuth();
 
-  // --- Standard Profile Editing States (First Name / Last Name) ---
+  // --- Standard Profile Editing States (First Name / Last Name / Notifications) ---
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
+  // Initialisation avec fallback à true si non défini[cite: 5]
+  const [userNotifications, setUserNotifications] = useState(
+    user?.userNotifications ?? true,
+  );
+  const [adminNotifications, setAdminNotifications] = useState(
+    user?.adminNotifications ?? true,
+  );
+
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -46,14 +54,28 @@ export default function Profile() {
   // --- Standard Profile Request Handlers ---
 
   /**
-   * Submits standard profile changes (First Name, Last Name) to the API.
+   * Submits standard profile changes (First Name, Last Name, Notifications) to the API.
    */
   const handleSaveProfile = async () => {
     setError("");
     setIsSaving(true);
     try {
-      await updateMyProfile(user.id!, firstName, lastName, user.email || "");
-      login({ ...user, firstName, lastName });
+      // Ajout des deux nouveaux paramètres pour l'API[cite: 5]
+      await updateMyProfile(
+        user.id!,
+        firstName,
+        lastName,
+        user.email || "",
+        userNotifications,
+        adminNotifications,
+      );
+      login({
+        ...user,
+        firstName,
+        lastName,
+        userNotifications,
+        adminNotifications,
+      });
       setIsEditing(false);
     } catch (err: any) {
       setError("Erreur lors de la mise à jour du profil.");
@@ -68,6 +90,8 @@ export default function Profile() {
   const handleCancelProfile = () => {
     setFirstName(user.firstName);
     setLastName(user.lastName);
+    setUserNotifications(user.userNotifications ?? true);
+    setAdminNotifications(user.adminNotifications ?? true);
     setError("");
     setIsEditing(false);
   };
@@ -225,6 +249,64 @@ export default function Profile() {
                 {user.email}
               </span>
             </div>
+
+            {/* Ajout des options de notifications[cite: 5] */}
+            <div style={infoBlockStyle}>
+              <span style={labelStyle}>Notifications standards</span>
+              {isEditing ? (
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    cursor: "pointer",
+                    color: "var(--text-main)",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={userNotifications}
+                    onChange={(e) => setUserNotifications(e.target.checked)}
+                    style={checkboxStyle}
+                  />
+                  Activées
+                </label>
+              ) : (
+                <span style={valueStyle}>
+                  {userNotifications ? "Activées" : "Désactivées"}
+                </span>
+              )}
+            </div>
+
+            {/* Affichage conditionnel pour les administrateurs[cite: 5] */}
+            {user.role === "Admin" && (
+              <div style={infoBlockStyle}>
+                <span style={labelStyle}>Alertes Administrateur</span>
+                {isEditing ? (
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      cursor: "pointer",
+                      color: "var(--text-main)",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={adminNotifications}
+                      onChange={(e) => setAdminNotifications(e.target.checked)}
+                      style={checkboxStyle}
+                    />
+                    Activées
+                  </label>
+                ) : (
+                  <span style={valueStyle}>
+                    {adminNotifications ? "Activées" : "Désactivées"}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Form Save/Cancel controls */}
@@ -513,6 +595,16 @@ const inputStyle: React.CSSProperties = {
   color: "var(--text-main)",
   fontSize: "0.95rem",
   outline: "none",
+  transition: "var(--theme-transition)",
+};
+
+// Style ajouté pour la case à cocher[cite: 5]
+const checkboxStyle: React.CSSProperties = {
+  width: "18px",
+  height: "18px",
+  accentColor: "var(--primary)",
+  cursor: "pointer",
+  color: "var(--primary)",
   transition: "var(--theme-transition)",
 };
 
