@@ -15,9 +15,8 @@ var (
 	SmtpHost  = os.Getenv("SMTP_HOST")  // ex: mail.hevs.ch
 	SmtpPort  = os.Getenv("SMTP_PORT")  // ex: 25
 	MailFrom  = os.Getenv("MAIL_FROM")  // ex: noreply.csms@hevs.ch
-	AdminMail = os.Getenv("ADMIN_EMAIL")// ex: prenom.nom@hevs.ch
+	AdminMail = os.Getenv("ADMIN_EMAIL")// Variable de secours (Fallback)
 	
-	// NOUVEAU : Variables pour requêter Hasura
 	HasuraURL         = os.Getenv("HASURA_GRAPHQL_URL")
 	HasuraAdminSecret = os.Getenv("HASURA_GRAPHQL_ADMIN_SECRET")
 )
@@ -48,7 +47,7 @@ func main() {
 		fmt.Printf("📧 SMTP Configuré : Serveur %s:%s | Expéditeur : %s\n", SmtpHost, SmtpPort, MailFrom)
 	}
 
-	// NOUVEAU : Vérification de la configuration Hasura
+	// Vérification de la configuration Hasura
 	if HasuraURL == "" || HasuraAdminSecret == "" {
 		fmt.Println("⚠️  ATTENTION : Configuration Hasura incomplète ! Impossible de récupérer les emails des utilisateurs.")
 	}

@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"mime"
 	"net"
 	"net/http"
 	"net/smtp"
+	"text/template" // ⚠️ CORRECTION : Remplace html/template pour éviter les guillemets &#39;
 	"time"
 )
 
@@ -38,10 +38,14 @@ func handleIdleTransaction(payload HasuraWebhookPayload) error {
 		transactionId, _ := newRow["transactionId"].(string)
 		stationName, _ := newRow["stationId"].(string)
 
-		// NOUVEAU : On récupère dynamiquement l'email depuis Hasura
-		userEmail := fetchUserEmail(transactionId)
+		userEmail, wantsNotifs := fetchUserPrefs(transactionId)
 		if userEmail == "" {
-			log.Printf("⚠️ Impossible de trouver l'email pour la transaction %s. Notification ignorée.", transactionId)
+			log.Printf("⚠️ Impossible de trouver l'email pour la transaction %s.", transactionId)
+			return nil
+		}
+
+		if !wantsNotifs {
+			log.Printf("ℹ️ Utilisateur %s désactivé pour les notifications (user_notifications=false).", userEmail)
 			return nil
 		}
 
@@ -65,24 +69,19 @@ func handleWaitForEnergy(payload HasuraWebhookPayload) error {
 
 	transactionId, _ := newRow["transactionId"].(string)
 	
-	// NOUVEAU : On récupère dynamiquement l'email
-	userEmail := fetchUserEmail(transactionId)
-	if userEmail == "" {
-		return nil // Pas d'email = pas de notification
+	userEmail, wantsNotifs := fetchUserPrefs(transactionId)
+	if userEmail == "" || !wantsNotifs {
+		return nil // Pas d'email ou notifications désactivées
 	}
 
+	// CAS 1: Coupure (Passe à 0.0)
 	if okNew && newLimit == 0.0 && (!okOld || oldLimit > 0.0) {
-		data := map[string]string{
-			"Message": "Votre véhicule est branché, mais en attente d'énergie disponible sur le parking.",
-		}
-		return renderAndSendEmail("templates/wait_energy.txt", "Mise en attente de votre session de charge", userEmail, data)
+		return renderAndSendEmail("templates/wait_energy.txt", "Mise en attente de votre session de charge", userEmail, nil)
 	}
 
+	// CAS 2: Reprise (Passe au-dessus de 0.0)
 	if okNew && newLimit > 0.0 && okOld && oldLimit == 0.0 {
-		data := map[string]string{
-			"Message": "Bonne nouvelle ! De l'énergie est à nouveau disponible. Le système a repris la charge de votre véhicule.",
-		}
-		return renderAndSendEmail("templates/wait_energy.txt", "Reprise de votre session de charge", userEmail, data)
+		return renderAndSendEmail("templates/resume_charge.txt", "Reprise de votre session de charge", userEmail, nil)
 	}
 
 	return nil
@@ -98,8 +97,20 @@ func handleUnknownBadge(payload HasuraWebhookPayload) error {
 		"Station": stationId,
 	}
 
-	// On envoie à l'admin
-	return renderAndSendEmail("templates/unknown_badge.txt", "[ADMIN] Badge RFID inconnu détecté", AdminMail, data)
+	admins := fetchAdmins()
+	if len(admins) == 0 {
+		// Fallback sur le .env si aucun admin n'est trouvé
+		if AdminMail != "" {
+			return renderAndSendEmail("templates/unknown_badge.txt", "[ADMIN] Badge RFID inconnu détecté", AdminMail, data)
+		}
+		log.Printf("⚠️ Aucun administrateur trouvé pour recevoir l'alerte badge.")
+		return nil
+	}
+
+	for _, adminEmail := range admins {
+		_ = renderAndSendEmail("templates/unknown_badge.txt", "[ADMIN] Badge RFID inconnu détecté", adminEmail, data)
+	}
+	return nil
 }
 
 func handleConnectorError(payload HasuraWebhookPayload) error {
@@ -113,7 +124,15 @@ func handleConnectorError(payload HasuraWebhookPayload) error {
 		data := map[string]string{
 			"ErrorCode": newErr,
 		}
-		return renderAndSendEmail("templates/connector_error.txt", "[ADMIN] Erreur matérielle détectée", AdminMail, data)
+		
+		admins := fetchAdmins()
+		if len(admins) == 0 && AdminMail != "" {
+			return renderAndSendEmail("templates/connector_error.txt", "[ADMIN] Erreur matérielle détectée", AdminMail, data)
+		}
+
+		for _, adminEmail := range admins {
+			_ = renderAndSendEmail("templates/connector_error.txt", "[ADMIN] Erreur matérielle détectée", adminEmail, data)
+		}
 	}
 	return nil
 }
@@ -122,21 +141,17 @@ func handleConnectorError(payload HasuraWebhookPayload) error {
 // REQUETES HASURA
 // =========================================================================
 
-func fetchUserEmail(transactionId string) string {
+func fetchUserPrefs(transactionId string) (email string, wantsNotifs bool) {
 	if HasuraURL == "" || HasuraAdminSecret == "" {
-		return ""
+		return "", false
 	}
 
-	// ⚠️ ATTENTION SUR CETTE REQUETE : 
-	// On suppose ici que la table "Transactions" possède une relation (Relationship) nommée "User" 
-	// qui pointe vers ta table des utilisateurs (et donc la colonne "email").
-	// Si le nom de ta relation est différent dans Hasura (ex: "utilisateur", "Account", etc.),
-	// tu devras modifier le nom "User" ci-dessous.
 	query := `
-		query GetUserEmail($txId: String!) {
+		query GetUserPrefs($txId: String!) {
 			Transactions(where: {transactionId: {_eq: $txId}}) {
 				User {
 					email
+					user_notifications
 				}
 			}
 		}
@@ -147,45 +162,82 @@ func fetchUserEmail(transactionId string) string {
 		Data struct {
 			Transactions []struct {
 				User *struct {
-					Email string `json:"email"`
+					Email             string `json:"email"`
+					UserNotifications bool   `json:"user_notifications"`
 				} `json:"User"`
 			} `json:"Transactions"`
 		} `json:"data"`
 	}
 
-	payload := map[string]interface{}{
-		"query":     query,
-		"variables": variables,
+	if err := executeGraphQL(query, variables, &resp); err != nil {
+		return "", false
 	}
+
+	if len(resp.Data.Transactions) > 0 && resp.Data.Transactions[0].User != nil {
+		usr := resp.Data.Transactions[0].User
+		return usr.Email, usr.UserNotifications
+	}
+	return "", false
+}
+
+func fetchAdmins() []string {
+	if HasuraURL == "" || HasuraAdminSecret == "" {
+		return nil
+	}
+
+	// On utilise _ilike pour ignorer la casse (admin ou Admin)
+	query := `
+		query GetAdmins {
+			Users(where: {role: {_ilike: "admin"}, admin_notifications: {_eq: true}}) {
+				email
+			}
+		}
+	`
+	var resp struct {
+		Data struct {
+			Users []struct {
+				Email string `json:"email"`
+			} `json:"Users"`
+		} `json:"data"`
+	}
+
+	if err := executeGraphQL(query, nil, &resp); err != nil {
+		return nil
+	}
+
+	var emails []string
+	for _, u := range resp.Data.Users {
+		if u.Email != "" {
+			emails = append(emails, u.Email)
+		}
+	}
+	return emails
+}
+
+func executeGraphQL(query string, variables map[string]interface{}, response interface{}) error {
+	payload := map[string]interface{}{"query": query, "variables": variables}
 	jsonValue, _ := json.Marshal(payload)
 
 	req, err := http.NewRequest("POST", HasuraURL, bytes.NewBuffer(jsonValue))
 	if err != nil {
-		return ""
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-hasura-admin-secret", HasuraAdminSecret)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 5 * time.Second}
 	httpResp, err := client.Do(req)
 	if err != nil {
-		return ""
+		return err
 	}
 	defer httpResp.Body.Close()
 
 	bodyBytes, _ := io.ReadAll(httpResp.Body)
-	json.Unmarshal(bodyBytes, &resp)
-
-	// Extraction de l'email si la relation User existe et a bien retourné une donnée
-	if len(resp.Data.Transactions) > 0 && resp.Data.Transactions[0].User != nil {
-		return resp.Data.Transactions[0].User.Email
-	}
-
-	return ""
+	return json.Unmarshal(bodyBytes, response)
 }
 
 // =========================================================================
-// MOTEUR D'ENVOI SMTP (Mise à jour : Connexion manuelle robuste avec Timeouts)
+// MOTEUR D'ENVOI SMTP
 // =========================================================================
 
 func renderAndSendEmail(templatePath string, subject string, toEmail string, data interface{}) error {
@@ -215,48 +267,42 @@ func renderAndSendEmail(templatePath string, subject string, toEmail string, dat
 	finalMessage := append([]byte(headers), bodyBuffer.Bytes()...)
 
 	addr := fmt.Sprintf("%s:%s", SmtpHost, SmtpPort)
-	log.Printf("📤 [1/5] Tentative TCP (IPv4) vers %s...", addr)
+	log.Printf("📤 [1/5] Tentative TCP (IPv4) vers %s pour %s...", addr, toEmail)
 
-	// 1. Connexion TCP avec Timeout (10 secondes max) et forçage IPv4
 	conn, err := net.DialTimeout("tcp4", addr, 10*time.Second)
 	if err != nil {
-		return fmt.Errorf("échec de connexion TCP (Port bloqué ou DNS inaccessible) : %v", err)
+		return fmt.Errorf("échec de connexion TCP : %v", err)
 	}
 	defer conn.Close()
 	
-	// On impose une limite de temps stricte (30s) pour TOUTE la conversation SMTP
 	conn.SetDeadline(time.Now().Add(30 * time.Second))
 
-	log.Printf("⏳ [2/5] TCP OK. Attente du message de bienvenue SMTP (220)...")
 	client, err := smtp.NewClient(conn, SmtpHost)
 	if err != nil {
-		return fmt.Errorf("échec de la création du client SMTP (pas de réponse 220) : %v", err)
+		return fmt.Errorf("échec SMTP 220 : %v", err)
 	}
 	defer client.Close()
 
-	log.Printf("🗣️ [3/5] Bienvenue SMTP reçue. Envoi de HELO/EHLO...")
 	if err := client.Hello("csms.hevs.ch"); err != nil {
 		log.Printf("⚠️ Avertissement HELO SMTP: %v", err)
 	}
 
-	log.Printf("✉️ [4/5] Configuration des expéditeurs et destinataires...")
 	if err := client.Mail(MailFrom); err != nil {
-		return fmt.Errorf("refus de l'expéditeur (MAIL FROM): %v", err)
+		return fmt.Errorf("refus expéditeur: %v", err)
 	}
 	if err := client.Rcpt(toEmail); err != nil {
-		return fmt.Errorf("refus du destinataire (RCPT TO): %v", err)
+		return fmt.Errorf("refus destinataire: %v", err)
 	}
 
-	log.Printf("📦 [5/5] Envoi du corps du message...")
 	w, err := client.Data()
 	if err != nil {
-		return fmt.Errorf("erreur lors de l'ouverture du flux DATA: %v", err)
+		return fmt.Errorf("erreur DATA: %v", err)
 	}
 	if _, err = w.Write(finalMessage); err != nil {
-		return fmt.Errorf("erreur lors de l'envoi du contenu: %v", err)
+		return fmt.Errorf("erreur écriture: %v", err)
 	}
 	if err = w.Close(); err != nil {
-		return fmt.Errorf("erreur lors de la clôture du flux DATA: %v", err)
+		return fmt.Errorf("erreur clôture: %v", err)
 	}
 
 	client.Quit()
