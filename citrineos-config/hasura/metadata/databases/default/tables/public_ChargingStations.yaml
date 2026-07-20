@@ -223,6 +223,17 @@ event_triggers:
       num_retries: 0
       timeout_sec: 60
     webhook: http://smart-charging-service:8081/webhooks/station-assignment
+  - name: smart_charging_station_reconnection
+    definition:
+      enable_manual: false
+      update:
+        columns:
+          - isOnline
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://smart-charging-service:8081/webhooks/transactions
   - name: station_weight_trigger
     definition:
       enable_manual: false
