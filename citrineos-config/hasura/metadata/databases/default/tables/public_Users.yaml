@@ -31,12 +31,14 @@ select_permissions:
   - role: user
     permission:
       columns:
+        - admin_notifications
         - email
         - first_name
         - id
         - last_name
         - password_hash
         - role
+        - user_notifications
       filter:
         id:
           _eq: x-hasura-user-id
@@ -59,10 +61,12 @@ update_permissions:
   - role: user
     permission:
       columns:
+        - admin_notifications
         - email
         - first_name
         - last_name
         - password_hash
+        - user_notifications
       filter:
         id:
           _eq: x-hasura-user-id
