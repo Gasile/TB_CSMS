@@ -49,7 +49,7 @@ function DraggableStation({ station }: { station: any }) {
       : "var(--bg-card)",
     border: isStationActive
       ? "1px solid var(--status-offline)"
-      : "1px solid var(--border-color)",
+      : "1px solid var(--text-main)",
     borderRadius: "10px",
     padding: "10px 12px",
     display: "flex",
@@ -501,39 +501,51 @@ export default function PowerBlockManagement() {
           {powerBlocks.map((block) => (
             <div key={block.id} style={blockCardStyle}>
               <div style={blockHeaderStyle}>
-                <h3 style={blockTitleStyle}>📦 {block.name}</h3>
+                {/* Ligne du haut : Titre à gauche, Boutons à droite */}
                 <div
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    width: "100%",
+                  }}
                 >
+                  <h3 style={blockTitleStyle}>📦 {block.name}</h3>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <button
+                      onClick={() =>
+                        setEditingBlock({
+                          id: block.id,
+                          name: block.name,
+                          max_v: block.max_v,
+                          max_a: block.max_a,
+                          n_phase: block.n_phase,
+                        })
+                      }
+                      style={iconActionButtonStyle}
+                      title="Modifier le bloc"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => handleDeleteBlock(block.id, block.name)}
+                      style={{
+                        ...iconActionButtonStyle,
+                        color: "var(--status-offline)",
+                      }}
+                      title="Supprimer le bloc"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+
+                {/* Ligne du bas : Badge de puissance max */}
+                <div>
                   <span style={pMaxBadgeStyle}>
                     {calculateKw(block.max_v, block.max_a, block.n_phase)} kW
                     max ({block.max_a}A)
                   </span>
-                  <button
-                    onClick={() =>
-                      setEditingBlock({
-                        id: block.id,
-                        name: block.name,
-                        max_v: block.max_v,
-                        max_a: block.max_a,
-                        n_phase: block.n_phase,
-                      })
-                    }
-                    style={iconActionButtonStyle}
-                    title="Modifier le bloc"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => handleDeleteBlock(block.id, block.name)}
-                    style={{
-                      ...iconActionButtonStyle,
-                      color: "var(--status-offline)",
-                    }}
-                    title="Supprimer le bloc"
-                  >
-                    🗑️
-                  </button>
                 </div>
               </div>
 
@@ -904,11 +916,12 @@ const blockCardStyle: React.CSSProperties = {
 };
 const blockHeaderStyle: React.CSSProperties = {
   display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: "12px",
   marginBottom: "15px",
   borderBottom: "1px solid var(--border-color)",
-  paddingBottom: "10px",
+  paddingBottom: "15px",
 };
 const blockTitleStyle: React.CSSProperties = {
   margin: 0,

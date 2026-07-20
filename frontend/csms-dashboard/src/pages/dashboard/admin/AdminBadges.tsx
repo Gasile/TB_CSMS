@@ -176,6 +176,28 @@ export default function AdminBadges() {
     }
   };
 
+  /**
+   * Dispatches a permanent deletion request for an unregistered scan item.
+   */
+  const handleDeleteUnknownBadge = async (idToken: string) => {
+    if (
+      window.confirm(
+        `Êtes-vous sûr de vouloir supprimer définitivement le scan du token "${idToken}" ?`,
+      )
+    ) {
+      setIsLoading(true);
+      try {
+        await deleteUnknownBadge(idToken);
+        loadData();
+      } catch (err: any) {
+        console.error("Erreur lors de la suppression du scan inconnu :", err);
+        alert("Une erreur est survenue lors de la suppression du scan.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
   const openCreateModal = () => {
     setEditingBadge(null);
     setFormData({
@@ -533,12 +555,27 @@ export default function AdminBadges() {
                       {badge.attempt_count}
                     </span>
                   </td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                  <td
+                    style={{
+                      ...tdStyle,
+                      textAlign: "right",
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: "10px",
+                    }}
+                  >
                     <button
                       onClick={() => openCreateFromUnknown(badge.id_token)}
                       style={createButtonStyle}
                     >
                       ➕ Enregistrer
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUnknownBadge(badge.id_token)}
+                      style={deleteUnknownScanButtonStyle}
+                      title="Supprimer ce scan"
+                    >
+                      🗑️
                     </button>
                   </td>
                 </tr>
@@ -908,6 +945,17 @@ const deleteButtonStyle: React.CSSProperties = {
   fontSize: "0.9rem",
   fontWeight: "600",
   transition: "var(--theme-transition)",
+};
+
+const deleteUnknownScanButtonStyle: React.CSSProperties = {
+  background: "rgba(239, 68, 68, 0.12)",
+  color: "var(--status-offline)",
+  border: "1px solid rgba(239, 68, 68, 0.25)",
+  padding: "6px 10px",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontSize: "0.85rem",
+  transition: "all 0.2s ease, var(--theme-transition)",
 };
 
 const detailsButtonStyle: React.CSSProperties = {
