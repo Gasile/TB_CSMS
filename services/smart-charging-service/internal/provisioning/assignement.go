@@ -28,6 +28,7 @@ type StationAssignment struct {
 	OcppConnectionName string `json:"ocppConnectionName"`
 	Protocol           string `json:"protocol"` 
 	PowerBlockID       *int   `json:"power_block_id"`
+	IsOnline           bool   `json:"isOnline"`
 }
 
 // --- HANDLERS ---
@@ -71,6 +72,13 @@ func HandleStationAssignment(client *citrineclient.Client) http.HandlerFunc {
 			return
 		}
 
+		// If the station is offline, skip the CitrineOS REST call and rely on the reconciliation trigger later
+		if !data.IsOnline {
+			log.Printf("⚠️ Station %s is offline. Skipping CitrineOS call; profile will be applied upon reconnection.", data.OcppConnectionName)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 		var lastErr error
 		
 		// Apply safety limits or clear configurations for every connector on the assigned station
@@ -92,11 +100,14 @@ func HandleStationAssignment(client *citrineclient.Client) http.HandlerFunc {
 		}
 
 		if lastErr != nil {
-			log.Printf("❌ Echec sur au moins un EVSE: %v", lastErr)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			log.Printf("⚠️ Impossible de joindre la borne %s (EVSEs) via CitrineOS: %v", data.OcppConnectionName, lastErr)
+			log.Printf("ℹ️ L'intention d'assignation est enregistrée en DB. Elle sera appliquée automatiquement à la reconnexion via le trigger.")
+			
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 
+		log.Printf("✅ Profil de charge appliqué avec succès à la borne %s", data.OcppConnectionName)
 		w.WriteHeader(http.StatusOK)
 	}
 }

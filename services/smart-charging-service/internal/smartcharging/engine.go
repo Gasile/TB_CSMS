@@ -23,11 +23,12 @@ const CheckInterval = 30 * time.Second
 
 // --- GLOBAL VARIABLES ---
 var (
-	stateMutex         sync.Mutex
-	activeLoops        = make(map[int]context.CancelFunc)
-	lastAppliedLimits  = make(map[string]float64)
-	gracePeriodCache   = make(map[string]time.Time)
-	sessionStartTime   = make(map[string]time.Time) 
+	stateMutex          sync.Mutex
+	activeLoops         = make(map[int]context.CancelFunc)
+	lastAppliedLimits   = make(map[string]float64)
+	gracePeriodCache    = make(map[string]time.Time)
+	sessionStartTime    = make(map[string]time.Time)
+	lastProfileSendTime = make(map[string]time.Time) // <-- NOUVEAU : Cache pour le délai de 5 minutes
 )
 
 // --- STRUCTURES ---
@@ -45,20 +46,17 @@ type HasuraEventPayload struct {
 type EVState struct {
 	TransactionID      string
 	OcppConnectionName string
-	Protocol           string 
+	Protocol           string
 	EvseID             int
 	Weight             int
 	CurrentConsumption float64
 	AllocatedLimit     float64
 	Locked             bool
-	StartTime          time.Time 
+	StartTime          time.Time
 }
 
 // --- HANDLERS ---
 
-/**
- * Listens for Hasura webhooks representing changes to topologies or transactions, extracting affected blocks to trigger load-balancing recalculations.
- */
 func HandleTransactions(client *citrineclient.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -81,6 +79,24 @@ func HandleTransactions(client *citrineclient.Client) http.HandlerFunc {
 			return
 		}
 
+		if tableName == "ChargingStations" || tableName == "charging_stations" {
+			dataNew, _ := payload.Event.Data["new"].(map[string]interface{})
+			dataOld, _ := payload.Event.Data["old"].(map[string]interface{})
+
+			wasOnline, _ := dataOld["isOnline"].(bool)
+			isOnline, _ := dataNew["isOnline"].(bool)
+
+			if isOnline && !wasOnline {
+				stationID := 0
+				if id, ok := dataNew["id"].(float64); ok {
+					stationID = int(id)
+				}
+				if stationID != 0 {
+					go reconcileStationOnReconnection(client, stationID, dataNew)
+				}
+			}
+		}
+
 		powerBlockIDs := extractPowerBlockIDs(client, payload)
 		if len(powerBlockIDs) == 0 {
 			w.WriteHeader(http.StatusOK)
@@ -98,9 +114,6 @@ func HandleTransactions(client *citrineclient.Client) http.HandlerFunc {
 
 // --- CORE LOGIC ---
 
-/**
- * Resets the recalculation timer loop for a given Power Block to instantly handle topology/weight changes and schedule periodic checks.
- */
 func resetBlockLoop(client *citrineclient.Client, powerBlockID int) {
 	stateMutex.Lock()
 	if cancel, exists := activeLoops[powerBlockID]; exists {
@@ -116,7 +129,6 @@ func resetBlockLoop(client *citrineclient.Client, powerBlockID int) {
 		log.Printf("❌ Erreur au changement topologique (Block %d): %v", powerBlockID, err)
 	}
 
-	// Spin up a background ticker to continually balance power distribution over time based on live consumption
 	go func(bID int, loopCtx context.Context) {
 		ticker := time.NewTicker(CheckInterval)
 		defer ticker.Stop()
@@ -135,9 +147,6 @@ func resetBlockLoop(client *citrineclient.Client, powerBlockID int) {
 	}(powerBlockID, ctx)
 }
 
-/**
- * Orchestrates fetching the current state, calculating new power limits, enforcing grace periods, and dispatching those limits to the charging stations.
- */
 func executeCalculation(client *citrineclient.Client, powerBlockID int, reason string) error {
 	maxA, evStates, err := fetchPowerBlockState(client, powerBlockID)
 	if err != nil {
@@ -155,7 +164,6 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 		return nil
 	}
 
-	// Initialize tracking metadata for any newly discovered EV sessions
 	stateMutex.Lock()
 	for _, ev := range evStates {
 		if _, exists := sessionStartTime[ev.TransactionID]; !exists {
@@ -175,15 +183,38 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 
 	calculateLimits(powerBlockID, maxA, evStates)
 
-	// Apply computed limits iteratively, avoiding redundant API calls if limits haven't changed
 	for _, ev := range evStates {
 		stateMutex.Lock()
-		lastLimit, exists := lastAppliedLimits[ev.TransactionID]
+		lastLimit, hasLastLimit := lastAppliedLimits[ev.TransactionID]
+		lastSendTime, hasLastSendTime := lastProfileSendTime[ev.TransactionID]
 		stateMutex.Unlock()
 
-		if exists && lastLimit == ev.AllocatedLimit {
+		if hasLastLimit && lastLimit == ev.AllocatedLimit {
 			continue
 		}
+
+		// --- PROTECTIONS OCPP 1.6 ---
+		if ev.Protocol == "ocpp1.6" && hasLastLimit {
+			delta := math.Abs(ev.AllocatedLimit - lastLimit)
+			isCriticalDropToZero := ev.AllocatedLimit == 0.0
+
+			// Règle 1: Delta minimal de 3A (sauf coupure critique à 0A)
+			if delta < 3.0 && !isCriticalDropToZero {
+				log.Printf("🛡️ [OCPP 1.6] Block %d | %s : Delta insuffisant (%.1fA -> %.1fA). Profil ignoré.", powerBlockID, ev.OcppConnectionName, lastLimit, ev.AllocatedLimit)
+				continue
+			}
+
+			// Règle 2: Délai strict de 5 minutes entre deux consignes
+			if hasLastSendTime {
+				timeSinceLastSend := time.Since(lastSendTime)
+				if timeSinceLastSend < 5*time.Minute {
+					remaining := (5*time.Minute - timeSinceLastSend).Seconds()
+					log.Printf("⏳ [OCPP 1.6] Block %d | %s : Cooldown actif. Nouvel envoi dans %.0fs.", powerBlockID, ev.OcppConnectionName, remaining)
+					continue
+				}
+			}
+		}
+		// ----------------------------
 
 		nextProfileID, err := getNextProfileID(client, ev.OcppConnectionName, ev.EvseID)
 		if err != nil {
@@ -195,6 +226,7 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 			stateMutex.Lock()
 			oldLimit, hadOldLimit := lastAppliedLimits[ev.TransactionID]
 			lastAppliedLimits[ev.TransactionID] = ev.AllocatedLimit
+			lastProfileSendTime[ev.TransactionID] = time.Now() // <-- NOUVEAU : Enregistrement de l'horodatage d'envoi
 
 			limitIncreased := (ev.AllocatedLimit - oldLimit) >= 2.0
 			isOcpp16Change := ev.Protocol == "ocpp1.6" && ev.AllocatedLimit != oldLimit
@@ -205,9 +237,6 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 					graceDuration = 210 * time.Second
 				}
 				gracePeriodCache[ev.TransactionID] = time.Now().Add(graceDuration)
-				
-				log.Printf("⏳ [GRÂCE] Block %d | Borne %s passe de %.1fA à %.1fA. Période de grâce %.0fs accordée.",
-					powerBlockID, ev.OcppConnectionName, oldLimit, ev.AllocatedLimit, graceDuration.Seconds())
 			}
 			stateMutex.Unlock()
 
@@ -223,15 +252,10 @@ func executeCalculation(client *citrineclient.Client, powerBlockID int, reason s
 	return nil
 }
 
-/**
- * Distributes available power among active sessions based on user weights, vehicle consumption, and fairness constraints.
- */
 func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 	minAmpsToCharge := 6.0
-
 	maxActiveCars := int(maxA / minAmpsToCharge)
 
-	// If block max capacity cannot sustain even one vehicle, lock all to 0A
 	if maxActiveCars == 0 {
 		for _, ev := range evs {
 			ev.AllocatedLimit = 0.0
@@ -240,7 +264,6 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 		return
 	}
 
-	// De-prioritize vehicles if capacity constraints are completely breached
 	if len(evs) > maxActiveCars {
 		sort.SliceStable(evs, func(i, j int) bool {
 			if evs[i].Weight != evs[j].Weight {
@@ -275,7 +298,6 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 
 	unallocatedPower := maxA
 
-	// Iteratively identify under-consuming vehicles to free up unused power limits for others
 	for len(unlockedEVs) > 0 {
 		currentIterationWeight := 0
 		for _, ev := range unlockedEVs {
@@ -306,7 +328,6 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 				currentLimit = baseFairShare
 			}
 
-			// Respect the grace period by deferring penalization based on low consumption
 			if time.Now().Before(graceEnd) {
 				continue
 			}
@@ -349,9 +370,6 @@ func calculateLimits(powerBlockID int, maxA float64, evs []*EVState) {
 	}
 }
 
-/**
- * Distributes remaining unallocated power to the remaining unlocked EVs proportionally by weight.
- */
 func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 	minAmpsToCharge := 6.0
 
@@ -360,7 +378,6 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 		unlocked = append(unlocked, ev)
 	}
 
-	// Filter out EVs whose fair share would not meet the minimum charging threshold
 	for len(unlocked) > 0 {
 		totalWeight := 0
 		for _, ev := range unlocked {
@@ -424,12 +441,8 @@ func distributeWeightedRest(evs []*EVState, remainingPower float64) {
 
 // --- UTILITY FUNCTIONS ---
 
-/**
- * Parses the Hasura webhook payload to identify all unique Power Block IDs affected by the event.
- */
 func extractPowerBlockIDs(client *citrineclient.Client, payload HasuraEventPayload) []int {
 	blockMap := make(map[int]bool)
-
 	dataNew, _ := payload.Event.Data["new"].(map[string]interface{})
 	dataOld, _ := payload.Event.Data["old"].(map[string]interface{})
 	tableName := payload.Table.Name
@@ -481,9 +494,6 @@ func extractPowerBlockIDs(client *citrineclient.Client, payload HasuraEventPaylo
 	return result
 }
 
-/**
- * Dispatches a GraphQL mutation to record the currently allocated transaction limit into the database.
- */
 func updateTransactionLimitInDB(client *citrineclient.Client, txID string, limit float64) {
 	if client.HasuraURL == "" {
 		return
@@ -500,9 +510,6 @@ func updateTransactionLimitInDB(client *citrineclient.Client, txID string, limit
 	_ = doGraphQLQuery(client, query, variables, &resp)
 }
 
-/**
- * Looks up the assigned Power Block ID for a specific charging station.
- */
 func fetchPowerBlockIDForStation(client *citrineclient.Client, stationID int) int {
 	query := `
 		query GetPowerBlockID($stationId: Int!) {
@@ -512,7 +519,6 @@ func fetchPowerBlockIDForStation(client *citrineclient.Client, stationID int) in
 		}
 	`
 	variables := map[string]interface{}{"stationId": stationID}
-
 	var resp struct {
 		Data struct {
 			ChargingStations []struct {
@@ -526,13 +532,9 @@ func fetchPowerBlockIDForStation(client *citrineclient.Client, stationID int) in
 			return *resp.Data.ChargingStations[0].PowerBlockID
 		}
 	}
-
 	return 0
 }
 
-/**
- * Triggers the HTTP client to send a transaction-specific smart charging profile to a charging station.
- */
 func sendTxProfile(client *citrineclient.Client, ev *EVState, profileID int) error {
 	return client.SendSetChargingProfile(
 		ev.OcppConnectionName,
@@ -545,9 +547,6 @@ func sendTxProfile(client *citrineclient.Client, ev *EVState, profileID int) err
 	)
 }
 
-/**
- * Queries Hasura for the full hierarchy of active sessions and recent consumption metrics associated with a Power Block.
- */
 func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float64, []*EVState, error) {
 	query := `
 		query GetPowerBlockState($blockId: Int!) {
@@ -605,7 +604,6 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 	if len(resp.Errors) > 0 {
 		return 0, nil, fmt.Errorf("erreurs GraphQL: %v", resp.Errors)
 	}
-
 	if len(resp.Data.PowerBlocks) == 0 {
 		return 0, nil, fmt.Errorf("PowerBlock %d introuvable", powerBlockID)
 	}
@@ -626,7 +624,6 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 
 		for _, tx := range station.Transactions {
 			currentConsumption := 0.0
-
 			for _, mv := range tx.MeterValues {
 				if mv.SampledValue != nil {
 					if val, found := extractMaxCurrent(mv.SampledValue); found {
@@ -652,18 +649,13 @@ func fetchPowerBlockState(client *citrineclient.Client, powerBlockID int) (float
 			})
 		}
 	}
-
 	return maxA, evs, nil
 }
 
-/**
- * Parses raw JSON metervalues from the database to identify the peak current import value.
- */
 func extractMaxCurrent(sampledValueRaw interface{}) (float64, bool) {
 	if sampledValueRaw == nil {
 		return 0.0, false
 	}
-
 	var sampledValues []interface{}
 	switch v := sampledValueRaw.(type) {
 	case string:
@@ -677,16 +669,13 @@ func extractMaxCurrent(sampledValueRaw interface{}) (float64, bool) {
 
 	for _, val := range sampledValues {
 		if valMap, ok := val.(map[string]interface{}); ok {
-			
 			if contextVal, hasContext := valMap["context"].(string); hasContext {
 				if contextVal == "Sample.Clock" {
-					continue 
+					continue
 				}
 			}
-
 			if measurand, ok := valMap["measurand"].(string); ok && measurand == "Current.Import" {
 				var currentVal float64
-				
 				if vFloat, isFloat := valMap["value"].(float64); isFloat {
 					currentVal = vFloat
 				} else if vStr, isStr := valMap["value"].(string); isStr {
@@ -694,7 +683,6 @@ func extractMaxCurrent(sampledValueRaw interface{}) (float64, bool) {
 						currentVal = parsed
 					}
 				}
-
 				if currentVal > maxCurrent {
 					maxCurrent = currentVal
 				}
@@ -705,14 +693,10 @@ func extractMaxCurrent(sampledValueRaw interface{}) (float64, bool) {
 	return maxCurrent, foundValidMeasure
 }
 
-/**
- * Calculates a non-colliding profile ID by querying the most recently created profile on the specified EVSE.
- */
 func getNextProfileID(client *citrineclient.Client, stationName string, evseID int) (int, error) {
 	if client.HasuraURL == "" {
 		return 501, nil
 	}
-
 	query := `
 		query GetMaxProfileID($station: String!, $evse: Int!) {
 			ChargingProfiles(
@@ -724,11 +708,7 @@ func getNextProfileID(client *citrineclient.Client, stationName string, evseID i
 			}
 		}
 	`
-	variables := map[string]interface{}{
-		"station": stationName,
-		"evse":    evseID,
-	}
-
+	variables := map[string]interface{}{"station": stationName, "evse": evseID}
 	var resp struct {
 		Data struct {
 			ChargingProfiles []struct {
@@ -742,20 +722,15 @@ func getNextProfileID(client *citrineclient.Client, stationName string, evseID i
 			return resp.Data.ChargingProfiles[0].ID + 1, nil
 		}
 	}
-
 	return 501, nil
 }
 
-/**
- * Internal wrapper to securely marshal variables and execute a standard HTTP POST request to the Hasura GraphQL endpoint.
- */
 func doGraphQLQuery(client *citrineclient.Client, query string, variables map[string]interface{}, response interface{}) error {
 	payload := map[string]interface{}{
 		"query":     query,
 		"variables": variables,
 	}
 	jsonValue, _ := json.Marshal(payload)
-
 	req, err := http.NewRequest("POST", client.HasuraURL, bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return err
@@ -773,13 +748,57 @@ func doGraphQLQuery(client *citrineclient.Client, query string, variables map[st
 	if err != nil {
 		return err
 	}
-
 	return json.Unmarshal(bodyBytes, response)
 }
 
-/**
- * Rounds a float downwards specifically to the nearest first decimal place.
- */
 func floor10(val float64) float64 {
 	return math.Floor(val*10) / 10
+}
+
+func reconcileStationOnReconnection(client *citrineclient.Client, stationID int, dataNew map[string]interface{}) {
+	var pbID *int
+	if val, ok := dataNew["power_block_id"].(float64); ok {
+		id := int(val)
+		pbID = &id
+	}
+
+	if pbID == nil {
+		return
+	}
+
+	ocppName, _ := dataNew["ocppConnectionName"].(string)
+	protocol, _ := dataNew["protocol"].(string)
+
+	if ocppName == "" {
+		return
+	}
+
+	query := `
+		query GetEvsesFromEngine($stationId: Int!) {
+			Evses(where: {stationId: {_eq: $stationId}}) {
+				evseTypeId
+			}
+		}
+	`
+	variables := map[string]interface{}{"stationId": stationID}
+	var graphQLResp struct {
+		Data struct {
+			Evses []struct {
+				EvseTypeID int `json:"evseTypeId"`
+			} `json:"Evses"`
+		} `json:"data"`
+	}
+
+	if err := doGraphQLQuery(client, query, variables, &graphQLResp); err != nil {
+		return
+	}
+
+	for _, evse := range graphQLResp.Data.Evses {
+		profileID := 100 + evse.EvseTypeID
+		err := client.SendSetChargingProfile(ocppName, protocol, evse.EvseTypeID, profileID, 0.0, "TxDefaultProfile", "")
+		if err != nil {
+			log.Printf("⚠️ [RECONNECTION] Failed to send baseline profile to %s (EVSE %d): %v", ocppName, evse.EvseTypeID, err)
+		}
+	}
+	resetBlockLoop(client, *pbID)
 }
