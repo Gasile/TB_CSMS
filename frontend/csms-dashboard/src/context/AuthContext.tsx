@@ -14,11 +14,13 @@ interface User {
   lastName: string;
   email: string;
   role: string;
+  userNotifications?: boolean;
+  adminNotifications?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (userData: User, token: string) => void;
+  login: (userData: User, token?: string) => void;
   logout: () => void;
 }
 

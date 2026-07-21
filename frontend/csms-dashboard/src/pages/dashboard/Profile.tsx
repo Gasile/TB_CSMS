@@ -22,7 +22,6 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
-  // Initialisation avec fallback à true si non défini[cite: 5]
   const [userNotifications, setUserNotifications] = useState(
     user?.userNotifications ?? true,
   );

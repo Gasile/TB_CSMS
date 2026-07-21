@@ -3,7 +3,6 @@
 // ============================================================================
 
 import type { UserSession } from "../types";
-import { fetchHasura } from "./hasuraClient";
 
 const AUTH_URL =
   import.meta.env.VITE_AUTH_API_URL || "http://localhost:8086/api";

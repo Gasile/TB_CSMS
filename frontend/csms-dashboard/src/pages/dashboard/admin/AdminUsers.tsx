@@ -111,21 +111,6 @@ export default function AdminUsers() {
     });
   };
 
-  /**
-   * Modifies an account privilege role group after administrator confirmation.
-   */
-  const handleToggleRole = async (userId: number, currentRole: string) => {
-    const newRole = currentRole === "Admin" ? "User" : "Admin";
-    if (
-      window.confirm(
-        `Voulez-vous vraiment passer cet utilisateur en ${newRole} ?`,
-      )
-    ) {
-      await updateUserRole(userId, newRole);
-      loadUsers();
-    }
-  };
-
   const openCreateModal = () => {
     setEditingUser(null);
     setFormData({

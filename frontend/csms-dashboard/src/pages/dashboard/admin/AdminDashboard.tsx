@@ -486,8 +486,8 @@ export default function AdminOverview() {
 
               <Tooltip
                 labelFormatter={(value) => formatTime(value as number)}
-                formatter={(value: number) => [
-                  `${value.toFixed(2)} kW`,
+                formatter={(value?: any) => [
+                  `${Number(value ?? 0).toFixed(2)} kW`,
                   "Puissance totale",
                 ]}
                 contentStyle={{
@@ -505,7 +505,7 @@ export default function AdminOverview() {
               />
 
               <Area
-                type="StepAfter"
+                type="stepAfter"
                 dataKey="puissance"
                 stroke="var(--primary)"
                 strokeWidth={3}

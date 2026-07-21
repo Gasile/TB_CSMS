@@ -184,10 +184,7 @@ const iconStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const textStyle = (
-  isActive: boolean,
-  isAdminLink = false,
-): React.CSSProperties => ({
+const textStyle = (isActive: boolean): React.CSSProperties => ({
   fontWeight: isActive ? "600" : "500",
   color: isActive ? "var(--primary)" : "var(--text-muted)",
   fontSize: "0.95rem",

@@ -420,9 +420,9 @@ export default function SessionDetail() {
                   const d = new Date(label);
                   return `${d.toLocaleDateString()} à ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
                 }}
-                formatter={(value: any, name: string) => [
+                formatter={(value: any, name?: string) => [
                   name === "power"
-                    ? `${Number(value).toFixed(2)} kW`
+                    ? `${Number(value ?? 0).toFixed(2)} kW`
                     : `${value}%`,
                   name === "power" ? "Puissance" : "Batterie",
                 ]}
