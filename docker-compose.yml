@@ -161,6 +161,15 @@ services:
       timeout: 10s
       retries: 20
       start_period: 5s
+    networks:
+      - default
+      - server_default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=server_default"
+      - "traefik.http.routers.hasura.rule=Host(`evse.hevs.ch`) && PathPrefix(`/v1/graphql`)"
+      - "traefik.http.routers.hasura.entrypoints=web,websecure"
+      - "traefik.http.services.hasura.loadbalancer.server.port=8080"
 
   idle-service:
     image: ghcr.io/gasile/tb_csms-idle-service:latest
@@ -226,3 +235,32 @@ services:
       # ---> DOIT ÊTRE IDENTIQUE À CELLE DE HASURA <---
       - JWT_SECRET=${JWT_SECRET}
     restart: always
+    networks:
+      - default
+      - server_default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=server_default"
+      - "traefik.http.routers.auth.rule=Host(`evse.hevs.ch`) && (PathPrefix(`/api/login`) || PathPrefix(`/api/register`) || PathPrefix(`/api/forgot-password`) || PathPrefix(`/api/reset-password`))"
+      - "traefik.http.routers.auth.entrypoints=web,websecure"
+      - "traefik.http.services.auth.loadbalancer.server.port=8086"
+
+  frontend:
+    build:
+      context: ./frontend/csms-dashboard
+    container_name: tb_csms-frontend
+    restart: always
+    networks:
+      - default
+      - server_default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=server_default"
+      - "traefik.http.routers.frontend.rule=Host(`evse.hevs.ch`)"
+      - "traefik.http.routers.frontend.entrypoints=web,websecure"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+networks:
+  default:
+  server_default:
+    external: true
