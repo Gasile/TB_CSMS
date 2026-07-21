@@ -170,38 +170,40 @@ export default function LoginForm({
         </form>
 
         {/* Development Shortcuts Block */}
-        <div style={devShortcutsStyle}>
-          <p
-            style={{
-              margin: "0 0 8px 0",
-              fontSize: "0.75rem",
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-              transition: "var(--theme-transition)",
-            }}
-          >
-            Connexion rapide (Dev)
-          </p>
-          <div
-            style={{ display: "flex", gap: "10px", justifyContent: "center" }}
-          >
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("Admin")}
-              style={devButtonStyle}
+        {import.meta.env.VITE_ENABLE_DEV_LOGINS === "true" && (
+          <div style={devShortcutsStyle}>
+            <p
+              style={{
+                margin: "0 0 8px 0",
+                fontSize: "0.75rem",
+                color: "var(--text-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "1px",
+                transition: "var(--theme-transition)",
+              }}
             >
-              👑 Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("User")}
-              style={devButtonStyle}
+              Connexion rapide (Dev)
+            </p>
+            <div
+              style={{ display: "flex", gap: "10px", justifyContent: "center" }}
             >
-              👤 User
-            </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin("Admin")}
+                style={devButtonStyle}
+              >
+                👑 Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickLogin("User")}
+                style={devButtonStyle}
+              >
+                👤 User
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
