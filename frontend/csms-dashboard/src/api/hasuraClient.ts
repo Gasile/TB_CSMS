@@ -2,7 +2,8 @@
 // IMPORTS
 // ============================================================================
 
-const HASURA_URL = import.meta.env.VITE_HASURA_URL;
+const HASURA_URL =
+  import.meta.env.VITE_HASURA_URL || "http://localhost:8090/v1/graphql";
 
 // ============================================================================
 // HASURA CLIENT & REQUEST HANDLER

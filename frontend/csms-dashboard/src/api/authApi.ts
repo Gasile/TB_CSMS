@@ -5,6 +5,9 @@
 import type { UserSession } from "../types";
 import { fetchHasura } from "./hasuraClient";
 
+const AUTH_URL =
+  import.meta.env.VITE_AUTH_API_URL || "http://localhost:8086/api";
+
 // ============================================================================
 // AUTHENTICATION SERVICES (GO MICROSERVICE INTEGRATION)
 // ============================================================================
@@ -16,7 +19,7 @@ export async function loginUser(
   email: string,
   passwordInput: string,
 ): Promise<{ user: UserSession; token: string }> {
-  const response = await fetch("http://localhost:8086/api/login", {
+  const response = await fetch(`${AUTH_URL}/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -49,7 +52,7 @@ export async function loginUser(
  * Requests a password reset link from the Go authentication microservice.
  */
 export async function requestPasswordReset(email: string): Promise<string> {
-  const response = await fetch("http://localhost:8086/api/forgot-password", {
+  const response = await fetch(`${AUTH_URL}/forgot-password`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -72,7 +75,7 @@ export async function resetPassword(
   token: string,
   newPasswordInput: string,
 ): Promise<boolean> {
-  const response = await fetch("http://localhost:8086/api/reset-password", {
+  const response = await fetch(`${AUTH_URL}/reset-password`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -96,7 +99,7 @@ export async function registerUser(
   email: string,
   passwordInput: string,
 ): Promise<boolean> {
-  const response = await fetch("http://localhost:8086/api/register", {
+  const response = await fetch(`${AUTH_URL}/register`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -130,21 +133,18 @@ export async function updateEmailSecure(
 ): Promise<boolean> {
   const token = localStorage.getItem("jwt_token");
 
-  const response = await fetch(
-    "http://localhost:8086/api/profile/update-email",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        userId: String(userId), // Explicitly cast to string as required by the Go microservice
-        currentPassword: currentPasswordUnhashed,
-        newEmail: newEmail,
-      }),
+  const response = await fetch(`${AUTH_URL}/profile/update-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
-  );
+    body: JSON.stringify({
+      userId: String(userId), // Explicitly cast to string as required by the Go microservice
+      currentPassword: currentPasswordUnhashed,
+      newEmail: newEmail,
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -166,21 +166,18 @@ export async function updatePasswordSecure(
 ): Promise<boolean> {
   const token = localStorage.getItem("jwt_token");
 
-  const response = await fetch(
-    "http://localhost:8086/api/profile/update-password",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        userId: String(userId), // Explicitly cast to string as required by the Go microservice
-        currentPassword: currentPasswordUnhashed,
-        newPassword: newPasswordUnhashed,
-      }),
+  const response = await fetch(`${AUTH_URL}/profile/update-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
-  );
+    body: JSON.stringify({
+      userId: String(userId), // Explicitly cast to string as required by the Go microservice
+      currentPassword: currentPasswordUnhashed,
+      newPassword: newPasswordUnhashed,
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
