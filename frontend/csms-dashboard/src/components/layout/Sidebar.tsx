@@ -91,7 +91,7 @@ export default function Sidebar() {
                   style={linkStyle(isActive)}
                 >
                   <span style={iconStyle}>{item.icon}</span>
-                  <span style={textStyle(isActive, true)}>{item.name}</span>
+                  <span style={textStyle(isActive)}>{item.name}</span>
                 </Link>
               );
             })}

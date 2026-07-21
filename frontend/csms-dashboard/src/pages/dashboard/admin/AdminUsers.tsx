@@ -7,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import {
   createNewUser,
   fetchAllUsers,
-  updateUserRole,
   updateUserDetails,
   deleteUser,
 } from "../../../api/adminApi";
