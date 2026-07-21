@@ -35,12 +35,14 @@ func handleIdleTransaction(payload HasuraWebhookPayload) error {
     oldIsLegal, okOld := oldRow["is_legal"].(bool)
 
     if okNew && okOld && oldIsLegal == true && newIsLegal == false {
-        transactionId, _ := newRow["transactionId"].(string)
-        stationName, _ := newRow["stationId"].(string)
+        transactionDBId := newRow["id"]
+        stationName, _ := newRow["ocppConnectionName"].(string)
 
-        userEmail, wantsNotifs := fetchUserPrefs(transactionId)
+        log.Printf("🔍 [Idle] Données extraites - ID DB: %v, Borne: %s", transactionDBId, stationName)
+
+        userEmail, wantsNotifs := fetchUserPrefs(transactionDBId)
         if userEmail == "" {
-            log.Printf("⚠️ Unable to find the email for transaction %s.", transactionId)
+            log.Printf("⚠️ Unable to find the email for transaction %s.", transactionDBId)
             return nil
         }
 
@@ -67,9 +69,11 @@ func handleWaitForEnergy(payload HasuraWebhookPayload) error {
     newLimit, okNew := newRow["allocated_limit"].(float64)
     oldLimit, okOld := oldRow["allocated_limit"].(float64)
 
-    transactionId, _ := newRow["transactionId"].(string)
+    transactionDBId := newRow["id"]
     
-    userEmail, wantsNotifs := fetchUserPrefs(transactionId)
+    log.Printf("🔍 [WaitEnergy] Données extraites - ID DB: %v", transactionDBId)
+    
+    userEmail, wantsNotifs := fetchUserPrefs(transactionDBId)
     if userEmail == "" || !wantsNotifs {
         return nil // No email or notifications disabled
     }
@@ -141,14 +145,14 @@ func handleConnectorError(payload HasuraWebhookPayload) error {
 // HASURA QUERIES
 // =========================================================================
 
-func fetchUserPrefs(transactionId string) (email string, wantsNotifs bool) {
+func fetchUserPrefs(transactionDBId interface{}) (email string, wantsNotifs bool) {
     if HasuraURL == "" || HasuraAdminSecret == "" {
         return "", false
     }
 
     query := `
-        query GetUserPrefs($txId: String!) {
-            Transactions(where: {transactionId: {_eq: $txId}}) {
+        query GetUserPrefs($txId: Int!) {
+            Transactions(where: {id: {_eq: $txId}}) {
                 User {
                     email
                     user_notifications
@@ -156,7 +160,7 @@ func fetchUserPrefs(transactionId string) (email string, wantsNotifs bool) {
             }
         }
     `
-    variables := map[string]interface{}{"txId": transactionId}
+    variables := map[string]interface{}{"txId": transactionDBId}
 
     var resp struct {
         Data struct {
@@ -273,48 +277,40 @@ func renderAndSendEmail(templatePath string, subject string, toEmail string, dat
     finalMessage := append([]byte(headers), bodyBuffer.Bytes()...)
 
     addr := fmt.Sprintf("%s:%s", SmtpHost, SmtpPort)
-    log.Printf("📤 [1/5] TCP (IPv4) attempt to %s...", addr)
 
-    // 1. TCP Connection with Timeout (max 10 seconds) and IPv4 enforcement
+    // 1. TCP Connection with Timeout (max 10 seconds)
     conn, err := net.DialTimeout("tcp4", addr, 10*time.Second)
     if err != nil {
-        return fmt.Errorf("TCP connection failed (Blocked port or unreachable DNS): %v", err)
+        return fmt.Errorf("TCP connection failed: %v", err)
     }
     defer conn.Close()
     
     conn.SetDeadline(time.Now().Add(30 * time.Second))
 
-    log.Printf("⏳ [2/5] TCP OK. Waiting for SMTP welcome message (220)...")
     client, err := smtp.NewClient(conn, SmtpHost)
     if err != nil {
-        return fmt.Errorf("failed to create SMTP client (no 220 response): %v", err)
+        return fmt.Errorf("failed to create SMTP client: %v", err)
     }
     defer client.Close()
 
-    log.Printf("🗣️ [3/5] SMTP welcome received. Sending HELO/EHLO...")
     if err := client.Hello("csms.hevs.ch"); err != nil {
         log.Printf("⚠️ SMTP HELO warning: %v", err)
     }
 
-    log.Printf("✉️ [4/5] Configuring senders and recipients...")
     if err := client.Mail(MailFrom); err != nil {
         return fmt.Errorf("sender refused (MAIL FROM): %v", err)
     }
     
-    // Adding primary recipient
     if err := client.Rcpt(toEmail); err != nil {
         return fmt.Errorf("recipient refused (RCPT TO): %v", err)
     }
 
-    // Adding Blind Carbon Copy (BCC) recipient in the SMTP envelope
-    // Add it only if the option is active AND the admin is not ALREADY the primary recipient
     if AlwaysBCCAdmin && BCCAdminEmail != "" && toEmail != BCCAdminEmail {
         if err := client.Rcpt(BCCAdminEmail); err != nil {
             log.Printf("⚠️ Warning: BCC recipient refused (%s): %v", BCCAdminEmail, err)
         }
     }
 
-    log.Printf("📦 [5/5] Sending message body...")
     w, err := client.Data()
     if err != nil {
         return fmt.Errorf("error opening DATA stream: %v", err)
