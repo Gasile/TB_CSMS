@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { registerUser } from "../../api/authApi";
+import { Icon } from "../../components/ui/Icon";
 
 // ============================================================================
 // MAIN COMPONENT
@@ -53,7 +54,12 @@ export default function RegisterForm() {
       <div style={cardStyle}>
         {/* Header Block */}
         <div style={{ textAlign: "center", marginBottom: "20px" }}>
-          <span style={{ fontSize: "3rem" }}>✨</span>
+          <span style={{ fontSize: "3rem" }}>
+            <Icon
+              name="person_add"
+              style={{ fontSize: "4rem", color: "var(--primary)" }}
+            />
+          </span>
           <h1
             style={{
               margin: "10px 0 0 0",

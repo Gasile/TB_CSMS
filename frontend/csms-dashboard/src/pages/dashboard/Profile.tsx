@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { updateMyProfile } from "../../api/userApi";
 import { updateEmailSecure, updatePasswordSecure } from "../../api/authApi";
+import { Icon } from "../../components/ui/Icon";
 
 // ============================================================================
 // MAIN COMPONENT
@@ -59,7 +60,6 @@ export default function Profile() {
     setError("");
     setIsSaving(true);
     try {
-      // Ajout des deux nouveaux paramètres pour l'API[cite: 5]
       await updateMyProfile(
         user.id!,
         firstName,
@@ -183,7 +183,8 @@ export default function Profile() {
               onClick={() => setIsEditing(true)}
               style={editToggleButtonStyle}
             >
-              ⚙️ Modifier le profil
+              <Icon name="settings" style={{ fontSize: "1.1rem" }} /> Modifier
+              le profil
             </button>
           )}
         </div>
@@ -205,7 +206,20 @@ export default function Profile() {
                 {user.firstName} {user.lastName}
               </h3>
               <span style={roleBadgeStyle(user.role)}>
-                {user.role === "Admin" ? "👑 Administrateur" : "👤 Utilisateur"}
+                {user.role === "Admin" ? (
+                  <>
+                    <Icon
+                      name="admin_panel_settings"
+                      style={{ fontSize: "1rem" }}
+                    />{" "}
+                    Administrateur
+                  </>
+                ) : (
+                  <>
+                    <Icon name="person" style={{ fontSize: "1rem" }} />{" "}
+                    Utilisateur
+                  </>
+                )}
               </span>
             </div>
           </div>
@@ -249,7 +263,7 @@ export default function Profile() {
               </span>
             </div>
 
-            {/* Ajout des options de notifications[cite: 5] */}
+            {/* Notification settings */}
             <div style={infoBlockStyle}>
               <span style={labelStyle}>Notifications standards</span>
               {isEditing ? (
@@ -277,7 +291,7 @@ export default function Profile() {
               )}
             </div>
 
-            {/* Affichage conditionnel pour les administrateurs[cite: 5] */}
+            {/* Admin notifications conditional view */}
             {user.role === "Admin" && (
               <div style={infoBlockStyle}>
                 <span style={labelStyle}>Alertes Administrateur</span>
@@ -316,7 +330,14 @@ export default function Profile() {
                 disabled={isSaving}
                 style={saveButtonStyle(isSaving)}
               >
-                {isSaving ? "Enregistrement..." : "💾 Enregistrer"}
+                {isSaving ? (
+                  "Enregistrement..."
+                ) : (
+                  <>
+                    <Icon name="save" style={{ fontSize: "1.1rem" }} />{" "}
+                    Enregistrer
+                  </>
+                )}
               </button>
               <button
                 onClick={handleCancelProfile}
@@ -510,7 +531,9 @@ const avatarLargeStyle: React.CSSProperties = {
 };
 
 const roleBadgeStyle = (role: string): React.CSSProperties => ({
-  display: "inline-block",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
   padding: "4px 10px",
   borderRadius: "20px",
   fontSize: "0.8rem",
@@ -597,7 +620,6 @@ const inputStyle: React.CSSProperties = {
   transition: "var(--theme-transition)",
 };
 
-// Style ajouté pour la case à cocher[cite: 5]
 const checkboxStyle: React.CSSProperties = {
   width: "18px",
   height: "18px",
@@ -617,6 +639,9 @@ const editToggleButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 const saveButtonStyle = (disabled: boolean): React.CSSProperties => ({
@@ -629,6 +654,10 @@ const saveButtonStyle = (disabled: boolean): React.CSSProperties => ({
   fontWeight: "600",
   cursor: disabled ? "not-allowed" : "pointer",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "6px",
 });
 
 const cancelButtonStyle: React.CSSProperties = {

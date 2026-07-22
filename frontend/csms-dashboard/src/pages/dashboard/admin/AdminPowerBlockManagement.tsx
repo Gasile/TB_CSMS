@@ -22,6 +22,7 @@ import {
   checkStationActiveStatus,
 } from "../../../api/powerBlockApi";
 import { useNavigate } from "react-router-dom";
+import { Icon } from "../../../components/ui/Icon";
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -83,7 +84,13 @@ function DraggableStation({ station }: { station: any }) {
           transition: "var(--theme-transition)",
         }}
       >
-        {isStationActive ? "⚡" : "🔌"}
+        <Icon
+          name="ev_station"
+          style={{
+            fontSize: "1.2rem",
+            color: isStationActive ? "var(--status-offline)" : "var(--primary)",
+          }}
+        />
       </div>
       <div
         style={{
@@ -457,7 +464,7 @@ export default function PowerBlockManagement() {
         <div style={headerStyle}>
           <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
             <button onClick={() => navigate(-1)} style={backButtonStyle}>
-              ← Retour
+              <Icon name="arrow_back" style={{ fontSize: "1.2rem" }} /> Retour
             </button>
             <div>
               <h1
@@ -488,10 +495,15 @@ export default function PowerBlockManagement() {
               onClick={() => setIsModalOpen(true)}
               style={addBlockButtonStyle}
             >
-              📦 + Créer un bloc
+              <Icon name="inventory_2" style={{ fontSize: "1.2rem" }} /> + Créer
+              un bloc
             </button>
             <button onClick={loadData} style={refreshButtonStyle}>
-              🔄 Rafraîchir
+              <Icon
+                name="cached"
+                style={{ fontSize: "1.2rem", color: "var(--status-available)" }}
+              />{" "}
+              Rafraîchir
             </button>
           </div>
         </div>
@@ -510,7 +522,20 @@ export default function PowerBlockManagement() {
                     width: "100%",
                   }}
                 >
-                  <h3 style={blockTitleStyle}>📦 {block.name}</h3>
+                  <h3
+                    style={{
+                      ...blockTitleStyle,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <Icon
+                      name="inventory_2"
+                      style={{ fontSize: "1.3rem", color: "var(--primary)" }}
+                    />{" "}
+                    {block.name}
+                  </h3>
                   <div style={{ display: "flex", gap: "4px" }}>
                     <button
                       onClick={() =>
@@ -525,7 +550,13 @@ export default function PowerBlockManagement() {
                       style={iconActionButtonStyle}
                       title="Modifier le bloc"
                     >
-                      ✏️
+                      <Icon
+                        name="edit"
+                        style={{
+                          fontSize: "1.1rem",
+                          color: "var(--text-main)",
+                        }}
+                      />
                     </button>
                     <button
                       onClick={() => handleDeleteBlock(block.id, block.name)}
@@ -535,7 +566,13 @@ export default function PowerBlockManagement() {
                       }}
                       title="Supprimer le bloc"
                     >
-                      🗑️
+                      <Icon
+                        name="delete"
+                        style={{
+                          fontSize: "1.1rem",
+                          color: "var(--status-offline)",
+                        }}
+                      />
                     </button>
                   </div>
                 </div>
@@ -567,8 +604,19 @@ export default function PowerBlockManagement() {
 
         {/* Unassigned Stations Pool Section */}
         <div style={unassignedSectionStyle}>
-          <h2 style={unassignedTitleStyle}>
-            📥 Bornes non assignées ({unassignedStations.length})
+          <h2
+            style={{
+              ...unassignedTitleStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <Icon
+              name="inbox"
+              style={{ fontSize: "1.4rem", color: "var(--primary)" }}
+            />{" "}
+            Bornes non assignées ({unassignedStations.length})
           </h2>
           <DroppableZone id="unassigned" style={unassignedDropZoneStyle}>
             {unassignedStations.length === 0 ? (
@@ -612,7 +660,10 @@ export default function PowerBlockManagement() {
                 justifyContent: "center",
               }}
             >
-              🔌
+              <Icon
+                name="ev_station"
+                style={{ fontSize: "1.2rem", color: "var(--primary)" }}
+              />
             </div>
             <div
               style={{
@@ -887,6 +938,9 @@ const refreshButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 const addBlockButtonStyle: React.CSSProperties = {
   background: "var(--primary)",
@@ -898,6 +952,9 @@ const addBlockButtonStyle: React.CSSProperties = {
   fontSize: "0.9rem",
   fontWeight: "600",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 const blocksGridStyle: React.CSSProperties = {
   display: "grid",
@@ -1042,6 +1099,9 @@ const backButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 const modalOverlayStyle: React.CSSProperties = {
   position: "fixed",

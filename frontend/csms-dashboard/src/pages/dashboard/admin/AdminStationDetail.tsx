@@ -8,6 +8,7 @@ import {
   fetchStationById,
   fetchStationTransactions,
 } from "../../../api/stationApi";
+import { Icon } from "../../../components/ui/Icon";
 
 // ============================================================================
 // CONFIGURATION CONSTANTS
@@ -127,15 +128,26 @@ export default function StationDetail() {
   );
 
   /**
-   * Appends matching arrow descriptors above the structured header elements.
+   * Appends matching arrow descriptors using Material Symbols.
    */
   const getSortIndicator = (key: string) => {
-    if (sortConfig.key !== key)
-      return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
+    if (sortConfig.key !== key) {
+      return (
+        <Icon
+          name="swap_vert"
+          style={{ opacity: 0.3, fontSize: "1rem", marginLeft: "4px" }}
+        />
+      );
+    }
     return (
-      <span style={{ marginLeft: "4px" }}>
-        {sortConfig.direction === "asc" ? "↑" : "↓"}
-      </span>
+      <Icon
+        name={
+          sortConfig.direction === "asc"
+            ? "arrow_upward_alt"
+            : "arrow_downward_alt"
+        }
+        style={{ fontSize: "1rem", marginLeft: "4px" }}
+      />
     );
   };
 
@@ -165,7 +177,7 @@ export default function StationDetail() {
             onClick={() => navigate("/admin-stations")}
             style={backButtonStyle}
           >
-            ← Retour
+            <Icon name="arrow_back" style={{ fontSize: "1.1rem" }} /> Retour
           </button>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -253,22 +265,30 @@ export default function StationDetail() {
                   style={sortableThStyle}
                   onClick={() => handleSort("startTime")}
                 >
-                  Date & Transaction {getSortIndicator("startTime")}
+                  <span style={thContentStyle}>
+                    Date & Transaction {getSortIndicator("startTime")}
+                  </span>
                 </th>
                 <th style={sortableThStyle} onClick={() => handleSort("User")}>
-                  Utilisateur {getSortIndicator("User")}
+                  <span style={thContentStyle}>
+                    Utilisateurs {getSortIndicator("User")}
+                  </span>
                 </th>
                 <th
                   style={sortableThStyle}
                   onClick={() => handleSort("status")}
                 >
-                  Statut {getSortIndicator("status")}
+                  <span style={thContentStyle}>
+                    Statut {getSortIndicator("status")}
+                  </span>
                 </th>
                 <th
                   style={sortableThStyle}
                   onClick={() => handleSort("totalKwh")}
                 >
-                  Énergie {getSortIndicator("totalKwh")}
+                  <span style={thContentStyle}>
+                    Énergie {getSortIndicator("totalKwh")}
+                  </span>
                 </th>
                 <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
               </tr>
@@ -335,7 +355,7 @@ export default function StationDetail() {
                               transition: "var(--theme-transition)",
                             }}
                           >
-                            Utilisateur inconnu
+                            Utilisateurs inconnu
                           </span>
                         )}
                       </td>
@@ -362,7 +382,11 @@ export default function StationDetail() {
                           onClick={() => navigate(`/session/${s.id}`)}
                           style={detailsButtonStyle}
                         >
-                          Détails ➔
+                          Détails{" "}
+                          <Icon
+                            name="arrow_forward"
+                            style={{ fontSize: "1rem" }}
+                          />
                         </button>
                       </td>
                     </tr>
@@ -433,6 +457,9 @@ const backButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 const onlineBadgeStyle = (isOnline: boolean): React.CSSProperties => ({
@@ -509,6 +536,11 @@ const thStyle: React.CSSProperties = {
   transition: "var(--theme-transition)",
 };
 
+const thContentStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+};
+
 const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
@@ -532,6 +564,9 @@ const detailsButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   cursor: "pointer",
   transition: "all 0.2s ease, var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 const paginationContainerStyle: React.CSSProperties = {

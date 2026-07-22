@@ -16,6 +16,7 @@ import {
   deleteUnknownBadge,
 } from "../../../api/adminApi";
 import { useNavigate } from "react-router-dom";
+import { Icon } from "../../../components/ui/Icon";
 
 // ============================================================================
 // CONFIGURATION CONSTANTS
@@ -332,12 +333,23 @@ export default function AdminBadges() {
    * Returns a directional matching arrow indicator reflecting active sorting setups.
    */
   const getSortIndicator = (key: string) => {
-    if (sortConfig.key !== key)
-      return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
+    if (sortConfig.key !== key) {
+      return (
+        <Icon
+          name="swap_vert"
+          style={{ opacity: 0.3, fontSize: "1rem", marginLeft: "4px" }}
+        />
+      );
+    }
     return (
-      <span style={{ marginLeft: "4px" }}>
-        {sortConfig.direction === "asc" ? "↑" : "↓"}
-      </span>
+      <Icon
+        name={
+          sortConfig.direction === "asc"
+            ? "arrow_upward_alt"
+            : "arrow_downward_alt"
+        }
+        style={{ fontSize: "1rem", marginLeft: "4px" }}
+      />
     );
   };
 
@@ -633,21 +645,27 @@ export default function AdminBadges() {
                         textAlign: "right",
                         display: "flex",
                         justifyContent: "flex-end",
-                        gap: "10px",
+                        gap: "010px",
                       }}
                     >
                       <button
                         onClick={() => openCreateFromUnknown(badge.id_token)}
                         style={createButtonStyle}
                       >
-                        ➕ Enregistrer
+                        + Enregistrer
                       </button>
                       <button
                         onClick={() => handleDeleteUnknownBadge(badge.id_token)}
                         style={deleteUnknownScanButtonStyle}
                         title="Supprimer ce scan"
                       >
-                        🗑️
+                        <Icon
+                          name="delete"
+                          style={{
+                            fontSize: "1.1rem",
+                            color: "var(--status-offline)",
+                          }}
+                        />
                       </button>
                     </td>
                   </tr>
@@ -933,7 +951,7 @@ const createButtonStyle: React.CSSProperties = {
   background: "var(--primary)",
   color: "#fff",
   border: "none",
-  padding: "8px 16px",
+  padding: "8px 16px 8px 12px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",

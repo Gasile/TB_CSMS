@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { fetchUserSessions } from "../../../api/userApi";
+import { Icon } from "../../../components/ui/Icon";
 
 // ============================================================================
 // CONFIGURATION CONSTANTS
@@ -103,12 +104,23 @@ export default function MySessions() {
    * Returns a dynamic indicator arrow mirroring column layout parameters.
    */
   const getSortIndicator = (key: string) => {
-    if (sortConfig.key !== key)
-      return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
+    if (sortConfig.key !== key) {
+      return (
+        <Icon
+          name="swap_vert"
+          style={{ opacity: 0.3, fontSize: "1rem", marginLeft: "4px" }}
+        />
+      );
+    }
     return (
-      <span style={{ marginLeft: "4px" }}>
-        {sortConfig.direction === "asc" ? "↑" : "↓"}
-      </span>
+      <Icon
+        name={
+          sortConfig.direction === "asc"
+            ? "arrow_upward_alt"
+            : "arrow_downward_alt"
+        }
+        style={{ fontSize: "1rem", marginLeft: "4px" }}
+      />
     );
   };
 

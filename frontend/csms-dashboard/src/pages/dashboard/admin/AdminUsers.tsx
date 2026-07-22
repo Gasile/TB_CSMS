@@ -10,6 +10,7 @@ import {
   updateUserDetails,
   deleteUser,
 } from "../../../api/adminApi";
+import { Icon } from "../../../components/ui/Icon";
 
 // ============================================================================
 // CONFIGURATION CONSTANTS
@@ -228,12 +229,23 @@ export default function AdminUsers() {
    * Returns column arrow status indicators matching the active layout constraints.
    */
   const getSortIndicator = (key: string) => {
-    if (sortConfig.key !== key)
-      return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
+    if (sortConfig.key !== key) {
+      return (
+        <Icon
+          name="swap_vert"
+          style={{ opacity: 0.3, fontSize: "1rem", marginLeft: "4px" }}
+        />
+      );
+    }
     return (
-      <span style={{ marginLeft: "4px" }}>
-        {sortConfig.direction === "asc" ? "↑" : "↓"}
-      </span>
+      <Icon
+        name={
+          sortConfig.direction === "asc"
+            ? "arrow_upward_alt"
+            : "arrow_downward_alt"
+        }
+        style={{ fontSize: "1rem", marginLeft: "4px" }}
+      />
     );
   };
 

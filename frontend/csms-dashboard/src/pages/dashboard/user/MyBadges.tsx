@@ -10,6 +10,7 @@ import {
   linkNewBadge,
   updateMyBadgeName,
 } from "../../../api/userApi";
+import { Icon } from "../../../components/ui/Icon";
 
 // ============================================================================
 // CONFIGURATION CONSTANTS
@@ -146,12 +147,23 @@ export default function MyBadges() {
    * Returns a dynamic indicator flag based on the column sorting configuration.
    */
   const getSortIndicator = (key: string) => {
-    if (sortConfig.key !== key)
-      return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
+    if (sortConfig.key !== key) {
+      return (
+        <Icon
+          name="swap_vert"
+          style={{ opacity: 0.3, fontSize: "1rem", marginLeft: "4px" }}
+        />
+      );
+    }
     return (
-      <span style={{ marginLeft: "4px" }}>
-        {sortConfig.direction === "asc" ? "↑" : "↓"}
-      </span>
+      <Icon
+        name={
+          sortConfig.direction === "asc"
+            ? "arrow_upward_alt"
+            : "arrow_downward_alt"
+        }
+        style={{ fontSize: "1rem", marginLeft: "4px" }}
+      />
     );
   };
 

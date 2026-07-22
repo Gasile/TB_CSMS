@@ -8,6 +8,7 @@ import {
   fetchAllStationsWithStatus,
   updateStationWeight,
 } from "../../../api/adminApi";
+import { Icon } from "../../../components/ui/Icon";
 
 // ============================================================================
 // MAIN COMPONENT
@@ -103,10 +104,18 @@ export default function AdminStations() {
             onClick={() => navigate("/admin-power-blocks")}
             style={manageBlocksButtonStyle}
           >
-            📦 Gérer les blocs de puissance
+            <Icon
+              name="charger"
+              style={{ fontSize: "1.4rem", color: "var(--primary)" }}
+            />{" "}
+            Gérer les blocs de puissance
           </button>
           <button onClick={loadStations} style={refreshButtonStyle}>
-            🔄 Rafraîchir
+            <Icon
+              name="cached"
+              style={{ fontSize: "1.4rem", color: "var(--status-available)" }}
+            />{" "}
+            Rafraîchir
           </button>
         </div>
       </div>
@@ -139,7 +148,16 @@ export default function AdminStations() {
             <div key={station.id} style={cardStyle}>
               {/* Asset Header Info Section */}
               <div style={cardHeaderStyle}>
-                <div style={iconContainerStyle}>🔌</div>
+                <div style={iconContainerStyle}>
+                  <Icon
+                    name="ev_station"
+                    style={{
+                      fontSize: "2.2rem",
+                      color: statusColor,
+                      transition: "var(--theme-transition)",
+                    }}
+                  />{" "}
+                </div>
                 <span
                   style={{
                     ...badgeStyle,
@@ -252,7 +270,7 @@ const headerStyle: React.CSSProperties = {
 const refreshButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
-  padding: "8px 16px",
+  padding: "8px 12px 8px 10px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",
@@ -363,7 +381,7 @@ const actionButtonStyle: React.CSSProperties = {
 const manageBlocksButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
-  padding: "8px 16px",
+  padding: "8px 12px 8px 10px",
   borderRadius: "8px",
   cursor: "pointer",
   fontSize: "0.9rem",

@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { resetPassword } from "../../api/authApi";
+import { Icon } from "../../components/ui/Icon";
 
 // ============================================================================
 // MAIN COMPONENT
@@ -58,7 +59,12 @@ export default function ResetPassword() {
       <div style={cardStyle}>
         {/* Header Block */}
         <div style={{ textAlign: "center", marginBottom: "30px" }}>
-          <span style={{ fontSize: "3rem" }}>🔑</span>
+          <span style={{ fontSize: "3rem" }}>
+            <Icon
+              name="key"
+              style={{ fontSize: "4rem", color: "var(--primary)" }}
+            />
+          </span>
           <h1
             style={{
               margin: "10px 0 5px 0",

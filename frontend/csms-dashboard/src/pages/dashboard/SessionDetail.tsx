@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import { fetchSessionDetailData } from "../../api/sessionApi";
 import { useAuth } from "../../context/AuthContext";
+import { Icon } from "../../components/ui/Icon";
 
 // ============================================================================
 // CONFIGURATION Constants
@@ -225,7 +226,7 @@ export default function SessionDetail() {
       <div style={headerCardStyle}>
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
           <button onClick={() => navigate(-1)} style={backButtonStyle}>
-            ← Retour
+            <Icon name="arrow_back" style={{ fontSize: "1.1rem" }} /> Retour
           </button>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -270,7 +271,8 @@ export default function SessionDetail() {
 
         {isAdmin && session.isActive && (
           <button onClick={handleForceStop} style={forceStopButtonStyle}>
-            🛑 Forcer l'arrêt
+            <Icon name="stop_circle" style={{ fontSize: "1.1rem" }} /> Forcer
+            l'arrêt
           </button>
         )}
       </div>
@@ -278,7 +280,10 @@ export default function SessionDetail() {
       {/* Warning Area for Parking Misuse */}
       {session.isActive && session.is_legal === false && (
         <div style={illegalAlertStyle}>
-          <span style={{ fontSize: "1.5rem", marginRight: "15px" }}>⚠️</span>
+          <Icon
+            name="warning"
+            style={{ fontSize: "1.8rem", marginRight: "15px" }}
+          />
           <div>
             <strong style={{ fontSize: "1.05rem" }}>
               Action requise : Session marquée comme illégale.
@@ -516,8 +521,8 @@ export default function SessionDetail() {
                         transition: "var(--theme-transition)",
                       }}
                     >
-                      <div style={{ fontSize: "2rem", marginBottom: "10px" }}>
-                        📭
+                      <div style={{ marginBottom: "10px" }}>
+                        <Icon name="inbox" style={{ fontSize: "2.5rem" }} />
                       </div>
                       <strong
                         style={{ color: "var(--text-main)", fontSize: "1rem" }}
@@ -651,6 +656,9 @@ const backButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 const forceStopButtonStyle: React.CSSProperties = {
@@ -663,6 +671,9 @@ const forceStopButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--status-offline)",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 const statusBadgeStyle = (status: string): React.CSSProperties => {

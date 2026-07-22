@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
+import { Icon } from "../ui/Icon";
 
 // ============================================================================
 // MAIN TOPBAR COMPONENT
@@ -47,7 +48,7 @@ export default function Topbar() {
     width: "24px",
     height: "24px",
     borderRadius: "50%",
-    background: "#ffffff",
+    background: "var(--bg-card)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -65,12 +66,6 @@ export default function Topbar() {
       "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease",
   });
 
-  const emojiStyle: React.CSSProperties = {
-    userSelect: "none",
-    transition: "transform 0.3s ease, opacity 0.2s ease",
-    opacity: 1,
-  };
-
   return (
     <header style={headerStyle}>
       {/* Brand & Platform Home Redirect Handler */}
@@ -87,7 +82,12 @@ export default function Topbar() {
         }}
         title="Se déconnecter et retourner au Login"
       >
-        <span style={{ fontSize: "1.5rem" }}>🔌</span>
+        <span style={{ fontSize: "1.5rem" }}>
+          <Icon
+            name="electrical_services"
+            style={{ fontSize: "2.2rem", color: "var(--primary)" }}
+          />
+        </span>
         <h2
           style={{
             margin: 0,
@@ -110,10 +110,17 @@ export default function Topbar() {
           }
         >
           <div style={getSwitchThumbStyle()}>
-            {" "}
-            <span style={{ fontSize: "14px", ...emojiStyle }}>
-              {theme === "light" ? "☀️" : "🌙"}
-            </span>
+            <Icon
+              name={theme === "light" ? "brightness_7" : "dark_mode"}
+              style={{
+                fontSize: "20px",
+                color: "var(--primary)",
+                lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            />
           </div>
         </div>
 
@@ -142,20 +149,26 @@ export default function Topbar() {
                 transform: isDropdownOpen ? "rotate(180deg)" : "rotate(0deg)",
               }}
             >
-              ↑
+              <Icon
+                name="arrow_upward_alt"
+                style={{ fontSize: "1.3rem", color: "var(--text-main)" }}
+              />
             </span>
           </div>
 
           {isDropdownOpen && (
             <div style={dropdownStyle}>
               <button
-                style={{ ...dropdownItemStyle, color: "var(--text-main)" }}
+                style={{
+                  ...dropdownItemStyle,
+                  color: "var(--text-main)",
+                }}
                 onClick={() => {
                   setIsDropdownOpen(false);
                   navigate("/profile");
                 }}
               >
-                👤 Mon Profil
+                <Icon name="person" style={{ fontSize: "1.2rem" }} /> Mon Profil
               </button>
               <div
                 style={{
@@ -166,10 +179,11 @@ export default function Topbar() {
                 }}
               />
               <button
-                style={{ ...dropdownItemStyle, color: "#dc2626" }}
+                style={{ ...dropdownItemStyle, color: "var(--status-offline)" }}
                 onClick={logout}
               >
-                🚪 Déconnexion
+                <Icon name="logout" style={{ fontSize: "1.2rem" }} />{" "}
+                Déconnexion
               </button>
             </div>
           )}
@@ -203,6 +217,8 @@ const profileZoneStyle: React.CSSProperties = {
   padding: "5px 10px",
   borderRadius: "8px",
   transition: "background 0.2s",
+  userSelect: "none",
+  WebkitUserSelect: "none",
 };
 
 const avatarStyle: React.CSSProperties = {
@@ -246,4 +262,7 @@ const dropdownItemStyle: React.CSSProperties = {
   borderRadius: "6px",
   fontWeight: "500",
   transition: "background 0.2s, color 0.3s",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };

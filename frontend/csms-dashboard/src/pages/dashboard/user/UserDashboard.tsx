@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { fetchUserDashboardData } from "../../../api/sessionApi";
+import { Icon } from "../../../components/ui/Icon";
 import {
   BarChart,
   Bar,
@@ -154,7 +155,7 @@ export default function UserDashboard() {
           </p>
         </div>
         <button onClick={loadDashboard} style={refreshButtonStyle}>
-          🔄 Rafraîchir
+          <Icon name="cached" style={{ fontSize: "1.1rem" }} /> Rafraîchir
         </button>
       </div>
 
@@ -176,8 +177,17 @@ export default function UserDashboard() {
               Statut de l'infrastructure
             </h3>
             <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-              <div style={{ fontSize: "3rem" }}>
-                {availableStations > 0 ? "🟢" : "🔴"}
+              <div>
+                <Icon
+                  name={availableStations > 0 ? "check_circle" : "cancel"}
+                  style={{
+                    fontSize: "2.5rem",
+                    color:
+                      availableStations > 0
+                        ? "var(--status-charging)"
+                        : "var(--status-offline)",
+                  }}
+                />
               </div>
               <div>
                 <div
@@ -292,6 +302,9 @@ export default function UserDashboard() {
                         style={{
                           margin: 0,
                           fontSize: "1.2rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
                           color:
                             tx.is_legal === false
                               ? "var(--status-offline)"
@@ -299,15 +312,30 @@ export default function UserDashboard() {
                           transition: "var(--theme-transition)",
                         }}
                       >
-                        {tx.is_legal === false
-                          ? "⚠️ Charge illégale"
-                          : "⚡ Charge en cours"}
+                        {tx.is_legal === false ? (
+                          <>
+                            <Icon
+                              name="warning"
+                              style={{ fontSize: "1.3rem" }}
+                            />{" "}
+                            Charge illégale
+                          </>
+                        ) : (
+                          <>
+                            <Icon name="bolt" style={{ fontSize: "1.3rem" }} />{" "}
+                            Charge en cours
+                          </>
+                        )}
                       </h2>
                       <button
                         onClick={() => navigate(`/session/${tx.id}`)}
                         style={detailsButtonStyle}
                       >
-                        Détails ➔
+                        Détails{" "}
+                        <Icon
+                          name="arrow_forward"
+                          style={{ fontSize: "1rem" }}
+                        />
                       </button>
                     </div>
 
@@ -373,7 +401,11 @@ export default function UserDashboard() {
                         onClick={() => navigate(`/session/${lastTx.id}`)}
                         style={detailsButtonStyle}
                       >
-                        Détails ➔
+                        Détails{" "}
+                        <Icon
+                          name="arrow_forward"
+                          style={{ fontSize: "1rem" }}
+                        />
                       </button>
                     </div>
 
@@ -584,6 +616,9 @@ const detailsButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   cursor: "pointer",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 const headerStyle: React.CSSProperties = {
@@ -604,4 +639,7 @@ const refreshButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
   transition: "all 0.2s ease, var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };

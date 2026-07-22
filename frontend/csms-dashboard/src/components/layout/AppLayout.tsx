@@ -6,6 +6,7 @@ import React from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
+import { Icon } from "../ui/Icon";
 
 // ============================================================================
 // MAIN LAYOUT COMPONENT

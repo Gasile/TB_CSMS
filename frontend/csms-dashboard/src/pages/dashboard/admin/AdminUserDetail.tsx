@@ -10,6 +10,7 @@ import {
   fetchUserSessions,
   linkNewBadge,
 } from "../../../api/userApi";
+import { Icon } from "../../../components/ui/Icon";
 
 // ============================================================================
 // CONFIGURATION CONSTANTS
@@ -147,15 +148,26 @@ export default function AdminUserDetail() {
   );
 
   /**
-   * Evaluates the active column sorting setup to render contextual state arrows.
+   * Evaluates the active column sorting setup to render contextual state Material Symbol icons.
    */
   const getSortIndicator = (key: string) => {
-    if (sortConfig.key !== key)
-      return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
+    if (sortConfig.key !== key) {
+      return (
+        <Icon
+          name="swap_vert"
+          style={{ opacity: 0.3, fontSize: "1rem", marginLeft: "4px" }}
+        />
+      );
+    }
     return (
-      <span style={{ marginLeft: "4px" }}>
-        {sortConfig.direction === "asc" ? "↑" : "↓"}
-      </span>
+      <Icon
+        name={
+          sortConfig.direction === "asc"
+            ? "arrow_upward_alt"
+            : "arrow_downward_alt"
+        }
+        style={{ fontSize: "1rem", marginLeft: "4px" }}
+      />
     );
   };
 
@@ -184,7 +196,7 @@ export default function AdminUserDetail() {
             onClick={() => navigate("/admin-users")}
             style={backButtonStyle}
           >
-            ← Retour
+            <Icon name="arrow_back" style={{ fontSize: "1.1rem" }} /> Retour
           </button>
           <div>
             <h1
@@ -247,25 +259,33 @@ export default function AdminUserDetail() {
                     style={sortableThStyle}
                     onClick={() => handleSort("startTime")}
                   >
-                    Date & Transaction {getSortIndicator("startTime")}
+                    <span style={thContentStyle}>
+                      Date & Transaction {getSortIndicator("startTime")}
+                    </span>
                   </th>
                   <th
                     style={sortableThStyle}
                     onClick={() => handleSort("ocppConnectionName")}
                   >
-                    Borne {getSortIndicator("ocppConnectionName")}
+                    <span style={thContentStyle}>
+                      Borne {getSortIndicator("ocppConnectionName")}
+                    </span>
                   </th>
                   <th
                     style={sortableThStyle}
                     onClick={() => handleSort("status")}
                   >
-                    Statut {getSortIndicator("status")}
+                    <span style={thContentStyle}>
+                      Statut {getSortIndicator("status")}
+                    </span>
                   </th>
                   <th
                     style={sortableThStyle}
                     onClick={() => handleSort("totalKwh")}
                   >
-                    Énergie {getSortIndicator("totalKwh")}
+                    <span style={thContentStyle}>
+                      Énergie {getSortIndicator("totalKwh")}
+                    </span>
                   </th>
                   <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
                 </tr>
@@ -347,7 +367,11 @@ export default function AdminUserDetail() {
                             onClick={() => navigate(`/session/${s.id}`)}
                             style={detailsButtonStyle}
                           >
-                            Détails ➔
+                            Détails{" "}
+                            <Icon
+                              name="arrow_forward"
+                              style={{ fontSize: "1rem" }}
+                            />
                           </button>
                         </td>
                       </tr>
@@ -396,7 +420,8 @@ export default function AdminUserDetail() {
           >
             <h2 style={sectionTitleStyle}>Badges assignés ({badges.length})</h2>
             <button onClick={() => setIsModalOpen(true)} style={addButtonStyle}>
-              + Assigner un badge
+              <Icon name="add" style={{ fontSize: "1.1rem" }} /> Assigner un
+              badge
             </button>
           </div>
 
@@ -556,6 +581,9 @@ const backButtonStyle: React.CSSProperties = {
   fontWeight: "600",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 const roleBadgeStyle = (role: string): React.CSSProperties => {
@@ -637,6 +665,9 @@ const addButtonStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   fontWeight: "600",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 const deleteButtonStyle: React.CSSProperties = {
@@ -658,6 +689,11 @@ const thStyle: React.CSSProperties = {
   color: "var(--text-muted)",
   textTransform: "uppercase",
   transition: "var(--theme-transition)",
+};
+
+const thContentStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
 };
 
 const tdStyle: React.CSSProperties = {
@@ -747,6 +783,9 @@ const detailsButtonStyle: React.CSSProperties = {
   color: "var(--text-main)",
   cursor: "pointer",
   transition: "all 0.2s ease, var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "6px",
 };
 
 const sortableThStyle: React.CSSProperties = {

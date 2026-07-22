@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { Icon } from "../ui/Icon";
 
 // ============================================================================
 // MAIN SIDEBAR COMPONENT
@@ -25,17 +26,17 @@ export default function Sidebar() {
 
   // Admin exclusive navigation entries
   const adminItems = [
-    { name: "Supervision", path: "/admin-dashboard", icon: "📊" },
-    { name: "Bornes de recharge", path: "/admin-stations", icon: "🔌" },
-    { name: "Gestion des badges", path: "/admin-badges", icon: "💳" },
-    { name: "Utilisateurs", path: "/admin-users", icon: "👥" },
+    { name: "Supervision", path: "/admin-dashboard", icon: "monitoring" },
+    { name: "Bornes de recharge", path: "/admin-stations", icon: "ev_station" },
+    { name: "Gestion des badges", path: "/admin-badges", icon: "credit_card" },
+    { name: "Utilisateurs", path: "/admin-users", icon: "group" },
   ];
 
   // Common user navigation entries
   const userItems = [
-    { name: "Vue d'ensemble", path: "/user-dashboard", icon: "📊" },
-    { name: "Mes Sessions", path: "/my-sessions", icon: "🔋" },
-    { name: "Mes Badges", path: "/my-badges", icon: "🏷️" },
+    { name: "Vue d'ensemble", path: "/user-dashboard", icon: "dashboard" },
+    { name: "Mes Sessions", path: "/my-sessions", icon: "electric_car" },
+    { name: "Mes Badges", path: "/my-badges", icon: "badge" },
   ];
 
   // Sync active tab state with changes in current window location path
@@ -90,7 +91,9 @@ export default function Sidebar() {
                   to={item.path}
                   style={linkStyle(isActive)}
                 >
-                  <span style={iconStyle}>{item.icon}</span>
+                  <span style={iconContainerStyle}>
+                    <Icon name={item.icon} style={iconStyle(isActive)} />
+                  </span>
                   <span style={textStyle(isActive)}>{item.name}</span>
                 </Link>
               );
@@ -107,7 +110,9 @@ export default function Sidebar() {
             const isActive = activeTab === item.path;
             return (
               <Link key={item.name} to={item.path} style={linkStyle(isActive)}>
-                <span style={iconStyle}>{item.icon}</span>
+                <span style={iconContainerStyle}>
+                  <Icon name={item.icon} style={iconStyle(isActive)} />
+                </span>
                 <span style={textStyle(isActive)}>{item.name}</span>
               </Link>
             );
@@ -119,7 +124,16 @@ export default function Sidebar() {
       <div style={bottomStyle}>
         <div style={separatorStyle} />
         <button onClick={handleLogout} style={logoutButtonStyle}>
-          <span style={iconStyle}>🚪</span>
+          <span style={iconContainerStyle}>
+            <Icon
+              name="logout"
+              style={{
+                fontSize: "1.4rem",
+                color: "var(--status-offline)",
+                transition: "var(--theme-transition)",
+              }}
+            />
+          </span>
           <span style={logoutTextStyle}>Se déconnecter</span>
         </button>
       </div>
@@ -177,12 +191,19 @@ const linkStyle = (isActive: boolean): React.CSSProperties => ({
   transition: "background 0.2s, var(--theme-transition)",
 });
 
-const iconStyle: React.CSSProperties = {
-  fontSize: "1.2rem",
+const iconContainerStyle: React.CSSProperties = {
   width: "35px",
-  textAlign: "center",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   flexShrink: 0,
 };
+
+const iconStyle = (isActive: boolean): React.CSSProperties => ({
+  fontSize: "1.4rem",
+  color: isActive ? "var(--primary)" : "var(--text-muted)",
+  transition: "var(--theme-transition)",
+});
 
 const textStyle = (isActive: boolean): React.CSSProperties => ({
   fontWeight: isActive ? "600" : "500",

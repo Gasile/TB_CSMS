@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { loginUser } from "../../api/authApi";
+import { Icon } from "../../components/ui/Icon";
 
 // ============================================================================
 // MAIN COMPONENT
@@ -73,7 +74,10 @@ export default function LoginForm({
         <form onSubmit={handleFormSubmit} style={cardStyle}>
           {/* Header Identity Block */}
           <div style={{ textAlign: "center", marginBottom: "30px" }}>
-            <span style={{ fontSize: "3rem" }}>🔌</span>
+            <Icon
+              name="Electrical_Services"
+              style={{ fontSize: "4rem", color: "var(--primary)" }}
+            />
             <h1
               style={{
                 margin: "10px 0 5px 0",
@@ -192,14 +196,14 @@ export default function LoginForm({
                 onClick={() => handleQuickLogin("Admin")}
                 style={devButtonStyle}
               >
-                👑 Admin
+                <Icon name="crown" style={{ fontSize: "1.2rem" }} /> Admin
               </button>
               <button
                 type="button"
                 onClick={() => handleQuickLogin("User")}
                 style={devButtonStyle}
               >
-                👤 User
+                <Icon name="pets" style={{ fontSize: "1.2rem" }} /> User
               </button>
             </div>
           </div>
@@ -308,4 +312,8 @@ const devButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   fontWeight: "600",
   transition: "var(--theme-transition)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "6px",
 };

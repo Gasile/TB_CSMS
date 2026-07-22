@@ -17,6 +17,7 @@ import {
   fetchAdminOverviewData,
   fetchAdminTelemetry,
 } from "../../../api/adminApi";
+import { Icon } from "../../../components/ui/Icon";
 
 // ============================================================================
 // MAIN COMPONENT
@@ -293,7 +294,11 @@ export default function AdminOverview() {
           Vue d'ensemble du réseau
         </h1>
         <button onClick={loadDashboardData} style={refreshButtonStyle}>
-          🔄 Rafraîchir
+          <Icon
+            name="cached"
+            style={{ fontSize: "1.4rem", color: "var(--status-available)" }}
+          />{" "}
+          Rafraîchir
         </button>
       </div>
 
@@ -334,25 +339,40 @@ export default function AdminOverview() {
               style={{
                 color: "var(--status-charging)",
                 transition: "var(--theme-transition)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
               }}
             >
-              🟢 {chargingStations} Actif
+              <Icon name="pending" style={{ fontSize: "1.2rem" }} />{" "}
+              {chargingStations} Actif
             </span>
             <span
               style={{
                 color: "var(--status-available)",
                 transition: "var(--theme-transition)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
               }}
             >
-              🔵 {availableStations} Dispo
+              <Icon name="check_circle" style={{ fontSize: "1.2rem" }} />{" "}
+              {availableStations} Disponible
             </span>
             <span
               style={{
                 color: "var(--status-offline)",
                 transition: "var(--theme-transition)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
               }}
             >
-              🔴 {offlineStations} Offline
+              <Icon name="cancel" style={{ fontSize: "1.2rem" }} />{" "}
+              {offlineStations} Hors ligne
             </span>
           </div>
         </div>
@@ -525,9 +545,17 @@ export default function AdminOverview() {
             fontSize: "1.1rem",
             color: "var(--text-main)",
             transition: "var(--theme-transition)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
           }}
         >
-          ⚡ Sessions actives en temps réel
+          <Icon
+            name="bolt_boost"
+            style={{ fontSize: "1.4rem", color: "var(--primary)" }}
+          />{" "}
+          Sessions actives en temps réel
         </h2>
 
         {activeSessions.length === 0 ? (
@@ -672,13 +700,16 @@ const containerStyle: React.CSSProperties = {
 const refreshButtonStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
-  padding: "6px 12px",
+  padding: "6px 10px",
   borderRadius: "6px",
   cursor: "pointer",
   fontSize: "0.85rem",
   fontWeight: "600",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
+  gap: "6px",
+  display: "inline-flex",
+  alignItems: "center",
 };
 
 const kpiGridStyle: React.CSSProperties = {

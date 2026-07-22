@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
+
 /* ============================================================================
  * GLOBAL RESET & BASE STYLES
  * ============================================================================ */
@@ -107,4 +109,16 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--text-muted);
+}
+
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.no-select:focus,
+.no-select:focus-visible {
+  outline: none;
 }
