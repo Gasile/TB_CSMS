@@ -12,6 +12,12 @@ import {
 } from "../../../api/adminApi";
 
 // ============================================================================
+// CONFIGURATION CONSTANTS
+// ============================================================================
+
+const USERS_PER_PAGE = 10;
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -33,7 +39,10 @@ export default function AdminUsers() {
     direction: "asc",
   });
 
-  // Modal and form states avec les nouvelles clés[cite: 4]
+  // --- PAGINATION STATE ---
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Modal and form states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
@@ -57,6 +66,7 @@ export default function AdminUsers() {
     try {
       const usersList = await fetchAllUsers();
       setUsers(usersList || []);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Erreur de chargement des utilisateurs:", error);
     } finally {
@@ -97,6 +107,13 @@ export default function AdminUsers() {
     }
   });
 
+  // --- PAGINATION GRID LIMIT CALCULATIONS ---
+  const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * USERS_PER_PAGE,
+    currentPage * USERS_PER_PAGE,
+  );
+
   /**
    * Toggles the table configuration sort target keys and flips ordering directions.
    */
@@ -108,6 +125,17 @@ export default function AdminUsers() {
           ? "desc"
           : "asc",
     });
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleRoleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setRoleFilter(e.target.value);
+    setCurrentPage(1);
   };
 
   const openCreateModal = () => {
@@ -146,7 +174,6 @@ export default function AdminUsers() {
     setIsLoading(true);
     try {
       if (editingUser) {
-        // Ajout des deux nouveaux paramètres[cite: 4]
         await updateUserDetails(
           editingUser.id,
           formData.first_name,
@@ -254,12 +281,12 @@ export default function AdminUsers() {
           type="text"
           placeholder="Rechercher un nom, email..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={handleSearchChange}
           style={searchInputStyle}
         />
         <select
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
+          onChange={handleRoleFilterChange}
           style={selectFilterStyle}
         >
           <option value="All">Tous les rôles</option>
@@ -270,74 +297,114 @@ export default function AdminUsers() {
 
       {/* Main Directory Table Workspace */}
       <div style={tableCardStyle}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            textAlign: "left",
-          }}
-        >
-          <thead>
-            <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
-              <th
-                style={sortableThStyle}
-                onClick={() => handleSort("last_name")}
-              >
-                Nom complet {getSortIndicator("last_name")}
-              </th>
-              <th style={sortableThStyle} onClick={() => handleSort("email")}>
-                Email {getSortIndicator("email")}
-              </th>
-              <th style={sortableThStyle} onClick={() => handleSort("role")}>
-                Rôle {getSortIndicator("role")}
-              </th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.map((user: any) => (
-              <tr
-                key={user.id}
-                style={{
-                  borderBottom: "1px solid var(--border-color)",
-                  transition: "var(--theme-transition)",
-                }}
-              >
-                <td style={tdStyle}>
-                  <strong>
-                    {user.first_name} {user.last_name}
-                  </strong>
-                </td>
-                <td style={tdStyle}>{user.email}</td>
-                <td style={tdStyle}>
-                  <span style={roleBadgeStyle(user.role)}>{user.role}</span>
-                </td>
-                <td style={{ ...tdStyle, textAlign: "right" }}>
-                  <div
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              textAlign: "left",
+            }}
+          >
+            <thead>
+              <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
+                <th
+                  style={sortableThStyle}
+                  onClick={() => handleSort("last_name")}
+                >
+                  Nom complet {getSortIndicator("last_name")}
+                </th>
+                <th style={sortableThStyle} onClick={() => handleSort("email")}>
+                  Email {getSortIndicator("email")}
+                </th>
+                <th style={sortableThStyle} onClick={() => handleSort("role")}>
+                  Rôle {getSortIndicator("role")}
+                </th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedUsers.map((user: any) => (
+                <tr
+                  key={user.id}
+                  style={{
+                    borderBottom: "1px solid var(--border-color)",
+                    transition: "var(--theme-transition)",
+                  }}
+                >
+                  <td style={tdStyle}>
+                    <strong>
+                      {user.first_name} {user.last_name}
+                    </strong>
+                  </td>
+                  <td style={tdStyle}>{user.email}</td>
+                  <td style={tdStyle}>
+                    <span style={roleBadgeStyle(user.role)}>{user.role}</span>
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: "10px",
+                      }}
+                    >
+                      <button
+                        onClick={() => openEditModal(user)}
+                        style={editButtonStyle}
+                      >
+                        Éditer
+                      </button>
+                      <button
+                        onClick={() => navigate(`/users/${user.id}`)}
+                        style={detailsButtonStyle}
+                      >
+                        Détails ➔
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredUsers.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={4}
                     style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      gap: "10px",
+                      textAlign: "center",
+                      padding: "30px 20px",
+                      color: "var(--text-muted)",
+                      transition: "var(--theme-transition)",
                     }}
                   >
-                    <button
-                      onClick={() => openEditModal(user)}
-                      style={editButtonStyle}
-                    >
-                      Éditer
-                    </button>
-                    <button
-                      onClick={() => navigate(`/users/${user.id}`)}
-                      style={detailsButtonStyle}
-                    >
-                      Détails ➔
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    Aucun utilisateur trouvé.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* --- PAGINATION CONTROL HOUSINGS --- */}
+        {totalPages > 1 && (
+          <div style={paginationContainerStyle}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              style={paginationButtonStyle(currentPage === 1)}
+            >
+              Précédent
+            </button>
+            <span style={paginationTextStyle}>
+              Page {currentPage} sur {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              style={paginationButtonStyle(currentPage === totalPages)}
+            >
+              Suivant
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Creation and Account Management Overlay Modal */}
@@ -414,7 +481,6 @@ export default function AdminUsers() {
                   style={inputStyle}
                   value={formData.role}
                   onChange={(e) =>
-                    // Si on passe de Admin à User, on désactive les alertes admin pour éviter une incohérence[cite: 4]
                     setFormData({
                       ...formData,
                       role: e.target.value,
@@ -430,7 +496,7 @@ export default function AdminUsers() {
                 </select>
               </div>
 
-              {/* Paramètres de notifications[cite: 4] */}
+              {/* Notification Settings */}
               <div
                 style={{
                   borderTop: "1px solid var(--border-color)",
@@ -585,15 +651,13 @@ const selectFilterStyle: React.CSSProperties = {
 const tableCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
-  padding: "25px",
   borderRadius: "12px",
   boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
-  overflowX: "auto",
   transition: "var(--theme-transition)",
 };
 
 const thStyle: React.CSSProperties = {
-  padding: "12px 10px",
+  padding: "20px 20px",
   fontSize: "0.85rem",
   fontWeight: "600",
   color: "var(--text-muted)",
@@ -604,7 +668,7 @@ const thStyle: React.CSSProperties = {
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "15px 10px",
+  padding: "15px 20px",
   fontSize: "0.95rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
@@ -741,4 +805,36 @@ const sortableThStyle: React.CSSProperties = {
   ...thStyle,
   cursor: "pointer",
   userSelect: "none",
+};
+
+const paginationContainerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "15px 20px",
+  borderTop: "1px solid var(--border-color)",
+  background: "var(--bg-app)",
+  borderBottomLeftRadius: "12px",
+  borderBottomRightRadius: "12px",
+  transition: "var(--theme-transition)",
+};
+
+const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
+  padding: "6px 12px",
+  borderRadius: "6px",
+  border: "1px solid var(--border-color)",
+  background: disabled ? "transparent" : "var(--bg-card)",
+  color: disabled ? "var(--text-muted)" : "var(--text-main)",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontSize: "0.85rem",
+  fontWeight: "600",
+  transition: "var(--theme-transition)",
+  opacity: disabled ? 0.5 : 1,
+});
+
+const paginationTextStyle: React.CSSProperties = {
+  fontSize: "0.85rem",
+  color: "var(--text-muted)",
+  fontWeight: "500",
+  transition: "var(--theme-transition)",
 };

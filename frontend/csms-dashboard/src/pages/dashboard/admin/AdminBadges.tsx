@@ -1,5 +1,5 @@
 // ============================================================================
-// IMPPORTS
+// IMPORTS
 // ============================================================================
 
 import React, { useEffect, useState } from "react";
@@ -16,6 +16,12 @@ import {
   deleteUnknownBadge,
 } from "../../../api/adminApi";
 import { useNavigate } from "react-router-dom";
+
+// ============================================================================
+// CONFIGURATION CONSTANTS
+// ============================================================================
+
+const ITEMS_PER_PAGE = 10;
 
 // ============================================================================
 // MAIN COMPONENT
@@ -57,6 +63,10 @@ export default function AdminBadges() {
   const [activeTab, setActiveTab] = useState<"known" | "unknown">("known");
   const [unknownBadges, setUnknownBadges] = useState<any[]>([]);
 
+  // --- PAGINATION STATES ---
+  const [currentPageKnown, setCurrentPageKnown] = useState(1);
+  const [currentPageUnknown, setCurrentPageUnknown] = useState(1);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -73,6 +83,8 @@ export default function AdminBadges() {
       ]);
       setData(resKnown);
       setUnknownBadges(resUnknown || []);
+      setCurrentPageKnown(1);
+      setCurrentPageUnknown(1);
     } catch (error) {
       console.error("Erreur de chargement des badges:", error);
     } finally {
@@ -123,6 +135,20 @@ export default function AdminBadges() {
     return 0;
   });
 
+  // --- PAGINATION COMPUTATIONS FOR KNOWN BADGES ---
+  const totalPagesKnown = Math.ceil(filteredBadges.length / ITEMS_PER_PAGE);
+  const paginatedKnownBadges = filteredBadges.slice(
+    (currentPageKnown - 1) * ITEMS_PER_PAGE,
+    currentPageKnown * ITEMS_PER_PAGE,
+  );
+
+  // --- PAGINATION COMPUTATIONS FOR UNKNOWN BADGES ---
+  const totalPagesUnknown = Math.ceil(unknownBadges.length / ITEMS_PER_PAGE);
+  const paginatedUnknownBadges = unknownBadges.slice(
+    (currentPageUnknown - 1) * ITEMS_PER_PAGE,
+    currentPageUnknown * ITEMS_PER_PAGE,
+  );
+
   /**
    * Updates sort targets and arrangement directions across table header triggers.
    */
@@ -134,6 +160,20 @@ export default function AdminBadges() {
           ? "desc"
           : "asc",
     });
+    setCurrentPageKnown(1);
+  };
+
+  // Reset pagination state on tab or search/filter changes
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPageKnown(1);
+  };
+
+  const handleStatusFilterChange = (
+    e: React.ChangeEvent<HTMLSelectElement>,
+  ) => {
+    setStatusFilter(e.target.value);
+    setCurrentPageKnown(1);
   };
 
   // --- 3. INTERACTION HANDLERS ---
@@ -363,12 +403,12 @@ export default function AdminBadges() {
               type="text"
               placeholder="Rechercher par nom, token ou propriétaire..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
               style={searchInputStyle}
             />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={handleStatusFilterChange}
               style={selectFilterStyle}
             >
               <option value="All">Tous les statuts</option>
@@ -378,6 +418,159 @@ export default function AdminBadges() {
           </div>
 
           <div style={tableCardStyle}>
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  textAlign: "left",
+                }}
+              >
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
+                    <th
+                      style={sortableThStyle}
+                      onClick={() => handleSort("badge_name")}
+                    >
+                      Nom {getSortIndicator("badge_name")}
+                    </th>
+                    <th
+                      style={sortableThStyle}
+                      onClick={() => handleSort("idToken")}
+                    >
+                      Token {getSortIndicator("idToken")}
+                    </th>
+                    <th
+                      style={sortableThStyle}
+                      onClick={() => handleSort("ownerName")}
+                    >
+                      Propriétaire {getSortIndicator("ownerName")}
+                    </th>
+                    <th
+                      style={sortableThStyle}
+                      onClick={() => handleSort("status")}
+                    >
+                      Statut {getSortIndicator("status")}
+                    </th>
+                    <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedKnownBadges.map((badge: any) => (
+                    <tr
+                      key={badge.id}
+                      style={{
+                        borderBottom: "1px solid var(--border-color)",
+                        transition: "var(--theme-transition)",
+                      }}
+                    >
+                      <td style={tdStyle}>
+                        <strong>{badge.badge_name}</strong>
+                      </td>
+                      <td style={tdStyle}>
+                        <span
+                          style={{
+                            fontFamily: "monospace",
+                            color: "var(--text-muted)",
+                            transition: "var(--theme-transition)",
+                          }}
+                        >
+                          {badge.idToken}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>{badge.ownerName}</td>
+                      <td style={tdStyle}>
+                        <span style={statusBadgeStyle(badge.status)}>
+                          {badge.status}
+                        </span>
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          textAlign: "right",
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          gap: "10px",
+                        }}
+                      >
+                        <button
+                          onClick={() => handleToggleStatus(badge)}
+                          style={
+                            badge.status === "Accepted"
+                              ? blockButtonStyle
+                              : activateButtonStyle
+                          }
+                        >
+                          {badge.status === "Accepted" ? "Bloquer" : "Activer"}
+                        </button>
+                        <button
+                          onClick={() => openEditModal(badge)}
+                          style={editButtonStyle}
+                        >
+                          Éditer
+                        </button>
+                        <button
+                          onClick={() => navigate(`/admin-badges/${badge.id}`)}
+                          style={detailsButtonStyle}
+                        >
+                          Sessions ➔
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredBadges.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        style={{
+                          textAlign: "center",
+                          padding: "30px",
+                          color: "var(--text-muted)",
+                          transition: "var(--theme-transition)",
+                        }}
+                      >
+                        Aucun badge ne correspond à votre recherche.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* --- PAGINATION CONTROL HOUSINGS FOR KNOWN BADGES --- */}
+            {totalPagesKnown > 1 && (
+              <div style={paginationContainerStyle}>
+                <button
+                  onClick={() => setCurrentPageKnown((p) => Math.max(1, p - 1))}
+                  disabled={currentPageKnown === 1}
+                  style={paginationButtonStyle(currentPageKnown === 1)}
+                >
+                  Précédent
+                </button>
+                <span style={paginationTextStyle}>
+                  Page {currentPageKnown} sur {totalPagesKnown}
+                </span>
+                <button
+                  onClick={() =>
+                    setCurrentPageKnown((p) => Math.min(totalPagesKnown, p + 1))
+                  }
+                  disabled={currentPageKnown === totalPagesKnown}
+                  style={paginationButtonStyle(
+                    currentPageKnown === totalPagesKnown,
+                  )}
+                >
+                  Suivant
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* --- UNREGISTERED ANONYMOUS SCANS PANEL VIEW --- */}
+      {activeTab === "unknown" && (
+        <div style={tableCardStyle}>
+          <div style={{ overflowX: "auto" }}>
             <table
               style={{
                 width: "100%",
@@ -387,60 +580,51 @@ export default function AdminBadges() {
             >
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
-                  <th
-                    style={sortableThStyle}
-                    onClick={() => handleSort("badge_name")}
-                  >
-                    Nom {getSortIndicator("badge_name")}
-                  </th>
-                  <th
-                    style={sortableThStyle}
-                    onClick={() => handleSort("idToken")}
-                  >
-                    Token {getSortIndicator("idToken")}
-                  </th>
-                  <th
-                    style={sortableThStyle}
-                    onClick={() => handleSort("ownerName")}
-                  >
-                    Propriétaire {getSortIndicator("ownerName")}
-                  </th>
-                  <th
-                    style={sortableThStyle}
-                    onClick={() => handleSort("status")}
-                  >
-                    Statut {getSortIndicator("status")}
+                  <th style={thStyle}>Token Scanné</th>
+                  <th style={thStyle}>Dernière vue</th>
+                  <th style={thStyle}>Borne</th>
+                  <th style={{ ...thStyle, textAlign: "center" }}>
+                    Tentatives
                   </th>
                   <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredBadges.map((badge: any) => (
+                {paginatedUnknownBadges.map((badge: any) => (
                   <tr
-                    key={badge.id}
+                    key={badge.id_token}
                     style={{
                       borderBottom: "1px solid var(--border-color)",
                       transition: "var(--theme-transition)",
                     }}
                   >
                     <td style={tdStyle}>
-                      <strong>{badge.badge_name}</strong>
-                    </td>
-                    <td style={tdStyle}>
                       <span
                         style={{
                           fontFamily: "monospace",
-                          color: "var(--text-muted)",
+                          color: "var(--text-main)",
+                          fontWeight: "bold",
                           transition: "var(--theme-transition)",
                         }}
                       >
-                        {badge.idToken}
+                        {badge.id_token}
                       </span>
                     </td>
-                    <td style={tdStyle}>{badge.ownerName}</td>
                     <td style={tdStyle}>
-                      <span style={statusBadgeStyle(badge.status)}>
-                        {badge.status}
+                      {new Date(badge.last_seen).toLocaleString()}
+                    </td>
+                    <td style={tdStyle}>{badge.station_id}</td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>
+                      <span
+                        style={{
+                          background: "var(--bg-app)",
+                          padding: "4px 8px",
+                          borderRadius: "12px",
+                          fontSize: "0.85rem",
+                          transition: "var(--theme-transition)",
+                        }}
+                      >
+                        {badge.attempt_count}
                       </span>
                     </td>
                     <td
@@ -453,31 +637,22 @@ export default function AdminBadges() {
                       }}
                     >
                       <button
-                        onClick={() => handleToggleStatus(badge)}
-                        style={
-                          badge.status === "Accepted"
-                            ? blockButtonStyle
-                            : activateButtonStyle
-                        }
+                        onClick={() => openCreateFromUnknown(badge.id_token)}
+                        style={createButtonStyle}
                       >
-                        {badge.status === "Accepted" ? "Bloquer" : "Activer"}
+                        ➕ Enregistrer
                       </button>
                       <button
-                        onClick={() => openEditModal(badge)}
-                        style={editButtonStyle}
+                        onClick={() => handleDeleteUnknownBadge(badge.id_token)}
+                        style={deleteUnknownScanButtonStyle}
+                        title="Supprimer ce scan"
                       >
-                        Éditer
-                      </button>
-                      <button
-                        onClick={() => navigate(`/admin-badges/${badge.id}`)}
-                        style={detailsButtonStyle}
-                      >
-                        Sessions ➔
+                        🗑️
                       </button>
                     </td>
                   </tr>
                 ))}
-                {filteredBadges.length === 0 && (
+                {unknownBadges.length === 0 && (
                   <tr>
                     <td
                       colSpan={5}
@@ -488,115 +663,42 @@ export default function AdminBadges() {
                         transition: "var(--theme-transition)",
                       }}
                     >
-                      Aucun badge ne correspond à votre recherche.
+                      Aucun scan inconnu. Votre flotte est sécurisée !
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </>
-      )}
 
-      {/* --- UNREGISTERED ANONYMOUS SCANS PANEL VIEW --- */}
-      {activeTab === "unknown" && (
-        <div style={tableCardStyle}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              textAlign: "left",
-            }}
-          >
-            <thead>
-              <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
-                <th style={thStyle}>Token Scanné</th>
-                <th style={thStyle}>Dernière vue</th>
-                <th style={thStyle}>Borne</th>
-                <th style={{ ...thStyle, textAlign: "center" }}>Tentatives</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {unknownBadges.map((badge: any) => (
-                <tr
-                  key={badge.id_token}
-                  style={{
-                    borderBottom: "1px solid var(--border-color)",
-                    transition: "var(--theme-transition)",
-                  }}
-                >
-                  <td style={tdStyle}>
-                    <span
-                      style={{
-                        fontFamily: "monospace",
-                        color: "var(--text-main)",
-                        fontWeight: "bold",
-                        transition: "var(--theme-transition)",
-                      }}
-                    >
-                      {badge.id_token}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    {new Date(badge.last_seen).toLocaleString()}
-                  </td>
-                  <td style={tdStyle}>{badge.station_id}</td>
-                  <td style={{ ...tdStyle, textAlign: "center" }}>
-                    <span
-                      style={{
-                        background: "var(--bg-app)",
-                        padding: "4px 8px",
-                        borderRadius: "12px",
-                        fontSize: "0.85rem",
-                        transition: "var(--theme-transition)",
-                      }}
-                    >
-                      {badge.attempt_count}
-                    </span>
-                  </td>
-                  <td
-                    style={{
-                      ...tdStyle,
-                      textAlign: "right",
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      gap: "10px",
-                    }}
-                  >
-                    <button
-                      onClick={() => openCreateFromUnknown(badge.id_token)}
-                      style={createButtonStyle}
-                    >
-                      ➕ Enregistrer
-                    </button>
-                    <button
-                      onClick={() => handleDeleteUnknownBadge(badge.id_token)}
-                      style={deleteUnknownScanButtonStyle}
-                      title="Supprimer ce scan"
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {unknownBadges.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={5}
-                    style={{
-                      textAlign: "center",
-                      padding: "30px",
-                      color: "var(--text-muted)",
-                      transition: "var(--theme-transition)",
-                    }}
-                  >
-                    Aucun scan inconnu. Votre flotte est sécurisée !
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {/* --- PAGINATION CONTROL HOUSINGS FOR UNKNOWN BADGES --- */}
+          {totalPagesUnknown > 1 && (
+            <div style={paginationContainerStyle}>
+              <button
+                onClick={() => setCurrentPageUnknown((p) => Math.max(1, p - 1))}
+                disabled={currentPageUnknown === 1}
+                style={paginationButtonStyle(currentPageUnknown === 1)}
+              >
+                Précédent
+              </button>
+              <span style={paginationTextStyle}>
+                Page {currentPageUnknown} sur {totalPagesUnknown}
+              </span>
+              <button
+                onClick={() =>
+                  setCurrentPageUnknown((p) =>
+                    Math.min(totalPagesUnknown, p + 1),
+                  )
+                }
+                disabled={currentPageUnknown === totalPagesUnknown}
+                style={paginationButtonStyle(
+                  currentPageUnknown === totalPagesUnknown,
+                )}
+              >
+                Suivant
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -788,15 +890,13 @@ const selectFilterStyle: React.CSSProperties = {
 const tableCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
   border: "1px solid var(--border-color)",
-  padding: "25px",
   borderRadius: "12px",
   boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
-  overflowX: "auto",
   transition: "var(--theme-transition)",
 };
 
 const thStyle: React.CSSProperties = {
-  padding: "12px 10px",
+  padding: "20px",
   fontSize: "0.85rem",
   fontWeight: "600",
   color: "var(--text-muted)",
@@ -807,7 +907,7 @@ const thStyle: React.CSSProperties = {
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "15px 10px",
+  padding: "15px 20px",
   fontSize: "0.95rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
@@ -1006,4 +1106,36 @@ const inactiveTabStyle: React.CSSProperties = {
   fontSize: "0.95rem",
   fontWeight: "600",
   transition: "all 0.2s ease, var(--theme-transition)",
+};
+
+const paginationContainerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "15px",
+  borderTop: "1px solid var(--border-color)",
+  background: "var(--bg-app)",
+  borderBottomLeftRadius: "12px",
+  borderBottomRightRadius: "12px",
+  transition: "var(--theme-transition)",
+};
+
+const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
+  padding: "6px 12px",
+  borderRadius: "6px",
+  border: "1px solid var(--border-color)",
+  background: disabled ? "transparent" : "var(--bg-card)",
+  color: disabled ? "var(--text-muted)" : "var(--text-main)",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontSize: "0.85rem",
+  fontWeight: "600",
+  transition: "var(--theme-transition)",
+  opacity: disabled ? 0.5 : 1,
+});
+
+const paginationTextStyle: React.CSSProperties = {
+  fontSize: "0.85rem",
+  color: "var(--text-muted)",
+  fontWeight: "500",
+  transition: "var(--theme-transition)",
 };

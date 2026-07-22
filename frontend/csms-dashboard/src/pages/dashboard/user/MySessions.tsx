@@ -386,7 +386,7 @@ const cardStyle: React.CSSProperties = {
 };
 
 const thStyle: React.CSSProperties = {
-  padding: "15px",
+  padding: "20px",
   fontSize: "0.85rem",
   fontWeight: "600",
   color: "var(--text-muted)",
@@ -401,7 +401,7 @@ const sortableThStyle: React.CSSProperties = {
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "15px",
+  padding: "15px 20px",
   fontSize: "0.95rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",

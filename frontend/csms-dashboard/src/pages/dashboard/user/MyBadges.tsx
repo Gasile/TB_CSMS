@@ -12,6 +12,12 @@ import {
 } from "../../../api/userApi";
 
 // ============================================================================
+// CONFIGURATION CONSTANTS
+// ============================================================================
+
+const BADGES_PER_PAGE = 10;
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -32,6 +38,9 @@ export default function MyBadges() {
     key: "badge_name",
     direction: "asc",
   });
+
+  // --- PAGINATION STATE ---
+  const [currentPage, setCurrentPage] = useState(1);
 
   // --- MODAL & FORM STATES ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,6 +72,7 @@ export default function MyBadges() {
       }));
 
       setBadges(flatBadges);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Erreur de chargement des badges:", error);
     } finally {
@@ -99,6 +109,13 @@ export default function MyBadges() {
     }
   });
 
+  // --- PAGINATION GRID LIMIT CALCULATIONS ---
+  const totalPages = Math.ceil(filteredBadges.length / BADGES_PER_PAGE);
+  const paginatedBadges = filteredBadges.slice(
+    (currentPage - 1) * BADGES_PER_PAGE,
+    currentPage * BADGES_PER_PAGE,
+  );
+
   /**
    * Toggles direction or updates the active object reference key used for sorting columns.
    */
@@ -110,6 +127,19 @@ export default function MyBadges() {
           ? "desc"
           : "asc",
     });
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (
+    e: React.ChangeEvent<HTMLSelectElement>,
+  ) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(1);
   };
 
   /**
@@ -228,12 +258,12 @@ export default function MyBadges() {
           type="text"
           placeholder="Rechercher par nom ou token..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={handleSearchChange}
           style={searchInputStyle}
         />
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={handleStatusFilterChange}
           style={selectFilterStyle}
         >
           <option value="All">Tous les statuts</option>
@@ -244,85 +274,116 @@ export default function MyBadges() {
 
       {/* --- TABLE LAYOUT WORKSPACE --- */}
       <div style={tableCardStyle}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            textAlign: "left",
-          }}
-        >
-          <thead>
-            <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
-              <th
-                style={sortableThStyle}
-                onClick={() => handleSort("badge_name")}
-              >
-                Nom {getSortIndicator("badge_name")}
-              </th>
-              <th style={sortableThStyle} onClick={() => handleSort("idToken")}>
-                Token {getSortIndicator("idToken")}
-              </th>
-              <th style={sortableThStyle} onClick={() => handleSort("status")}>
-                Statut {getSortIndicator("status")}
-              </th>
-              <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredBadges.map((badge: any) => (
-              <tr
-                key={badge.authId}
-                style={{
-                  borderBottom: "1px solid var(--border-color)",
-                  transition: "var(--theme-transition)",
-                }}
-              >
-                <td style={tdStyle}>
-                  <strong>{badge.badge_name}</strong>
-                </td>
-                <td style={tdStyle}>
-                  <span
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              textAlign: "left",
+            }}
+          >
+            <thead>
+              <tr style={{ borderBottom: "2px solid var(--border-color)" }}>
+                <th
+                  style={sortableThStyle}
+                  onClick={() => handleSort("badge_name")}
+                >
+                  Nom {getSortIndicator("badge_name")}
+                </th>
+                <th
+                  style={sortableThStyle}
+                  onClick={() => handleSort("idToken")}
+                >
+                  Token {getSortIndicator("idToken")}
+                </th>
+                <th
+                  style={sortableThStyle}
+                  onClick={() => handleSort("status")}
+                >
+                  Statut {getSortIndicator("status")}
+                </th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedBadges.map((badge: any) => (
+                <tr
+                  key={badge.authId}
+                  style={{
+                    borderBottom: "1px solid var(--border-color)",
+                    transition: "var(--theme-transition)",
+                  }}
+                >
+                  <td style={tdStyle}>
+                    <strong>{badge.badge_name}</strong>
+                  </td>
+                  <td style={tdStyle}>
+                    <span
+                      style={{
+                        fontFamily: "monospace",
+                        color: "var(--text-muted)",
+                        transition: "var(--theme-transition)",
+                      }}
+                    >
+                      {badge.idToken}
+                    </span>
+                  </td>
+                  <td style={tdStyle}>
+                    <span style={statusBadgeStyle(badge.status)}>
+                      {badge.status}
+                    </span>
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                    <button
+                      onClick={() => openEditModal(badge)}
+                      style={editButtonStyle}
+                    >
+                      Éditer
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filteredBadges.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={4}
                     style={{
-                      fontFamily: "monospace",
+                      textAlign: "center",
+                      padding: "30px 20px",
                       color: "var(--text-muted)",
                       transition: "var(--theme-transition)",
                     }}
                   >
-                    {badge.idToken}
-                  </span>
-                </td>
-                <td style={tdStyle}>
-                  <span style={statusBadgeStyle(badge.status)}>
-                    {badge.status}
-                  </span>
-                </td>
-                <td style={{ ...tdStyle, textAlign: "right" }}>
-                  <button
-                    onClick={() => openEditModal(badge)}
-                    style={editButtonStyle}
-                  >
-                    Éditer
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filteredBadges.length === 0 && (
-              <tr>
-                <td
-                  colSpan={4}
-                  style={{
-                    textAlign: "center",
-                    padding: "30px",
-                    color: "var(--text-muted)",
-                    transition: "var(--theme-transition)",
-                  }}
-                >
-                  Aucun badge trouvé.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                    Aucun badge trouvé.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* --- PAGINATION CONTROL HOUSINGS --- */}
+        {totalPages > 1 && (
+          <div style={paginationContainerStyle}>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              style={paginationButtonStyle(currentPage === 1)}
+            >
+              Précédent
+            </button>
+            <span style={paginationTextStyle}>
+              Page {currentPage} sur {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              style={paginationButtonStyle(currentPage === totalPages)}
+            >
+              Suivant
+            </button>
+          </div>
+        )}
       </div>
 
       {/* --- CREATION / EDITION POPUP MODAL --- */}
@@ -468,16 +529,14 @@ const selectFilterStyle: React.CSSProperties = {
 
 const tableCardStyle: React.CSSProperties = {
   background: "var(--bg-card)",
-  padding: "25px",
   borderRadius: "12px",
   border: "1px solid var(--border-color)",
   boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
-  overflowX: "auto",
   transition: "var(--theme-transition)",
 };
 
 const thStyle: React.CSSProperties = {
-  padding: "12px 10px",
+  padding: "20px 20px",
   fontSize: "0.85rem",
   fontWeight: "600",
   color: "var(--text-muted)",
@@ -490,7 +549,7 @@ const thStyle: React.CSSProperties = {
 const sortableThStyle: React.CSSProperties = { ...thStyle, cursor: "pointer" };
 
 const tdStyle: React.CSSProperties = {
-  padding: "15px 10px",
+  padding: "15px 20px",
   fontSize: "0.95rem",
   color: "var(--text-main)",
   transition: "var(--theme-transition)",
@@ -603,5 +662,37 @@ const inputStyle: React.CSSProperties = {
   color: "var(--text-main)",
   fontSize: "0.95rem",
   outline: "none",
+  transition: "var(--theme-transition)",
+};
+
+const paginationContainerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "15px 20px",
+  borderTop: "1px solid var(--border-color)",
+  background: "var(--bg-app)",
+  borderBottomLeftRadius: "12px",
+  borderBottomRightRadius: "12px",
+  transition: "var(--theme-transition)",
+};
+
+const paginationButtonStyle = (disabled: boolean): React.CSSProperties => ({
+  padding: "6px 12px",
+  borderRadius: "6px",
+  border: "1px solid var(--border-color)",
+  background: disabled ? "transparent" : "var(--bg-card)",
+  color: disabled ? "var(--text-muted)" : "var(--text-main)",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontSize: "0.85rem",
+  fontWeight: "600",
+  transition: "var(--theme-transition)",
+  opacity: disabled ? 0.5 : 1,
+});
+
+const paginationTextStyle: React.CSSProperties = {
+  fontSize: "0.85rem",
+  color: "var(--text-muted)",
+  fontWeight: "500",
   transition: "var(--theme-transition)",
 };
