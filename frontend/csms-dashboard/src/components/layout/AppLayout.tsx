@@ -57,6 +57,5 @@ const scrollableMainStyle: React.CSSProperties = {
   overflowY: "auto",
   padding: "40px",
   boxSizing: "border-box",
-  backgroundColor: "var(--bg-app)",
   transition: "var(--theme-transition)",
 };
