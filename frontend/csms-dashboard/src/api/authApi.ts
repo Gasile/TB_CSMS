@@ -49,8 +49,9 @@ export async function loginUser(
 
 /**
  * Requests a password reset link from the Go authentication microservice.
+ * The token is kept private backend-side and dispatched asynchronously via Hasura Event Trigger.
  */
-export async function requestPasswordReset(email: string): Promise<string> {
+export async function requestPasswordReset(email: string): Promise<void> {
   const response = await fetch(`${AUTH_URL}/forgot-password`, {
     method: "POST",
     headers: {
@@ -59,12 +60,10 @@ export async function requestPasswordReset(email: string): Promise<string> {
     body: JSON.stringify({ email }),
   });
 
+  // Always handle errors smoothly; backend always returns 200 OK to prevent user enumeration
   if (!response.ok) {
-    throw new Error("Si cet e-mail existe, un lien vous a été envoyé.");
+    throw new Error("Une erreur est survenue lors de la demande de réinitialisation.");
   }
-
-  const data = await response.json();
-  return data.resetLink || "";
 }
 
 /**

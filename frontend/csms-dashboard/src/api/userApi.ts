@@ -146,15 +146,44 @@ export async function linkNewBadge(
 }
 
 /**
- * Updates the friendly display label of a specific user badge.
+ * Updates both the friendly display label and the RFID idToken of a specific badge.
  */
-export async function updateMyBadgeName(authId: number, newName: string) {
+export async function updateMyBadge(
+  authId: number,
+  newBadgeName: string,
+  newIdToken: string,
+) {
+  const currentTimestamp = new Date().toISOString();
   const mutation = `
-    mutation UpdateBadgeName($authId: Int!, $newName: String!) {
-      update_Authorizations_by_pk(pk_columns: {id: $authId}, _set: {badge_name: $newName}) { id }
+    mutation UpdateBadge($authId: Int!, $newBadgeName: String!, $newIdToken: citext!, $updatedAt: timestamptz!) {
+      update_Authorizations_by_pk(
+        pk_columns: { id: $authId }, 
+        _set: { 
+          badge_name: $newBadgeName, 
+          idToken: $newIdToken,
+          updatedAt: $updatedAt
+        }
+      ) { id }
     }
   `;
-  return await fetchHasura(mutation, { authId, newName });
+
+  try {
+    return await fetchHasura(mutation, {
+      authId,
+      newBadgeName,
+      newIdToken,
+      updatedAt: currentTimestamp,
+    });
+  } catch (err: any) {
+    // Handling Hasura unique constraint error on idToken
+    if (
+      err.message?.includes("Uniqueness violation") ||
+      err.message?.includes("unique constraint")
+    ) {
+      throw new Error(`Le token RFID "${newIdToken}" est déjà utilisé par un autre badge.`);
+    }
+    throw err;
+  }
 }
 
 /**

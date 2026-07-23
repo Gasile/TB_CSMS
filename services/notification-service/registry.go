@@ -21,6 +21,7 @@ var NotificationRegistry = map[string]NotificationHandler{
     "notify_wait_for_energy":  handleWaitForEnergy,
     "notify_unknown_badge":    handleUnknownBadge,
     "notify_connector_error":  handleConnectorError,
+    "notify_password_reset":    handlePasswordReset,
 }
 
 // =========================================================================
@@ -138,6 +139,36 @@ func handleConnectorError(payload HasuraWebhookPayload) error {
             _ = renderAndSendEmail("templates/connector_error.txt", "[ADMIN] Erreur matérielle détectée", adminEmail, data)
         }
     }
+    return nil
+}
+
+func handlePasswordReset(payload HasuraWebhookPayload) error {
+    newRow := payload.Event.Data.New
+    oldRow := payload.Event.Data.Old
+
+    newToken, okNew := newRow["reset_token"].(string)
+    oldToken, _ := oldRow["reset_token"].(string)
+
+    if okNew && newToken != "" && newToken != oldToken {
+        userEmail, _ := newRow["email"].(string)
+        firstName, _ := newRow["first_name"].(string)
+
+        if userEmail == "" {
+            log.Printf("⚠️ Impossible de trouver l'email pour la réinitialisation de mot de passe.")
+            return nil
+        }
+
+        resetLink := fmt.Sprintf("https://evse.hevs.ch/reset-password/%s", newToken)
+
+        data := map[string]string{
+            "FirstName": firstName,
+            "ResetLink": resetLink,
+        }
+
+        subject := "Réinitialisation de votre mot de passe CSMS"
+        return renderAndSendEmail("templates/reset_password.txt", subject, userEmail, data)
+    }
+
     return nil
 }
 

@@ -229,8 +229,9 @@ services:
     build:
       context: ./services/auth-service
     container_name: tb_csms-auth-service
-    #ports:
+    ports:
       #- "8086:8086"
+      - "127.0.0.1:8086:8086"
     environment:
       - HASURA_GRAPHQL_URL=http://graphql-engine:8080/v1/graphql
       - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
@@ -242,7 +243,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=server_default"
-      - "traefik.http.routers.auth.rule=Host(`evse.hevs.ch`) && (PathPrefix(`/api/login`) || PathPrefix(`/api/register`) || PathPrefix(`/api/forgot-password`) || PathPrefix(`/api/reset-password`))"
+      - "traefik.http.routers.auth.rule=Host(`evse.hevs.ch`) && (PathPrefix(`/api/login`) || PathPrefix(`/api/register`) || PathPrefix(`/api/forgot-password`) || PathPrefix(`/api/reset-password`) || PathPrefix(`/api/profile`))"
       - "traefik.http.routers.auth.entrypoints=websecure"
       - "traefik.http.routers.auth.tls=true"
       - "traefik.http.routers.auth.tls.certresolver=letsencrypt"

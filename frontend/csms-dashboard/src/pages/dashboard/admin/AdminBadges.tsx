@@ -84,8 +84,6 @@ export default function AdminBadges() {
       ]);
       setData(resKnown);
       setUnknownBadges(resUnknown || []);
-      setCurrentPageKnown(1);
-      setCurrentPageUnknown(1);
     } catch (error) {
       console.error("Erreur de chargement des badges:", error);
     } finally {
@@ -149,6 +147,18 @@ export default function AdminBadges() {
     (currentPageUnknown - 1) * ITEMS_PER_PAGE,
     currentPageUnknown * ITEMS_PER_PAGE,
   );
+
+  useEffect(() => {
+    if (totalPagesKnown > 0 && currentPageKnown > totalPagesKnown) {
+      setCurrentPageKnown(totalPagesKnown);
+    }
+  }, [totalPagesKnown, currentPageKnown]);
+
+  useEffect(() => {
+    if (totalPagesUnknown > 0 && currentPageUnknown > totalPagesUnknown) {
+      setCurrentPageUnknown(totalPagesUnknown);
+    }
+  }, [totalPagesUnknown, currentPageUnknown]);
 
   /**
    * Updates sort targets and arrangement directions across table header triggers.

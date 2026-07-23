@@ -8,7 +8,7 @@ import { unassignAndBlockBadge } from "../../../api/adminApi";
 import {
   fetchUserBadges,
   linkNewBadge,
-  updateMyBadgeName,
+  updateMyBadge,
 } from "../../../api/userApi";
 import { Icon } from "../../../components/ui/Icon";
 
@@ -73,7 +73,6 @@ export default function MyBadges() {
       }));
 
       setBadges(flatBadges);
-      setCurrentPage(1);
     } catch (error) {
       console.error("Erreur de chargement des badges:", error);
     } finally {
@@ -116,6 +115,12 @@ export default function MyBadges() {
     (currentPage - 1) * BADGES_PER_PAGE,
     currentPage * BADGES_PER_PAGE,
   );
+
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
 
   /**
    * Toggles direction or updates the active object reference key used for sorting columns.
@@ -182,17 +187,37 @@ export default function MyBadges() {
   };
 
   /**
-   * Handles modal submissions, branching into badge renaming or token link registration.
+   * Handles modal submissions, validating token uniqueness before saving.
    */
   const handleSubmitModal = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const formattedToken = formData.idToken.trim();
+    const formattedBadgeName = formData.badge_name.trim();
+
+    // 🔍 VÉRIFICATION DE L'EXISTENCE DU TOKEN
+    const isTokenAlreadyExists = badges.some(
+      (badge) =>
+        badge.idToken.toLowerCase() === formattedToken.toLowerCase() &&
+        (!editingBadge || badge.authId !== editingBadge.authId)
+    );
+
+    if (isTokenAlreadyExists) {
+      alert(`Le token RFID "${formattedToken}" existe déjà parmi vos badges.`);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       if (editingBadge) {
-        await updateMyBadgeName(editingBadge.authId, formData.badge_name);
+        await updateMyBadge(
+          editingBadge.authId,
+          formattedBadgeName,
+          formattedToken
+        );
       } else {
-        await linkNewBadge(userId!, formData.idToken, formData.badge_name);
+        await linkNewBadge(userId!, formattedToken, formattedBadgeName);
       }
       setIsModalOpen(false);
       loadBadges();
@@ -256,7 +281,7 @@ export default function MyBadges() {
               transition: "var(--theme-transition)",
             }}
           >
-            Gerez vos cartes RFID et moyens d'accès à la recharge.
+            Gérez vos cartes RFID et moyens d'accès à la recharge.
           </p>
         </div>
         <button onClick={openCreateModal} style={createButtonStyle}>
@@ -432,22 +457,12 @@ export default function MyBadges() {
                 <label style={labelStyle}>ID Token (NFC/RFID)</label>
                 <input
                   required
+                  style={inputStyle}
                   value={formData.idToken}
                   onChange={(e) =>
                     setFormData({ ...formData, idToken: e.target.value })
                   }
                   placeholder="Ex: A1B2C3D4"
-                  disabled={!!editingBadge}
-                  style={{
-                    ...inputStyle,
-                    background: editingBadge
-                      ? "var(--bg-app)"
-                      : "var(--bg-card)",
-                    cursor: editingBadge ? "not-allowed" : "text",
-                    color: editingBadge
-                      ? "var(--text-muted)"
-                      : "var(--text-main)",
-                  }}
                 />
               </div>
 

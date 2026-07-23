@@ -81,17 +81,6 @@ export default function ForgotPassword() {
             envoyé à <strong>{email}</strong>.
             <br />
             <br />
-            <span
-              style={{
-                fontSize: "0.8rem",
-                color: "var(--status-charging)",
-                transition: "var(--theme-transition)",
-              }}
-            >
-              (Vérifiez la console du navigateur pour le lien de test)
-            </span>
-            <br />
-            <br />
             <Link to="/login" style={linkStyle}>
               Retour à la connexion
             </Link>

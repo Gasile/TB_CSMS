@@ -296,7 +296,9 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 /**
- * Generates a password reset token and securely stores it before simulating an email dispatch.
+ * Generates a password reset token and securely stores it in the database.
+ * The token is NEVER returned in the API response to prevent exposure.
+ * Hasura Event Trigger will capture the database update and handle asynchronous email dispatch.
  */
 func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -311,7 +313,7 @@ func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := generateUUID()
-	expiresAt := time.Now().UTC().Add(1 * time.Hour).Format(time.RFC3339)
+	expiresAt := time.Now().UTC().Add(5 * time.Minute).Format(time.RFC3339)
 
 	query := `
 		mutation SetResetToken($email: String!, $token: String!, $expiresAt: timestamptz!) {
@@ -326,12 +328,11 @@ func handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	executeHasuraQuery(query, map[string]interface{}{"email": req.Email, "token": token, "expiresAt": expiresAt}, &result)
 
-	// Always returning a 200 OK prevents potential user enumeration based on email existence checks
-	resetLink := fmt.Sprintf("http://localhost:5173/reset-password/%s", token)
-	log.Printf("🔑 [SIMULATION EMAIL] Lien de reset pour %s: %s", req.Email, resetLink)
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"resetLink": resetLink})
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Si l'adresse email existe, un lien de réinitialisation a été envoyé.",
+	})
 }
 
 /**
