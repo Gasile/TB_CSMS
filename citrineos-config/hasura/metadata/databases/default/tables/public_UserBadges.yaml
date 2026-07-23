@@ -29,3 +29,10 @@ select_permissions:
         user_id:
           _eq: x-hasura-user-id
     comment: ""
+delete_permissions:
+  - role: user
+    permission:
+      filter:
+        user_id:
+          _eq: x-hasura-user-id
+    comment: ""

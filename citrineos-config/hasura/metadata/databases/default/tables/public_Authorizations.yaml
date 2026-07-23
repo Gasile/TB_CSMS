@@ -84,8 +84,11 @@ update_permissions:
     permission:
       columns:
         - badge_name
-        - status
-      filter: {}
+        - idToken
+      filter:
+        UserBadges:
+          user_id:
+            _eq: x-hasura-user-id
       check:
         tenantId:
           _eq: x-hasura-tenant-id
