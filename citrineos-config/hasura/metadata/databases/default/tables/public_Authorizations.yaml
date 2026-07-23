@@ -90,10 +90,3 @@ update_permissions:
         tenantId:
           _eq: x-hasura-tenant-id
     comment: ""
-delete_permissions:
-  - role: user
-    permission:
-      filter:
-        tenantId:
-          _eq: x-hasura-tenant-id
-    comment: ""
