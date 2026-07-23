@@ -72,3 +72,15 @@ update_permissions:
           _eq: x-hasura-user-id
       check: null
     comment: ""
+event_triggers:
+  - name: notify_password_reset
+    definition:
+      enable_manual: false
+      update:
+        columns:
+          - reset_token
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 60
+    webhook: http://notification-service:8084/webhooks/notify
