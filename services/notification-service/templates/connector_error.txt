@@ -4,9 +4,10 @@ Le système a détecté un changement d'état matériel indiquant une erreur sur
 
 Détails du diagnostic :
 
+Borne concernée : {{.Station}}
 Code d'erreur signalé : {{.ErrorCode}}
 
-Merci de vous connecter au tableau de bord pour identifier la borne exacte et planifier une intervention si nécessaire.
+Merci de vous connecter au tableau de bord pour vérifier l'état du connecteur et planifier une intervention si nécessaire.
 
 Cordialement,
 Le système CSMS

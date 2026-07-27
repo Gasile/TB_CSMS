@@ -126,8 +126,12 @@ func handleConnectorError(payload HasuraWebhookPayload) error {
     oldErr, _ := oldRow["errorCode"].(string)
 
     if newErr != "NoError" && newErr != "" && newErr != oldErr {
+        // Extract station identifier from payload
+        station, _ := newRow["ocppConnectionName"].(string)
+
         data := map[string]string{
             "ErrorCode": newErr,
+            "Station":   station,
         }
         
         admins := fetchAdmins()
