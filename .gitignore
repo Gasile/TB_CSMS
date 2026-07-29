@@ -1,61 +1,44 @@
 # ==========================================
-# 1. Frontend (React / Node.js)
+# 1. Environment Variables & Secrets
 # ==========================================
-# Exclut les dépendances lourdes (elles seront réinstallées via npm install)
-node_modules/
-# Exclut les dossiers de compilation finaux
-build/
-dist/
-# Exclut les journaux d'erreurs d'installation
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# ==========================================
-# 2. Services (Python)
-# ==========================================
-# Exclut le cache de compilation de Python
-__pycache__/
-*.py[cod]
-*$py.class
-# Exclut ton environnement virtuel local (très important !)
-ocpp_env/
-venv/
-env/
-
-# ==========================================
-# 3. Variables d'environnement & Secrets
-# ==========================================
-# Exclut TOUS les fichiers contenant des mots de passe ou des clés d'API
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.pem
 
 # ==========================================
-# 4. Outils de développement (IDE & OS)
-# ==========================================
-# Exclut les dossiers de configuration de VS Code
-.vscode/
-# Exclut les fichiers cachés générés par Windows ou macOS
-.DS_Store
-Thumbs.db
-
-# ==========================================
-# 5. Données Docker & Bases de données
+# 2. Local Data & Docker Storage
 # ==========================================
 data/
 pg_data/
 
 # ==========================================
-# 6. Outils en ligne de commande (CLI)
+# 3. Dependencies & Builds (JS/TS, Go, Python)
 # ==========================================
-citrineos-config/hasura/hasura.exe
-citrineos-config/hasura/hasura
+node_modules/
+build/
+dist/
+bin/
+__pycache__/
+*.py[cod]
+venv/
+env/
+ocpp_env/
+.turbo/
 
 # ==========================================
-# 7. CitrineOS & Monorepo (Turborepo)
+# 4. Logs & Temporary Files
 # ==========================================
-# CitrineOS utilise Turborepo pour gérer ses packages. 
-# Ce dossier contient des caches de build très lourds et inutiles à historiser.
-.turbo/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================================
+# 5. IDE & CLI Binary
+# ==========================================
+.vscode/
+.DS_Store
+Thumbs.db
+citrineos-config/hasura/hasura
+citrineos-config/hasura/hasura.exe
