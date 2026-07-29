@@ -173,3 +173,4 @@ jobs:
           file: ./citrineos-config/hasura/Dockerfile
           push: true
           tags: ghcr.io/gasile/tb_csms-hasura:latest
+          
