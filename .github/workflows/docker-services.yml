@@ -1,6 +1,7 @@
 name: Build and Push Microservices
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
     paths:
@@ -173,4 +174,3 @@ jobs:
           file: ./citrineos-config/hasura/Dockerfile
           push: true
           tags: ghcr.io/gasile/tb_csms-hasura:latest
-          
