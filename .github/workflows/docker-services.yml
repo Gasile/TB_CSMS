@@ -149,6 +149,10 @@ jobs:
           context: ./frontend/csms-dashboard
           push: true
           tags: ghcr.io/gasile/tb_csms-frontend:latest
+          build-args: |
+            VITE_HASURA_URL=/v1/graphql
+            VITE_AUTH_API_URL=/api
+            VITE_ENABLE_DEV_LOGINS=false
 
   # --- HASURA ---
   build-hasura:
