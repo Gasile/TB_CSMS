@@ -35,28 +35,28 @@ services:
       retries: 5
 
   citrine:
-    #image: ghcr.io/gasile/tb_csms-citrine:latest
-    build:
-      context: ./citrineos-core
-      dockerfile: ./apps/Server/deploy.Dockerfile
+    image: ghcr.io/gasile/tb_csms-citrine:latest
+    #build:
+    #  context: ./citrineos-core
+    #  dockerfile: ./apps/Server/deploy.Dockerfile
     volumes:
-      - ./citrineos-config/citrine-certs:/usr/local/apps/citrineos/apps/Server/dist/assets/certificates:ro
+    #  - ./citrineos-config/citrine-certs:/usr/local/apps/citrineos/apps/Server/dist/assets/certificates:ro
       - ./citrineos-config/citrine-data:/data
-      - ./citrineos-core/package-lock.json:/usr/local/apps/citrineos/package-lock-host.json
-      - ./citrineos-core/package.json:/usr/local/apps/citrineos/package.json
-      - ./citrineos-core/tsconfig.json:/usr/local/apps/citrineos/tsconfig.json
-      - ./citrineos-core/tsconfig.build.json:/usr/local/apps/citrineos/tsconfig.build.json
-      - ./citrineos-core/apps/Server:/usr/local/apps/citrineos/apps/Server
-      - ./citrineos-core/packages/base:/usr/local/apps/citrineos/packages/base
-      - ./citrineos-core/packages/core:/usr/local/apps/citrineos/packages/core
-      - /usr/local/apps/citrineos/node_modules
-      - /usr/local/apps/citrineos/apps/Server/node_modules
-      - /usr/local/apps/citrineos/packages/base/node_modules
-      - /usr/local/apps/citrineos/packages/core/node_modules
-      - /usr/local/apps/citrineos/dist/
-      - /usr/local/apps/citrineos/apps/Server/dist/
-      - /usr/local/apps/citrineos/packages/base/dist/
-      - /usr/local/apps/citrineos/packages/core/dist/
+    #  - ./citrineos-core/package-lock.json:/usr/local/apps/citrineos/package-lock-host.json
+    #  - ./citrineos-core/package.json:/usr/local/apps/citrineos/package.json
+    #  - ./citrineos-core/tsconfig.json:/usr/local/apps/citrineos/tsconfig.json
+    #  - ./citrineos-core/tsconfig.build.json:/usr/local/apps/citrineos/tsconfig.build.json
+    #  - ./citrineos-core/apps/Server:/usr/local/apps/citrineos/apps/Server
+    #  - ./citrineos-core/packages/base:/usr/local/apps/citrineos/packages/base
+    #  - ./citrineos-core/packages/core:/usr/local/apps/citrineos/packages/core
+    #  - /usr/local/apps/citrineos/node_modules
+    #  - /usr/local/apps/citrineos/apps/Server/node_modules
+    #  - /usr/local/apps/citrineos/packages/base/node_modules
+    #  - /usr/local/apps/citrineos/packages/core/node_modules
+    #  - /usr/local/apps/citrineos/dist/
+    #  - /usr/local/apps/citrineos/apps/Server/dist/
+    #  - /usr/local/apps/citrineos/packages/base/dist/
+    #  - /usr/local/apps/citrineos/packages/core/dist/
     environment:
       APP_NAME: "all"
       APP_ENV: "docker"
@@ -131,10 +131,10 @@ services:
       ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} || echo 'FAILED: alias setup' "
 
   graphql-engine:
-    #image: ghcr.io/gasile/tb_csms-hasura:latest
-    volumes:
-      - ./citrineos-config/hasura/metadata:/hasura-metadata
-      - ./citrineos-config/hasura/migrations:/hasura-migrations
+    image: ghcr.io/gasile/tb_csms-hasura:latest
+    #volumes:
+    #  - ./citrineos-config/hasura/metadata:/hasura-metadata
+    #  - ./citrineos-config/hasura/migrations:/hasura-migrations
     ports:
       - 8090:8080
       #- "127.0.0.1:8090:8080"
@@ -177,9 +177,9 @@ services:
       - "traefik.http.services.hasura.loadbalancer.server.port=8080"
 
   idle-service:
-    #image: ghcr.io/gasile/tb_csms-idle-service:latest
-    build:
-      context: ./services/idle-service
+    image: ghcr.io/gasile/tb_csms-idle-service:latest
+    #build:
+    #  context: ./services/idle-service
     container_name: tb_csms-idle-service-1
     restart: always
     depends_on:
@@ -191,9 +191,9 @@ services:
       - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
 
   smart-charging-service: 
-    #image: ghcr.io/gasile/tb_csms-smart-charging-service:latest
-    build:
-      context: ./services/smart-charging-service
+    image: ghcr.io/gasile/tb_csms-smart-charging-service:latest
+    #build:
+    #  context: ./services/smart-charging-service
     container_name: tb_csms-smart-charging-service-1
     restart: always
     depends_on:
@@ -205,9 +205,9 @@ services:
       - HASURA_GRAPHQL_ADMIN_SECRET=${HASURA_GRAPHQL_ADMIN_SECRET}
 
   badge-service:
-      #image: ghcr.io/gasile/tb_csms-badge-service:latest
-      build:
-        context: ./services/badge-service
+      image: ghcr.io/gasile/tb_csms-badge-service:latest
+      #build:
+      #  context: ./services/badge-service
       #ports:
         #- "8085:8085"
       environment:
@@ -216,9 +216,9 @@ services:
       restart: always
 
   notification-service:
-      #image: ghcr.io/gasile/tb_csms-notification-service:latest
-      build:
-        context: ./services/notification-service
+      image: ghcr.io/gasile/tb_csms-notification-service:latest
+      #build:
+      #  context: ./services/notification-service
       #ports:
         #- "8084:8084"
       environment:
@@ -231,9 +231,9 @@ services:
       restart: always
 
   auth-service:
-    #image: ghcr.io/gasile/tb_csms-auth-service:latest
-    build:
-      context: ./services/auth-service
+    image: ghcr.io/gasile/tb_csms-auth-service:latest
+    #build:
+    #  context: ./services/auth-service
     container_name: tb_csms-auth-service
     ports:
       #- "8086:8086"
@@ -256,7 +256,7 @@ services:
       - "traefik.http.services.auth.loadbalancer.server.port=8086"
 
   frontend:
-    #image: ghcr.io/gasile/tb_csms-frontend:latest
+    image: ghcr.io/gasile/tb_csms-frontend:latest
     build:
       context: ./frontend/csms-dashboard
     container_name: tb_csms-frontend
