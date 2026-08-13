@@ -1,0 +1,28 @@
+Scenario B
+
+smart-charging-service-1  | 2026/08/11 08:37:55 🔄 Changement détecté (Table: Transactions). Réinitialisation du Block 5...
+smart-charging-service-1  | 2026/08/11 08:37:55 ✅ [Changement Topologique/Poids] Block 5 | Profil envoyé à cp001 [ocpp2.1] (Tx: 1947a1c7-46f2-4fa9-8ae4-ef7729b5d165, Poids: 1) : Limite 22.0A
+smart-charging-service-1  | 2026/08/11 08:37:57 🔄 Changement détecté (Table: Transactions). Réinitialisation du Block 5...
+smart-charging-service-1  | 2026/08/11 08:37:57 ✅ [Changement Topologique/Poids] Block 5 | Profil envoyé à cp001 [ocpp2.1] (Tx: 1947a1c7-46f2-4fa9-8ae4-ef7729b5d165, Poids: 1) : Limite 11.0A
+smart-charging-service-1  | 2026/08/11 08:37:57 ✅ [Changement Topologique/Poids] Block 5 | Profil envoyé à cp002 [ocpp2.1] (Tx: dcbd56f9-4a6b-44cb-8677-db565bbe7d90, Poids: 1) : Limite 11.0A
+smart-charging-service-1  | 2026/08/11 08:39:27 📉 [DEBUG UNDERLOADING] Block 5 | cp001 (Poids 1) en sous-charge. Cons: 6.06A | Limite Act: 11.0A | Nvlle Limite: 7.0A
+smart-charging-service-1  | 2026/08/11 08:39:28 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp001 [ocpp2.1] (Tx: 1947a1c7-46f2-4fa9-8ae4-ef7729b5d165, Poids: 1) : Limite 7.0A
+smart-charging-service-1  | 2026/08/11 08:39:28 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp002 [ocpp2.1] (Tx: dcbd56f9-4a6b-44cb-8677-db565bbe7d90, Poids: 1) : Limite 15.0A
+smart-charging-service-1  | 2026/08/11 08:39:57 📉 [DEBUG UNDERLOADING] Block 5 | cp001 (Poids 1) en sous-charge. Cons: 6.95A | Limite Act: 7.0A | Nvlle Limite: 8.0A
+smart-charging-service-1  | 2026/08/11 08:39:58 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp001 [ocpp2.1] (Tx: 1947a1c7-46f2-4fa9-8ae4-ef7729b5d165, Poids: 1) : Limite 8.0A
+smart-charging-service-1  | 2026/08/11 08:39:58 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp002 [ocpp2.1] (Tx: dcbd56f9-4a6b-44cb-8677-db565bbe7d90, Poids: 1) : Limite 14.0A
+smart-charging-service-1  | 2026/08/11 08:40:28 📉 [DEBUG UNDERLOADING] Block 5 | cp001 (Poids 1) en sous-charge. Cons: 6.95A | Limite Act: 8.0A | Nvlle Limite: 8.0A
+smart-charging-service-1  | 2026/08/11 08:40:57 📉 [DEBUG UNDERLOADING] Block 5 | cp001 (Poids 1) en sous-charge. Cons: 7.93A | Limite Act: 8.0A | Nvlle Limite: 9.0A
+smart-charging-service-1  | 2026/08/11 08:40:58 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp001 [ocpp2.1] (Tx: 1947a1c7-46f2-4fa9-8ae4-ef7729b5d165, Poids: 1) : Limite 9.0A
+smart-charging-service-1  | 2026/08/11 08:40:58 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp002 [ocpp2.1] (Tx: dcbd56f9-4a6b-44cb-8677-db565bbe7d90, Poids: 1) : Limite 13.0A
+smart-charging-service-1  | 2026/08/11 08:41:28 📉 [DEBUG UNDERLOADING] Block 5 | cp001 (Poids 1) en sous-charge. Cons: 7.93A | Limite Act: 9.0A | Nvlle Limite: 9.0A
+smart-charging-service-1  | 2026/08/11 08:41:58 📉 [DEBUG UNDERLOADING] Block 5 | cp001 (Poids 1) en sous-charge. Cons: 8.95A | Limite Act: 9.0A | Nvlle Limite: 10.0A
+smart-charging-service-1  | 2026/08/11 08:41:58 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp001 [ocpp2.1] (Tx: 1947a1c7-46f2-4fa9-8ae4-ef7729b5d165, Poids: 1) : Limite 10.0A
+smart-charging-service-1  | 2026/08/11 08:41:58 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp002 [ocpp2.1] (Tx: dcbd56f9-4a6b-44cb-8677-db565bbe7d90, Poids: 1) : Limite 12.0A
+smart-charging-service-1  | 2026/08/11 08:42:28 📉 [DEBUG UNDERLOADING] Block 5 | cp001 (Poids 1) en sous-charge. Cons: 8.95A | Limite Act: 10.0A | Nvlle Limite: 10.0A
+smart-charging-service-1  | 2026/08/11 08:42:58 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp001 [ocpp2.1] (Tx: 1947a1c7-46f2-4fa9-8ae4-ef7729b5d165, Poids: 1) : Limite 11.0A
+smart-charging-service-1  | 2026/08/11 08:42:58 ✅ [Ajustement (Timer 30s)] Block 5 | Profil envoyé à cp002 [ocpp2.1] (Tx: dcbd56f9-4a6b-44cb-8677-db565bbe7d90, Poids: 1) : Limite 11.0A
+smart-charging-service-1  | 2026/08/11 08:43:50 🔄 Changement détecté (Table: Transactions). Réinitialisation du Block 5...
+smart-charging-service-1  | 2026/08/11 08:43:50 ✅ [Changement Topologique/Poids] Block 5 | Profil envoyé à cp001 [ocpp2.1] (Tx: 1947a1c7-46f2-4fa9-8ae4-ef7729b5d165, Poids: 1) : Limite 22.0A
+smart-charging-service-1  | 2026/08/11 08:43:58 🔄 Changement détecté (Table: Transactions). Réinitialisation du Block 5...
+smart-charging-service-1  | 2026/08/11 08:43:58 ℹ️ Power Block 5 : Plus aucune transaction active. Arrêt du timer.
