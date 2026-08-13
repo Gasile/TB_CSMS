@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flotte EVerest - Smart Charging</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #1e1e2e; /* Thème sombre agréable pour les yeux */
+        margin: 0;
+        padding: 15px;
+        display: grid;
+        /* Crée des colonnes qui s'adaptent à la largeur de l'écran */
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 15px;
+        height: 100vh;
+        box-sizing: border-box;
+      }
+      .borne-container {
+        background: #2a2a35;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid #3f3f5a;
+      }
+      .borne-header {
+        background: #00ffaa; /* Accentuation tech */
+        color: #1e1e2e;
+        padding: 8px 15px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .port-badge {
+        font-size: 0.8rem;
+        background: rgba(0, 0, 0, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      iframe {
+        border: none;
+        width: 100%;
+        height: 450px; /* Hauteur par défaut pour Node-RED */
+        flex-grow: 1;
+        background-color: white; /* Node-RED a un fond clair par défaut */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="borne-container">
+      <h3 class="borne-header">
+        Borne CP001 <span class="port-badge">:1880</span>
+      </h3>
+      <iframe src="http://vlenpchrgman.hevs.ch:1880/ui/"></iframe>
+    </div>
+
+    <div class="borne-container">
+      <h3 class="borne-header">
+        Borne CP002 <span class="port-badge">:1881</span>
+      </h3>
+      <iframe src="http://vlenpchrgman.hevs.ch:1881/ui/"></iframe>
+    </div>
+
+    <div class="borne-container">
+      <h3 class="borne-header">
+        Borne CP003 <span class="port-badge">:1882</span>
+      </h3>
+      <iframe src="http://vlenpchrgman.hevs.ch:1882/ui/"></iframe>
+    </div>
+
+    <div class="borne-container">
+      <h3 class="borne-header">
+        Borne CP004 <span class="port-badge">:1884</span>
+      </h3>
+      <iframe src="http://vlenpchrgman.hevs.ch:1884/ui/"></iframe>
+    </div>
+
+    <div class="borne-container">
+      <h3 class="borne-header">
+        Borne CP005 <span class="port-badge">:1885</span>
+      </h3>
+      <iframe src="http://vlenpchrgman.hevs.ch:1885/ui/"></iframe>
+    </div>
+  </body>
+</html>
