@@ -128,6 +128,8 @@ docker compose up -d
 ```
 Each simulator has 3 containers. To modify the number of simulators, simply comment out the 3 containers of each simulator that should be removed in the docker-compose.yml.
 
+The EVerest-fleet.html file opens a page containing the 5 EVerest simulator interfaces at the same time. This file was created to facilitate the use of multiple simulators in parallel.
+
 === Adding an RFID Badge
 
 It is possible to access the Node-RED interface of the simulators via the port indicated under the nodered-X container of a simulator. In the RFID tab on the is_token block, it is possible to add new badges to the "Options" list. The ID must absolutely consist of hexadecimal characters and be 8 or 16 characters in length, otherwise CitrineOS will not recognize the badge. Once the badges are added, go to the menu in the top right, then to Export. In the window that opens, below "Export," select "all flows" and then the JSON format. Next, download the file and replace the shared-flow.json file in the everest folder with the newly downloaded file.
